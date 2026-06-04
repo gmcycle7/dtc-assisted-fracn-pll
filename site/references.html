@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>References · DTC-Assisted Frac-N PLL</title>
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
+</head>
+<body>
+<div class="wrap">
+<nav class="side">
+<div class="brand">DTC-Assisted<br>Fractional-N PLL</div>
+<div class="sub">Interactive study of slides 1–42</div>
+<a class="" href="index.html"><span class="n">1</span>Home</a>
+<a class="" href="slides.html"><span class="n">2</span>Slide-by-slide Map</a>
+<a class="" href="architecture.html"><span class="n">3</span>Architecture</a>
+<a class="" href="blocks.html"><span class="n">4</span>Block Models</a>
+<a class="" href="calibrations.html"><span class="n">5</span>Calibrations</a>
+<a class="" href="frequency.html"><span class="n">6</span>Frequency-Domain</a>
+<a class="" href="timedomain.html"><span class="n">7</span>Time-Domain Noise</a>
+<a class="" href="codewalk.html"><span class="n">8</span>Code Walkthrough</a>
+<a class="" href="examples.html"><span class="n">9</span>Numerical Examples</a>
+<a class="active" href="references.html"><span class="n">10</span>References</a>
+</nav>
+<main>
+<h1>References, Assumptions &amp; Open Questions</h1>
+<p class="lead">Every number on this site traces back to one of four buckets — the deck itself, papers cited on slides 1–42, standard textbook theory, or items flagged as needing an external citation — and everything the slides do <em>not</em> state is collected here as explicit assumptions and open questions so it is never confused with a slide fact.</p>
+
+<div class="note">
+<b>Citation policy.</b> Citations are split into four buckets exactly as required, and <b>no citation is invented</b>. Where a result is standard but a specific page/source cannot be pinned, it is marked <span class="tag t-need">needs citation</span> so a source can be supplied later. Anything the slide <em>does</em> give is used as-is and tagged to its slide page elsewhere on the site. Source: <code>docs/references.md</code>.
+</div>
+
+<h2>1. Directly from the slide deck (primary source)</h2>
+<div class="cite">
+<p><b>[DECK]</b> W. Wu, <em>Design of DTC-Assisted High Performance Fractional-N PLLs</em>, Samsung Semiconductor, 2024/11/10. <span class="tag t-slide">slides 1–42</span></p>
+<p>This is the primary source. Every <span class="tag t-slide">slide pX</span> tag anywhere on this site points to this deck. Slides 1–42 are in scope; deck pages beyond 42 (e.g. the bibliography on p.54–57, and out-of-scope result pages) are referenced only where transcribed below for convenience.</p>
+</div>
+
+<h2>2. Papers explicitly cited <em>on</em> the in-scope slides (p.1–42)</h2>
+<p>These appear as bracketed citations on the slides themselves. Names and years are read off the slides; full entries are transcribed from the deck's bibliography (p.54–57, out of scope) for convenience. The right-hand column shows which in-scope slide(s) reference each work.</p>
+
+<div class="cite">
+<table>
+<thead>
+<tr><th>Key</th><th>Reference</th><th>Cited on slide(s)</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><b>[Wu'19]</b></td>
+<td>W. Wu et al., "A 28-nm 75-fs<sub>rms</sub> Analog Fractional-N Sampling PLL With a Highly Linear DTC Incorporating Background DTC Gain Calibration and Reference Clock Duty Cycle Correction," <em>IEEE JSSC</em>, vol. 54, no. 5, pp. 1254–1265, May 2019. <span class="muted">(proposed analog SPD PLL, DTC gain cal, CKREF DCC)</span></td>
+<td><span class="tag t-slide">p11, 16, 20, 27, 28</span></td>
+</tr>
+<tr>
+<td><b>[Wu'21]</b></td>
+<td>W. Wu et al., ISSCC 2021 <span class="muted">(DTC range reduction with two VCO phases, VCO duty-cycle calibration, modified DSM)</span></td>
+<td><span class="tag t-slide">p34, 35, 36, 37, 39, 40, 41</span></td>
+</tr>
+<tr>
+<td><b>[Wu'23]</b></td>
+<td>W. Wu et al., RFIC 2023 <span class="muted">(low-jitter frac-N PLL directly at mmW; dual-core VCO)</span></td>
+<td>p47, 48 <span class="muted">(out of scope)</span></td>
+</tr>
+<tr>
+<td><b>[Gao'09]</b></td>
+<td>X. Gao, E. Klumperink, P. Geraedts, B. Nauta, "Jitter analysis and a benchmarking figure-of-merit for PLLs," <em>IEEE TCAS-II</em>, vol. 56, pp. 117–121, Feb. 2009. <span class="muted">(FoM)</span></td>
+<td><span class="tag t-slide">p4</span></td>
+</tr>
+<tr>
+<td><b>[Tasca'11]</b></td>
+<td>D. Tasca et al., "A 2.9-to-4.0 GHz fractional-N digital PLL with bang-bang phase detector…," <em>IEEE JSSC</em>, Dec. 2011.</td>
+<td><span class="tag t-slide">p10</span></td>
+</tr>
+<tr>
+<td><b>[Pavlovic'11]</b></td>
+<td>N. Pavlovic, ISSCC 2011.</td>
+<td><span class="tag t-slide">p10</span></td>
+</tr>
+<tr>
+<td><b>[Gao'16]</b></td>
+<td>X. Gao, ISSCC 2016.</td>
+<td><span class="tag t-slide">p10</span></td>
+</tr>
+<tr>
+<td><b>[Raczkowski'15]</b></td>
+<td>K. Raczkowski, <em>IEEE JSSC</em>, May 2015 <span class="muted">(sampling PLL)</span></td>
+<td><span class="tag t-slide">p11</span></td>
+</tr>
+<tr>
+<td><b>[Ru'15]</b></td>
+<td>J. Z. Ru, <em>IEEE JSSC</em>, June 2015 <span class="muted">(constant-slope I/C DTC)</span></td>
+<td><span class="tag t-slide">p21</span></td>
+</tr>
+<tr>
+<td><b>[Dartizio'23]</b></td>
+<td>S. M. Dartizio, ISSCC 2023 <span class="muted">(inverse-constant-slope DTC)</span></td>
+<td><span class="tag t-slide">p22</span></td>
+</tr>
+<tr>
+<td><b>[Xu'24]</b></td>
+<td>D. Xu, ISSCC 2024 <span class="muted">(pseudo-differential DTC)</span></td>
+<td><span class="tag t-slide">p23</span></td>
+</tr>
+<tr>
+<td><b>[Park'21]</b></td>
+<td>H. Park, ISSCC 2021 <span class="muted">(polynomial DTC NLC)</span></td>
+<td><span class="tag t-slide">p31</span></td>
+</tr>
+<tr>
+<td><b>[Rossoni'24]</b></td>
+<td>M. Rossoni, ISSCC 2024 <span class="muted">(reverse-concavity variable-slope DTC)</span></td>
+<td><span class="tag t-slide">p32</span></td>
+</tr>
+<tr>
+<td><b>[Renukaswamy'23]</b></td>
+<td>P. Renukaswamy, ISSCC 2023 <span class="muted">(POC-DTC zero-mean PHE)</span></td>
+<td><span class="tag t-slide">p29, 30</span></td>
+</tr>
+<tr>
+<td><b>[Hwang'22]</b></td>
+<td>C. Hwang, H. Park, T. Seong, J. Choi, "A 188fs<sub>rms</sub>-Jitter … 1/8 DTC-Range-Reduction … Quadruple-Timing-Margin Phase Selector," ISSCC 2022, pp. 378–380.</td>
+<td><span class="tag t-slide">p38</span></td>
+</tr>
+<tr>
+<td><b>[Murphy'18]</b></td>
+<td>D. Murphy, <em>IEEE JSSC</em>, Nov. 2018 <span class="muted">(low-PN multi-core LC oscillator)</span></td>
+<td>p49 <span class="muted">(out of scope)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>3. Standard PLL / CDR / DSP theory used in the models</h2>
+<p>These textbooks and classic papers supply the standard results behind the models. Anything tagged <span class="tag t-std">textbook</span> on this site names its source from this list.</p>
+
+<div class="cite">
+<table>
+<thead>
+<tr><th>Key</th><th>Source</th><th>What it provides</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><b>[Std-Razavi]</b></td>
+<td>B. Razavi, <em>Design of CMOS Phase-Locked Loops</em>, Cambridge, 2020.</td>
+<td>Linear PLL model, type-II loop filter, noise transfer functions (NTFs).</td>
+</tr>
+<tr>
+<td><b>[Std-Gardner]</b></td>
+<td>F. M. Gardner, <em>Phaselock Techniques</em>, 3rd ed., Wiley, 2005.</td>
+<td>Open-loop gain, phase margin, geometric crossover $\omega_c=\sqrt{\omega_z\,\omega_p}$.</td>
+</tr>
+<tr>
+<td><b>[Std-Riley]</b></td>
+<td>T. Riley, M. Copeland, T. Kwasniewski, "Delta-sigma modulation in fractional-N frequency synthesis," <em>IEEE JSSC</em>, vol. 28, no. 5, May 1993.</td>
+<td>DSM quantization-noise PSD $\frac{1}{12}\frac{1}{f_{ref}}\big[2\sin(\pi f/f_{ref})\big]^{2m}$.</td>
+</tr>
+<tr>
+<td><b>[Std-Widrow]</b></td>
+<td>B. Widrow, S. Stearns, <em>Adaptive Signal Processing</em>, Prentice-Hall, 1985.</td>
+<td>LMS / sign-sign-LMS update law and convergence bound $0&lt;\mu&lt;2/E\{x^2\}$.</td>
+</tr>
+<tr>
+<td><b>[Std-Welch]</b></td>
+<td>P. Welch, "The use of FFT for the estimation of power spectra," <em>IEEE Trans. Audio Electroacoust.</em>, 1967.</td>
+<td>PSD normalization (Welch's method) used in all spectrum estimates.</td>
+</tr>
+<tr>
+<td><b>[Std-Bennett]</b></td>
+<td>W. R. Bennett, "Spectra of quantized signals," <em>Bell Syst. Tech. J.</em>, 1948.</td>
+<td>Quantization variance $\Delta^2/12$ for the DTC/DSM quantizers.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>4. Standard but unpinned → needs an external citation</h2>
+<p>These results are standard, but a specific page/source could not be pinned with confidence. They are flagged so a definitive reference can be supplied. Each is a real, traceable convention ambiguity — not an invented claim.</p>
+
+<div class="cite">
+<ul>
+<li><span class="tag t-need">needs citation</span> Exact single-sided vs double-sided convention constant in $\mathcal{L}(f)=10\log_{10}\!\big(\tfrac{1}{2}S_\phi\big)$ (Leeson / IEEE&nbsp;Std&nbsp;1139-1999 — <em>likely</em> IEEE&nbsp;Std&nbsp;1139, but the factor $\tfrac12$ should be verified).</li>
+<li><span class="tag t-need">needs citation</span> The exact $/12$ (vs $/6$) prefactor in slide-15's $\Phi_{DTC,QN}$ (single- vs double-sided). The model reproduces $-163$ dBc/Hz with $/12$; confirm against <b>[Wu'19]</b>. <span class="tag t-slide">p15</span></li>
+<li><span class="tag t-need">needs citation</span> The FoM<sub>jitter</sub> definition on slide 4 (named, not shown). The standard form $\mathrm{FoM}=10\log_{10}\!\big[(\sigma_t/1\,\mathrm{s})^2\cdot(P/1\,\mathrm{mW})\big]$ is from <b>[Gao'09]</b>; confirm the exact constant. <span class="tag t-slide">p4</span></li>
+</ul>
+</div>
+
+<h2>Derived in this work</h2>
+<p>The following carry no external source — they are derived here and tagged <span class="tag t-derive">derived</span> in <code>docs/derivations.md</code> and in the code.</p>
+<div class="derive">
+<ul>
+<li>All calibration convergence-time constants (sign-LMS $\tau$, the ~30&nbsp;µs settling, per-loop step sizes).</li>
+<li>The parabolic-INL spur model (relating $\pm0.6$ LSB 2nd-order INL to fractional-spur level).</li>
+<li>The s-domain ↔ z-domain sampling-PLL bridge (linear-model equivalence used to draw the Bode/NTF plots).</li>
+<li>Every numerical worked example on the site.</li>
+</ul>
+</div>
+
+<h2>Assumptions (full list)</h2>
+<p>Each assumption below is <b>not</b> stated in the slides (or not stated with a number) but is needed to build runnable models. Each has a rationale and a tag <code>[A#]</code>; on the site these appear as <span class="tag t-assume">assumption</span> with the matching <code>[A#]</code>. Source: <code>docs/assumptions.md</code>.</p>
+
+<div class="assume">
+<p><b>Reading guide.</b> Items marked "on-slide" inside the rationale (e.g. <code>[A6]</code>, <code>[A9]</code>, <code>[A14]</code>) record numbers that <em>are</em> printed on the slides — they are listed here only because they anchor the model; they are not free assumptions.</p>
+</div>
+
+<h3>Loop / system parameters</h3>
+<div class="assume">
+<table>
+<thead>
+<tr><th>Tag</th><th>Assumption</th><th>Rationale</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><b>[A1]</b></td>
+<td>Loop bandwidth $f_c\approx 1.5$ MHz.</td>
+<td>Slide 42 says "PLL BW is chosen to trade off REF vs VCO" but gives no number. For $f_{ref}=104$ MHz, $f_{out}=6.72$ GHz, and the VCO/REF crossover visible in the slide-42 PN plot (~1–2 MHz), 1.5 MHz is the standard choice ($\mathrm{BW}\approx f_{ref}/70$). Used for all frequency-domain plots. <span class="tag t-slide">p42</span></td>
+</tr>
+<tr>
+<td><b>[A2]</b></td>
+<td>Phase margin $\approx 60^\circ$.</td>
+<td>Not given. $60^\circ$ is the textbook target for a well-damped type-II PLL (≈ critically damped, minimal peaking). Sets the loop-filter zero/pole spacing.</td>
+</tr>
+<tr>
+<td><b>[A3]</b></td>
+<td>Divide ratio $N\approx 64.6$.</td>
+<td>$=6720\,\mathrm{MHz}/104\,\mathrm{MHz}$, computed from slide-42 numbers; the fractional part exercises the DSM/DTC. <span class="tag t-slide">p42</span></td>
+</tr>
+<tr>
+<td><b>[A4]</b></td>
+<td>VCO gain $K_{VCO}=2\pi\cdot 100$ MHz/V.</td>
+<td>Typical for a 6-GHz LC-VCO with a switched-cap bank (coarse) and a small varactor (loop). Only the <em>product</em> with the loop filter sets BW, so this is a representative split.</td>
+</tr>
+<tr>
+<td><b>[A5]</b></td>
+<td>DSM order $m=2$ (MASH or 2nd-order).</td>
+<td>Slide 15 says "can support 2nd-order DSM"; slide 6 lists MASH1 / MASH1-1 / MASH1-1-1. Default $m=2$ (MASH1-1), exposed as a parameter. <span class="tag t-slide">p6, 15</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h3>DTC parameters</h3>
+<div class="assume">
+<table>
+<thead>
+<tr><th>Tag</th><th>Assumption</th><th>Rationale</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><b>[A6]</b></td>
+<td>DTC resolution $T_{res}=400$ fs, $n=10$ bits, $\mathrm{DR}=400$ ps.</td>
+<td>Directly from slide 15 (these <em>are</em> on the slide); used as the nominal design point. <span class="tag t-slide">p15</span></td>
+</tr>
+<tr>
+<td><b>[A7]</b></td>
+<td>$R=5\,\mathrm{k}\Omega$, $C_{LSB}=115$ aF per LSB so that $T_{res}=\ln2\cdot R\,C_{LSB}=400$ fs.</td>
+<td>Slide 16 says $C_{LSB}\ge 2$ fF, so we instead set the noise-driven point $C_{LSB}=2$ fF, $R\approx289\,\Omega$ (keeping $\ln2\cdot R\,C_{LSB}=400$ fs). Two self-consistent choices; we use $C_{LSB}=2$ fF. This only affects the <em>thermal-noise</em> number, computed with slide-16's formula. <span class="tag t-slide">p16</span></td>
+</tr>
+<tr>
+<td><b>[A8]</b></td>
+<td>DTC INL shape = parabolic (2nd-order dominant), peak $\pm0.6$ LSB.</td>
+<td>Slides 17/18 say "strong 2nd-order NL," scatter $\pm0.6$ LSB. Modeled as $\mathrm{INL(code)}=a_2(\mathrm{code}-\mathrm{mid})^2$ normalized to $\pm0.6$ LSB for spur sims. Survey NLC (slide 31) targets residual 50 fs. <span class="tag t-slide">p17, 18, 31</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h3>PD / loop-filter parameters</h3>
+<div class="assume">
+<table>
+<thead>
+<tr><th>Tag</th><th>Assumption</th><th>Rationale</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><b>[A9]</b></td>
+<td>$K_{SPD}=9.19$ V/rad.</td>
+<td>Slide 20 gives the formula and $K_{slope}=6$ GV/s, $f_{ref}=104$ MHz $\Rightarrow$ this number ($K_{SPD}=K_{slope}/(2\pi f_{ref})$). Used as the PD gain. <span class="tag t-slide">p20</span></td>
+</tr>
+<tr>
+<td><b>[A10]</b></td>
+<td>Loop-filter caps $C_{I,2}=200$ fF.</td>
+<td>Slide 20 mentions ~200 fF. Used for the GM-noise estimate. <span class="tag t-slide">p20</span></td>
+</tr>
+<tr>
+<td><b>[A11]</b></td>
+<td>$G_M=100\,\mu\mathrm{S}$, comparator/GM input-referred offset $\sigma=32$ mV.</td>
+<td>Slide 40 injects a "32 mV comparator offset." Used in the offset-cal model. <span class="tag t-slide">p40</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h3>Noise PSD levels (slide gives budget percentages, not absolute floors except DTC)</h3>
+<div class="assume">
+<table>
+<thead>
+<tr><th>Tag</th><th>Assumption</th><th>Rationale</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><b>[A12]</b></td>
+<td>Reference (CKREF) phase noise: flat floor $-165$ dBc/Hz + flicker $-110$ dBc/Hz @ 10 kHz ($-10$ dB/dec).</td>
+<td>A 104-MHz XO of this class is typical; chosen so REF contributes $\approx39\%$ of the 87.5-fs budget (slide 42). <span class="tag t-slide">p42</span></td>
+</tr>
+<tr>
+<td><b>[A13]</b></td>
+<td>VCO phase noise: $-120$ dBc/Hz @ 1 MHz ($-20$ dB/dec, white-FM) + flicker corner 200 kHz.</td>
+<td>Slide 50 (out of scope) measures $-120$ dBc/Hz @ 1 MHz @ 6 GHz for the single-core VCO; we reuse that single number as a reasonable VCO model so the VCO contributes $\approx51\%$ (slide 42). Tagged as reuse of an in-deck (but out-of-scope-page) value. <span class="tag t-slide">p42</span></td>
+</tr>
+<tr>
+<td><b>[A14]</b></td>
+<td>DTC thermal-noise floor $-171$ dBc/Hz (slide 16) and QN $-163$ dBc/Hz (slide 15).</td>
+<td>Both are on-slide; lumped into the REF/DTC bucket. <span class="tag t-slide">p15, 16</span></td>
+</tr>
+<tr>
+<td><b>[A15]</b></td>
+<td>SPD+GM noise $\to -170$ dBc/Hz.</td>
+<td>Slide 20; contributing $\approx4\%$ of the budget. <span class="tag t-slide">p20</span></td>
+</tr>
+<tr>
+<td><b>[A16]</b></td>
+<td>Integration band $=1$ kHz $\to 100$ MHz for all RMS-jitter numbers.</td>
+<td>Slide 3 uses this band; slide 42 implies it. <span class="tag t-slide">p3, 42</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h3>Calibration step sizes / timing</h3>
+<div class="assume">
+<table>
+<thead>
+<tr><th>Tag</th><th>Assumption</th><th>Rationale</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><b>[A17]</b></td>
+<td>Sign-LMS step sizes $\mu_1=\mu_2=\mu_3$ chosen for ~30-µs convergence.</td>
+<td>At $f_{ref}=104$ MHz (~3120 reference cycles in 30 µs), $\mu$ is picked so the loop time constant $\tau\approx5$–$8\,\mu$s (matches slide 37/40 "converge &lt; 30 µs"). Exact values in <code>calibration_models.py</code>. <span class="tag t-slide">p37, 40</span></td>
+</tr>
+<tr>
+<td><b>[A18]</b></td>
+<td>Injected impairments for cal demos: 20 ps VCO duty error, 1 ns (57 %) CKREF duty error, 32 mV comparator offset; initial $K_{DTC}$ error 10 %.</td>
+<td>The three impairments are taken verbatim from slide 40; the initial $K_{DTC}$ error is set to 10 %. <span class="tag t-slide">p40</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h3>Conventions</h3>
+<div class="assume">
+<table>
+<thead>
+<tr><th>Tag</th><th>Assumption</th><th>Rationale</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><b>[A19]</b></td>
+<td>Single-sided phase-noise convention $\mathcal{L}(f)=10\log_{10}\!\big(\tfrac12 S_\phi\big)$.</td>
+<td>The $\pm3$ dB SSB/DSB ambiguity (derivations §3, §8) is acknowledged; numbers are reported single-sided unless a slide value is explicitly DSB (slide 42 IPN is DSB). <span class="tag t-slide">p42</span></td>
+</tr>
+<tr>
+<td><b>[A20]</b></td>
+<td>All "background" calibrations run continuously after lock.</td>
+<td>Slide 40 "background." Foreground variants are discussed but not the default. <span class="tag t-slide">p40</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>Open questions / ambiguities</h2>
+<p>These are points where the slides are genuinely ambiguous and where guessing silently was avoided. Each states what was assumed (if anything) so it can be corrected against the source papers or measured chip. Source: <code>docs/open_questions.md</code>.</p>
+
+<div class="warn">
+<b>1. Type-I vs type-II loop.</b> Slide 39 shows both a $V_{ctrl,P}$ and a $V_{ctrl,I}$ path (proportional + integral) into the VCO, suggesting a <b>type-II sampling PLL</b>, but slide 20 describes the SPD path as a 1st-order IIR (type-I-like). The model is a <b>type-II</b> loop (programmable proportional path) with a type-I switch exposed. <em>Confirm which the measured chip used.</em> <span class="tag t-slide">p20, 39</span>
+</div>
+
+<div class="warn">
+<b>2. Exact $\Phi_{DTC,QN}$ convention (slide 15).</b> The printed $(2\pi T_{res})^2/12\cdot f_{ref}$ reproduces $-163$ dBc/Hz only with the $/12$ (double-sided-ish) reading; the textbook single-sided result has $/6$ → $\pm3$ dB. <em>Confirm against</em> <b>[Wu'19]</b>. (Also in references §4.) <span class="tag t-slide">p15</span>
+</div>
+
+<div class="warn">
+<b>3. $K_{DTC}$ numeric units in the convergence plots (slide 35/37).</b> The plot shows $K_{DTC}\approx900$–$1013$. If $K_{DTC}=T_{vco}/\Delta t_{DTC}$, then at 6 GHz ($T_{vco}=166.7$ ps) a value of 1000 implies an <em>effective</em> LSB of ~167 fs (not the 400 fs of slide 15). The assumption is that 400 fs is the <b>coarse</b> DTC and the cal operates on an <b>effective finer</b> step; <em>confirm the exact LSB used in the cal loop.</em> <span class="tag t-slide">p15, 35, 37</span>
+</div>
+
+<div class="warn">
+<b>4. <code>even_cycle</code> vs <code>SEL_CKFB</code> regressors (slide 40).</b> Both CKREF-DCC and VCO-DCC use a $\pm1$ "every-other-cycle" regressor. The assumption is that <code>even_cycle</code> toggles every <b>reference</b> cycle and <code>SEL_CKFB</code> toggles per the <b>modified DSM</b> phase-select pattern. <em>Confirm the exact toggling.</em> <span class="tag t-slide">p40</span>
+</div>
+
+<div class="warn">
+<b>5. Modified-DSM internals (slide 34).</b> The "$\times2$ / $\div2$ / Acc / $Z^{-1}$" network that produces <code>NDIV_tmp</code>, <code>SEL_CKFB</code>, and the ½-range $\Phi_e(n)$ is only sketched. The model is a behavioral MASH1-1 that outputs $(\mathrm{NDIV},\,\mathrm{SEL\_CKFB},\,\Phi_e\in[0,0.5\,T_{vco}])$ consistent with the waveforms, but the exact register-level structure is not fully specified. <span class="tag t-slide">p34</span>
+</div>
+
+<div class="warn">
+<b>6. Reference doubler (CKREFX2, slide 39).</b> Slide 39 shows $\mathrm{CKREF}\to\times2\to\mathrm{CKREFX2}\to\mathrm{DTC}$. Is the <em>effective</em> $f_{ref}$ for the cals 104 MHz or 208 MHz? The assumption is that the DTC/PD run at the <b>doubled</b> rate where shown but budget numbers are reported at 104 MHz (slide 42). <em>Confirm.</em> <span class="tag t-slide">p39, 42</span>
+</div>
+
+<div class="warn">
+<b>7. Absolute noise floors.</b> Slide 42 gives only <b>percentages</b> of the 87.5-fs budget (VCO 51 %, REF 39 %, …), not absolute dBc/Hz per source (except DTC QN/thermal). The per-source PSD levels [A12]–[A15] are <em>back-solved</em> to reproduce those percentages; they are plausible but not unique. <em>With the per-source PN curves they can be locked exactly.</em> <span class="tag t-slide">p42</span>
+</div>
+
+<div class="warn">
+<b>8. Spur mechanism magnitudes (slide 41).</b> Measured fractional spurs are $-70$…$-85$ dBc. The parabolic-INL spur model [A8] reproduces the <em>trend</em> (worse without range reduction / VCO DCC) but the absolute spur level depends on the true INL profile, which slides 17/18 show only qualitatively. <span class="tag t-slide">p17, 18, 41</span>
+</div>
+
+<div class="warn">
+<b>9. FoM<sub>jitter</sub> constant (slide 4).</b> The benchmarking FoM is referenced (<b>[Gao'09]</b>) but the formula is not on the slide. The standard $\mathrm{FoM}=10\log_{10}\!\big[(\sigma_t)^2\cdot(P/1\,\mathrm{mW})\big]$ is used but flagged. <span class="tag t-slide">p4</span>
+</div>
+
+<div class="note">
+<b>How to use this page.</b> When a number elsewhere on the site is tagged <span class="tag t-assume">assumption [A#]</span>, look it up in the assumptions tables above to see exactly what was assumed and why. When it is tagged <span class="tag t-need">needs citation</span>, see §4. Everything tagged <span class="tag t-slide">slide pX</span> comes straight from <b>[DECK]</b>.
+</div>
+
+<div class="btnrow"><div><a href="examples.html">← Numerical Examples</a></div><div></div></div>
+<div class="footer">
+  Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
+  (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
+  Every claim is tagged: <span class="tag t-slide">slide pX</span>
+  <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
+  <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
+</div>
+</main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  renderMathInElement(document.body, {
+    delimiters:[
+      {left:"$$",right:"$$",display:true},
+      {left:"\\[",right:"\\]",display:true},
+      {left:"$",right:"$",display:false},
+      {left:"\\(",right:"\\)",display:false}
+    ],
+    throwOnError:false
+  });
+});
+</script>
+</body>
+</html>

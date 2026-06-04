@@ -1,0 +1,137 @@
+<h1>DTC-Assisted High-Performance Fractional-N PLL</h1>
+<p class="lead">A study companion for W. Wu's (Samsung) deck on building a sub-100-fs fractional-N PLL by putting a digital-to-time converter (DTC) in the reference path so the phase detector sees almost zero phase error — just like an integer-N loop — backed by a stack of background digital calibrations.</p>
+
+<div class="kpi">
+  <div class="box"><div class="v">87.6 fs</div><div class="l">total RMS jitter (1 kHz–100 MHz)</div></div>
+  <div class="box"><div class="v">−51.6 dBc</div><div class="l">integrated phase noise (SSB)</div></div>
+  <div class="box"><div class="v">1.5 MHz</div><div class="l">loop bandwidth (PM = 60°)</div></div>
+  <div class="box"><div class="v">4</div><div class="l">background calibrations</div></div>
+  <div class="box"><div class="v">42</div><div class="l">slides covered (p.1–p.42)</div></div>
+</div>
+
+<div class="note">
+  <b>Who this is for.</b> You have just finished a basic PLL/CDR course — you know what a PFD, charge pump, loop filter, VCO and divider are, and you have seen the type-II linear phase model. This site builds from that base up to a research-grade fractional-N architecture. Every number, formula and claim is tagged with where it came from; see the <a href="references.html">provenance legend</a> at the bottom of this page.
+</div>
+
+<h2>The problem this deck solves</h2>
+
+<p>Modern radios — WiFi-7 and 5G FR2 (mmWave) — need a local oscillator (LO) so clean that its <b>integrated RMS jitter is below 100 fs</b> <span class="tag t-slide">slide p.3</span>. The reason is the modulation: as you pack more bits per symbol (64-QAM → 256-QAM → 1024-QAM → 4096-QAM), the constellation points crowd together and even a tiny amount of LO phase noise rotates a symbol into its neighbor's decision region. Slide 3 lists the required double-sideband integrated phase noise (DSB-IPN) per scheme: <b>−30 dBc for 64-QAM, −33 dBc for 256-QAM, −44 dBc for 1024-QAM, and −47 dBc for 4096-QAM</b> <span class="tag t-slide">slide p.3</span>. Translated to jitter at carriers of 7–47 GHz, all of these land below 100 fs RMS.</p>
+
+<p>A <b>fractional-N</b> PLL is what lets you hit an arbitrary frequency (e.g. 6.72 GHz from a 104 MHz reference, an irrational-looking divide ratio <span class="tag t-derive">derived</span> $N = f_\text{out}/f_\text{ref} = 6720/104 = 64.62$). But fractional-N is much harder to make low-jitter than integer-N, for three reasons spelled out on slide 6:</p>
+
+<div class="grid">
+  <div class="card">
+    <h4>1. ΔΣ quantization noise</h4>
+    <p>To get a fractional divide ratio, a delta-sigma modulator (DSM) dithers the integer divider so its <i>average</i> is fractional. That dithering is quantization noise injected right at the divider. A higher-order MASH spreads it out but makes the instantaneous phase error larger: <span class="tag t-slide">slide p.6</span> MASH1 keeps $\Phi_e \in [-T_\text{vco}/2, +T_\text{vco}/2]$, MASH1-1 doubles it to $[-T_\text{vco}, +T_\text{vco}]$, and MASH1-1-1 doubles again to $[-2T_\text{vco}, +2T_\text{vco}]$.</p>
+  </div>
+  <div class="card">
+    <h4>2. Phase-detector dynamic range</h4>
+    <p>Because of that DSM dithering, the feedback edge wanders over a wide range every reference cycle. The phase detector must stay <b>linear over that whole range</b> — a fundamental conflict, because a high-gain (low-noise) PD usually has a small linear range. <span class="tag t-slide">slide p.6</span></p>
+  </div>
+  <div class="card">
+    <h4>3. Fractional spurs &amp; noise folding</h4>
+    <p>Any PD nonlinearity demodulates the periodic DSM sequence into discrete <b>fractional spurs</b>, and folds high-frequency quantization noise back into the band of interest, raising the in-band floor. <span class="tag t-slide">slide p.6</span></p>
+  </div>
+</div>
+
+<p>So the central tension is: you want a <b>high-gain, low-noise, perfectly linear</b> phase detector, but the DSM forces it to swallow a <b>large, fast-moving phase error</b>. Conventional designs lose either noise or linearity.</p>
+
+<h2>One-line architecture</h2>
+
+<div class="card">
+  <h3>The proposed idea, in one sentence</h3>
+  <p>Put a <b>DTC in the reference path</b> that adds a programmable delay tracking the <i>accumulated DSM quantization error</i>, so the feedback edge and the (now-delayed) reference edge arrive together and the phase detector sees <b>≈ 0 phase error after lock — exactly like an integer-N PLL</b> <span class="tag t-slide">slide p.9</span>. That lets you use a high-gain, small-dynamic-range sampling phase detector (low noise, low power). A stack of <b>background digital calibrations</b> keeps the cancellation exact over process, voltage and temperature <span class="tag t-slide">slide p.39</span><span class="tag t-slide">slide p.40</span>.</p>
+</div>
+
+<p>The key relation is the DTC gain — how many DTC delay codes correspond to one VCO period:</p>
+
+$$K_\text{DTC} = \frac{T_\text{vco}}{\Delta t_\text{DTC}} \qquad\text{(codes per VCO period)} \quad\text{\small(slide p.9)}$$
+
+<p>The DTC is told to add a delay $\Delta t[n] = K_\text{DTC}^{-1}\,\Phi_\text{QE}[n]$, a staircase that exactly mirrors the divider's accumulated phase wander $\Phi_\text{QE}[n]$ <span class="tag t-slide">slide p.9</span>. If $K_\text{DTC}$ is right, the residual phase error collapses to zero and the PD operates in a tiny window around its highest-gain point.</p>
+
+<p>Once the PD only sees a near-zero error, the design uses a <b>sampling phase detector (SPD)</b> — a slope generator plus a sample/hold — whose gain is enormous compared to a PFD–charge-pump. Slide 20 gives <span class="tag t-slide">slide p.20</span></p>
+
+$$K_\text{SPD} = \frac{K_\text{slope}}{2\pi f_\text{ref}}, \qquad K_\text{slope}=6\ \text{GV/s},\ f_\text{ref}=104\ \text{MHz}\ \Rightarrow\ K_\text{SPD}\approx 9.2\ \text{V/rad}.$$
+
+<p>That high gain divides down the noise of everything after it (the transconductor, loop filter), which is why the whole thing can reach a sub-100-fs floor. The full assembled signal chain and all four calibrations live on the <a href="architecture.html">Architecture</a> page.</p>
+
+<div class="grid">
+  <figure class="slide"><img src="assets/slides/slide_09.png" alt="slide 9"><figcaption>PDF p.9 / slide p.9 — DTC in the reference path cancels accumulated DSM quantization error so the PD sees ≈ 0 phase error.</figcaption></figure>
+  <figure class="slide"><img src="assets/slides/slide_39.png" alt="slide 39"><figcaption>PDF p.39 / slide p.39 — the complete low-jitter sampling analog PLL with all four background calibrations.</figcaption></figure>
+</div>
+
+<h2>What the noise budget looks like after calibration</h2>
+
+<p>The validation target is slide 42: with the PD, DSM quantization noise and divider noise all suppressed, the integrated phase noise is dominated by the two sources <i>common to every PLL</i> — the reference and the VCO. Our frequency-domain model reproduces this almost exactly.</p>
+
+<table>
+  <thead>
+    <tr><th>Source</th><th class="num">Jitter (fs)</th><th class="num">Share</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>VCO</td><td class="num">63.1</td><td class="num">51.8 %</td></tr>
+    <tr><td>REF (reference clock)</td><td class="num">45.0</td><td class="num">26.4 %</td></tr>
+    <tr><td>DTC (QN + thermal)</td><td class="num">29.6</td><td class="num">11.4 %</td></tr>
+    <tr><td>MMD (divider)</td><td class="num">21.8</td><td class="num">6.2 %</td></tr>
+    <tr><td>SPD + GM</td><td class="num">17.3</td><td class="num">3.9 %</td></tr>
+    <tr><td>DSM-QN (cancelled)</td><td class="num">4.5</td><td class="num">0.3 %</td></tr>
+    <tr><td><b>TOTAL</b></td><td class="num"><b>87.6</b></td><td class="num"><b>100 %</b></td></tr>
+  </tbody>
+</table>
+
+<p>The "REF" and "DTC" rows together are the reference-path contribution (~37.8 %), which the deck's pie reports lumped as "REF (+ DTC) ~39 %" <span class="tag t-slide">slide p.42</span>. The model totals <b>87.6 fs</b> and <b>−51.6 dBc (SSB)</b> — within rounding of the deck's stated 87.5 fs / −51.7 dBc. Numbers are read directly from <code>site/assets/data/freq_domain.json</code>. Note that the contributions add in <i>RMS</i> (root-sum-square of $\sigma_\phi$), not linearly:</p>
+
+$$\sigma_{\phi,\text{tot}} = \sqrt{\textstyle\sum_i \sigma_{\phi,i}^2} \quad\text{\small(textbook: uncorrelated noise sources add in power)} \quad \text{\tiny t-std}$$
+
+<div class="note">
+  <b>Why the budget shapes the design.</b> Once the loop has killed the PD/DSM/divider terms, the only knob left is loop bandwidth: a wider bandwidth tracks (suppresses) more VCO noise but lets in more reference noise, and vice-versa. The 1.5 MHz / 60° design is the chosen REF-vs-VCO trade-off — see the <a href="frequency-domain.html">Frequency-domain</a> page. <span class="tag t-slide">slide p.42</span>
+</div>
+
+<figure><img src="assets/figures/fd_jitter_pie.png" alt="jitter contribution pie chart"><figcaption>Modeled jitter-contribution breakdown reproducing slide 42 — cite slide p.42 and <code>freq_domain.json</code>.</figcaption></figure>
+
+<h2>Learning roadmap</h2>
+
+<p>The site is organized as a guided path. Read it top to bottom the first time; jump around once you know the layout.</p>
+
+<ol class="roadmap">
+  <li><b><a href="slide-map.html">Slide map</a></b> — a one-row-per-slide index of all 42 slides: what each covers, which are background vs. the proposed Wu architecture vs. survey techniques, and where each equation lives.</li>
+  <li><b><a href="architecture.html">Architecture</a></b> — how the full DTC-assisted sampling PLL is wired together (CKREF → DTC → SPD → GM → VCO → MMD → modified DSM), why the DTC goes in the reference path, and the integer-N-like phase-error cancellation.</li>
+  <li><b><a href="blocks.html">Blocks</a></b> — block-by-block deep dives: the RC variable-slope DTC and its quantization/thermal noise and nonlinearity, the sampling PD gain and IIR dynamics, the modified MMD + DSM, and the half-range / 8-phase range-reduction tricks.</li>
+  <li><b><a href="calibrations.html">Calibrations</a></b> — the four background sign-sign-LMS loops: DTC gain ($K_\text{DTC}$), VCO duty-cycle (vco_dcc), reference duty-cycle (ckref_dcc), and comparator/GM offset, plus why each is needed and how fast each converges.</li>
+  <li><b><a href="frequency-domain.html">Frequency-domain</a></b> — the linear type-II phase model, loop transfer functions and noise-transfer functions, the Bode plot / phase margin, and how the per-source phase-noise budget is built.</li>
+  <li><b><a href="time-domain.html">Time-domain</a></b> — a sample-by-sample behavioral simulation, the time-series of the loop, per-source jitter accumulation, and the Parseval cross-check against the frequency-domain result.</li>
+  <li><b><a href="code-walkthrough.html">Code walkthrough</a></b> — a line-by-line tour of the Python models that produce every figure on this site, mapping each line back to a slide formula.</li>
+  <li><b><a href="examples.html">Examples</a></b> — worked numerical examples: computing $K_\text{DTC}$, the DTC noise floors, $K_\text{SPD}$, and the jitter budget by hand, with the model as a check.</li>
+  <li><b><a href="references.html">References</a></b> — the source deck, the author's own papers (Wu JSSC'19 / ISSCC'21 / RFIC'23), the survey works cited per slide, and the full provenance-tag legend.</li>
+</ol>
+
+<h2>How to use / reproduce</h2>
+
+<div class="grid">
+  <div class="card">
+    <h4>Regenerate every figure</h4>
+    <p>All plots on this site are produced from the behavioral models. Re-run them with:</p>
+    <pre><code class="language-python">python models/run_all.py</code></pre>
+    <p>This regenerates the figures in <code>assets/figures/</code> (the <code>fd_*</code>, <code>td_*</code> and <code>cal_*</code> PNGs referenced throughout) and refreshes the JSON data the tables read from.</p>
+  </div>
+  <div class="card">
+    <h4>Verify the numbers</h4>
+    <p>The <code>tests/</code> directory checks the model against the deck's anchor numbers — for example that the modeled total reproduces slide 42 (87.6 fs / −51.6 dBc) and that the time-domain and frequency-domain jitter agree (88.2 fs vs 87.4 fs, +0.08 dB, Parseval matches) <span class="tag t-derive">derived</span>.</p>
+  </div>
+</div>
+
+<div class="cite">
+  <b>Provenance tag legend.</b> Every load-bearing claim is tagged with where it comes from, so you can trust (or challenge) it:
+  <ul>
+    <li><span class="tag t-slide">slide pX</span> — stated directly on that deck slide.</li>
+    <li><span class="tag t-derive">derived</span> — computed/derived in <code>docs/derivations.md</code> from slide inputs.</li>
+    <li><span class="tag t-std">textbook</span> — standard PLL/signal theory (named in place).</li>
+    <li><span class="tag t-assume">assumption</span> — an assumption I added in <code>docs/assumptions.md</code> (with an [A#] reference); these are never blended into slide facts.</li>
+    <li><span class="tag t-need">needs citation</span> — flagged as not yet sourced.</li>
+  </ul>
+  Amber <span class="tag t-assume">assumption</span> callouts mark things the slides do not state; red callouts flag open ambiguities. When in doubt, the slide tag wins.
+</div>
+
+<div class="assume">
+  <b>Scope note (assumption).</b> This study models slides 1–42 (the architecture / DTC / calibration / noise material). Slides 43–57 (the 5G-NR LO chain example, detailed VCO design, and the bibliography) are out of scope and are not modeled here. The "proposed" architecture throughout the site is the author's DTC-assisted analog sampling PLL with four background calibrations; survey-only DTC techniques from other groups are described conceptually but not coded. See <code>docs/slide_inventory.md</code>.
+</div>

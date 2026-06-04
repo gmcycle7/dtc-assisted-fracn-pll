@@ -1,0 +1,405 @@
+<h1>Block Models</h1>
+<p class="lead">A per-block tear-down of the proposed DTC-assisted analog sampling fractional-N PLL — for each block: what it does, its signals, a time-domain and a frequency-domain model, its non-idealities, and exactly how it turns into jitter or spurs.</p>
+
+<div class="note">
+<b>How to read this page.</b> The signal chain (slide 39) is
+<span class="tag t-slide">slide p39</span>:
+<code>CKREF → DTC → CKDTC → SPD (slope-gen + sample) → GM → loop filter → dual-core VCO → CKVCO → MMD (÷N) → CKFB</code>,
+with a <i>modified</i> ΣΔ-modulator driving the divide value <code>NDIV</code> and the phase select <code>SEL_CKFB</code>.
+We walk it block by block in that order: (1) DTC, (2) Sampling PD, (3) GM + loop filter, (4) VCO, (5) MMD divider + modified DSM.
+Throughout, $f_\text{ref}=104\text{ MHz}$, $f_\text{out}=6.72\text{ GHz}$, and the divide ratio is
+$N = f_\text{out}/f_\text{ref} = 64.62$ <span class="tag t-slide">slide p42</span> <span class="tag t-derive">derived</span>.
+</div>
+
+<div class="kpi">
+  <div class="box"><div class="v">6.72 GHz</div><div class="l">VCO output $f_\text{out}$</div></div>
+  <div class="box"><div class="v">104 MHz</div><div class="l">reference $f_\text{ref}$</div></div>
+  <div class="box"><div class="v">64.62</div><div class="l">divide ratio $N$</div></div>
+  <div class="box"><div class="v">1.5 MHz</div><div class="l">loop BW $f_c$ (PM 60°) <span class="tag t-assume">assumption [A1]</span> <span class="tag t-assume">[A2]</span></div></div>
+</div>
+
+<h2>The shared frequency-domain backbone</h2>
+<p>
+Before the individual blocks, note that every noise source on this page is shaped by one of two closed-loop transfer
+functions. With open-loop gain $G_\text{ol}(s)$, the canonical type-II linear PLL model
+<span class="tag t-std">textbook (Gardner / Razavi)</span> <span class="tag t-derive">derived</span> gives:
+</p>
+$$ H_\text{ref}(s)=\frac{\Phi_\text{out}}{\Phi_\text{ref}} = \frac{N\,G_\text{ol}(s)}{1+G_\text{ol}(s)}\ \text{(low-pass, DC}\to N)\qquad
+   H_\text{vco}(s)=\frac{\Phi_\text{out}}{\Phi_\text{vco}} = \frac{1}{1+G_\text{ol}(s)}\ \text{(high-pass, HF}\to 1) $$
+<p>
+Anything entering through the <b>reference path</b> (REF, DTC, SPD, GM, MMD input-referred) is low-pass filtered by
+$H_\text{ref}$; the <b>VCO</b> is high-pass filtered by $H_\text{vco}$. The crossover sits at the loop bandwidth
+$f_c$, where the two curves cross — that is the knob that trades reference-domain noise against VCO noise.
+</p>
+
+<figure><img src="assets/figures/fd_ntf.png" alt="closed-loop noise transfer functions">
+<figcaption>Closed-loop NTFs from <code>frequency_domain_model.py</code>: $H_\text{ref}/N$ (low-pass, reference-domain blocks) and $H_\text{vco}$ (high-pass, VCO). They cross at $f_c\approx1.5$ MHz — derivations §1–2.</figcaption></figure>
+
+<hr>
+
+<h2>(1) DTC — RC variable-slope digital-to-time converter</h2>
+
+<div class="card">
+<h3>1. Digital-to-Time Converter (RC variable-slope)</h3>
+
+<h4>Purpose</h4>
+<p>
+The DTC sits in the <b>reference path</b> and adds a programmable delay $\Delta t[n]$ to each CKREF edge so that, after lock, the
+sampling PD sees almost <b>zero phase error</b> — as if the loop were integer-N
+<span class="tag t-slide">slide p9</span>. In a fractional-N PLL the divider edge CKFB wanders by up to
+$\pm(\text{order})\cdot T_\text{vco}/2$ relative to CKREF because the divide value toggles; the DTC predicts that wander
+(it is just the <i>accumulated</i> DSM quantization error $\Phi_\text{QE}[n]$) and delays CKREF by exactly that much, cancelling it.
+This is what lets the PD be high-gain and small-range → low in-band noise, better linearity, lower power
+<span class="tag t-slide">slide p9</span>.
+</p>
+
+<h4>Inputs / outputs</h4>
+<ul>
+  <li><b>In:</b> CKREF edge (here CKREF×2 → CKREFX2, slide 39); an $n$-bit delay code (main term $K_\text{DTC}\cdot\Phi_\text{QE}[n]$, plus <code>vco_dcc</code> and offset corrections, slide 40).</li>
+  <li><b>Out:</b> CKDTC = CKREF delayed by $\Delta t[n]$, feeding the sampling PD.</li>
+</ul>
+
+<h4>Time-domain model</h4>
+<p>
+A buffer drives a resistor $R$ into a programmable LSB capacitor bank $C_\text{LSB}$, producing a voltage ramp
+$V_\text{dly}(t)$ that a comparator trips at $V_\text{DD}/2$. The exponential RC ramp crosses the threshold after one
+"$\ln 2 \cdot RC$" time constant, so the <b>unit delay</b> is <span class="tag t-slide">slide p15</span>:
+</p>
+$$ T_\text{res} = \ln 2 \cdot R\, C_\text{LSB} $$
+<p>
+The realized delay for code $D$ is $\Delta t = D\cdot T_\text{res}$ (staircase). The cancellation relation is
+$\Delta t[n] = K_\text{DTC}^{-1}\,\Phi_\text{QE}[n]$, with the gain $K_\text{DTC}=T_\text{vco}/\Delta t_\text{DTC}$
+expressed in <i>codes per VCO period</i> <span class="tag t-slide">slide p9</span>.
+</p>
+
+<h4>Frequency-domain model</h4>
+<p>
+The DTC's two white noise floors enter at CKREF and are therefore shaped by $H_\text{ref}$ (low-pass → in-band).
+<b>Quantization noise</b> (input-referred phase PSD at CKREF) <span class="tag t-slide">slide p15</span>:
+</p>
+$$ \Phi_\text{DTC,QN} = \frac{(2\pi\,T_\text{res})^2}{12}\cdot f_\text{ref} $$
+<div class="derive">
+<b>Why this form.</b> A uniform time quantizer of step $T_\text{res}$ has timing variance $\sigma_t^2=T_\text{res}^2/12$
+<span class="tag t-std">textbook (Bennett quantization)</span>. Convert to reference phase with
+$\varphi = 2\pi f_\text{ref}\,\Delta t \Rightarrow \sigma_\varphi^2=(2\pi f_\text{ref}T_\text{res})^2/12$, then spread that
+variance over the Nyquist span $f_\text{ref}$ to get a flat PSD — which is exactly the slide form
+$\sigma_\varphi^2/f_\text{ref}$ <span class="tag t-derive">derived</span>.
+<b>Numeric check:</b> $T_\text{res}=400$ fs, $f_\text{ref}=104$ MHz ⇒
+$(2\pi\cdot400\text{ fs})^2/12\cdot104\text{ MHz}=5.47\times10^{-17}\to -162.6$ dBc/Hz, i.e. the
+<b>−163 dBc/Hz</b> the slide quotes <span class="tag t-slide">slide p15</span> <span class="tag t-derive">derived</span>.
+</div>
+<div class="warn">
+The single-sided vs double-sided choice is a factor-2 (±3 dB) convention. Dividing the variance by $f_\text{ref}$
+(full Nyquist span) reproduces −163 dBc/Hz; dividing by $f_\text{ref}/2$ would read 3 dB higher
+<span class="tag t-need">needs citation</span> (exact convention). We adopt the slide's convention everywhere.
+</div>
+
+<p>
+<b>Thermal noise</b> floor (delay stage + INV buffer), with slew rate $k_\text{slew}=1/(2RC)$ at $V_\text{DD}/2$ and
+folded voltage noise $S_v^\text{folded}(f_m)\cong (kT/C)/(f_\text{out}/2)$ <span class="tag t-slide">slide p16</span>:
+</p>
+$$ \mathcal{L}\cong 10\log_{10}\!\Big[\tfrac{1}{2}\Big(\tfrac{2\pi f_\text{ref}}{k_\text{slew}}\Big)^{2} S_v^\text{folded}(f_m)\Big]
+   \;\Longrightarrow\;
+   \mathcal{L}\cong 10\log_{10}\!\Big[\,2kT\,f_\text{ref}\,\Big(\tfrac{2\pi}{\ln 2}\Big)^{2}\frac{2^{n}T_\text{res}^{2}}{C_\text{LSB}}\Big] $$
+<p>
+Physically the slew rate converts the sampled $kT/C$ voltage noise into timing jitter $\sigma_t=\sigma_v/k_\text{slew}$,
+then $(2\pi f_\text{ref})^2$ converts timing to reference phase. Larger $C_\text{LSB}$ ⇒ less $kT/C$ ⇒ lower noise.
+A floor below the PN target of <b>−171 dBc/Hz</b> needs $C_\text{LSB}\ge 2$ fF <span class="tag t-slide">slide p16</span>.
+</p>
+
+<h4>Dynamic range and the range/noise/power tradeoff</h4>
+$$ \text{DR}=2^{n}\cdot t_\text{res}=2^{n}\ln 2\,R\,C_\text{LSB},\qquad
+   \mathcal{L}\cong 10\log_{10}\!\Big[2kT f_\text{ref}\tfrac{(2\pi)^2}{\ln 2}\,\text{DR}\cdot R\Big],\qquad
+   \text{QN}\propto t_\text{res}^2,\quad P_\text{DTC}\propto \text{DR}^2 $$
+<p>
+A <b>10-bit</b> DTC ($n=10$) with $t_\text{res}=400$ fs gives $\text{DR}=400$ ps, enough to cover a 2nd-order DSM at
+$f_\text{vco}>5$ GHz <span class="tag t-slide">slide p15</span>. Because noise rises with DR and power as DR$^2$
+<span class="tag t-slide">slide p33</span>, shrinking the range is a free win on every axis — which is the entire
+motivation for the ½-range (slide 34) and 1/8-range (slide 38) techniques covered with the divider below.
+</p>
+
+<h4>Main non-idealities → spur mechanism</h4>
+<ul>
+  <li><b>Static INL (parabolic):</b> code/slope-dependent comparator trip time bends the staircase. A fixed-cap array gives &lt;2 LSB INL; DEM brings DNL to ±0.2 LSB at 10-bit <span class="tag t-slide">slide p17</span>. The INL repeats with the DSM's periodic $\Phi_\text{QE}[n]$, so it folds into discrete <b>fractional spurs</b>.</li>
+  <li><b>Dynamic INL (memory):</b> per-cycle supply settling makes the delay depend on the previous code — a memory effect, measured at ±0.6 LSB scatter <span class="tag t-slide">slide p18</span>. Hard to model exactly; mitigated by a master-slave regulator + bleeding current and a code reset to "1" each cycle <span class="tag t-slide">slide p19</span>.</li>
+</ul>
+
+<div class="grid">
+<figure class="slide"><img src="assets/slides/slide_15.png" alt="slide 15"><figcaption>PDF p.15 / slide p.15 — DTC quantization noise: $T_\text{res}=\ln2\,RC_\text{LSB}$ and $\Phi_\text{DTC,QN}$, the −163 dBc/Hz worked number.</figcaption></figure>
+<figure class="slide"><img src="assets/slides/slide_17.png" alt="slide 17"><figcaption>PDF p.17 / slide p.17 — DTC static distortion: code/slope-dependent INL (parabolic) that becomes fractional spurs.</figcaption></figure>
+</div>
+</div>
+
+<hr>
+
+<h2>(2) Sampling Phase Detector (SPD)</h2>
+
+<div class="card">
+<h3>2. Sampling PD (slope-generator + sample/hold)</h3>
+
+<h4>Purpose</h4>
+<p>
+Replaces the PFD + charge-pump with a <b>sample-and-hold</b> on a voltage slope, giving a much higher phase-detector gain
+$K_\text{SPD}$ so that downstream GM/comparator noise is suppressed and the in-band floor drops below −170 dBc/Hz
+<span class="tag t-slide">slide p20</span>.
+</p>
+
+<h4>Inputs / outputs</h4>
+<ul>
+  <li><b>In:</b> CKDTC (delayed reference edge) gates a slope generator; CKFB sets the sample instant.</li>
+  <li><b>Out:</b> a held voltage $V_\text{smp}$ proportional to the residual phase error, sent to the GM.</li>
+</ul>
+
+<h4>Time-domain model</h4>
+<p>
+The CKFB edge samples a voltage ramp of slope $K_\text{slope}$; the sampled value is held until the next cycle, i.e. a
+<b>zero-order hold</b>. A phase error $\varphi$ at the reference is a time error $\varphi/(2\pi f_\text{ref})$, which the
+slope turns into a voltage $K_\text{slope}\,\varphi/(2\pi f_\text{ref})$. Hence the gain
+<span class="tag t-slide">slide p20</span>:
+</p>
+$$ K_\text{SPD} = \frac{K_\text{slope}}{2\pi\,f_\text{ref}} $$
+<div class="derive">
+With $K_\text{slope}=6$ GV/s and $f_\text{ref}=104$ MHz: $K_\text{slope}/f_\text{ref}=57.7$, so
+$K_\text{SPD}=57.7/(2\pi)=\mathbf{9.19\ V/rad}$ (the slide writes "$57/2\pi$")
+<span class="tag t-slide">slide p20</span> <span class="tag t-derive">derived</span>. This is far larger than the
+effective $K_\text{PD}$ of a PFD-charge-pump, which is precisely why GM/comparator noise is suppressed.
+</div>
+<div class="kpi">
+  <div class="box"><div class="v">6 GV/s</div><div class="l">slope $K_\text{slope}$</div></div>
+  <div class="box"><div class="v">9.19 V/rad</div><div class="l">$K_\text{SPD}$</div></div>
+  <div class="box"><div class="v">≈200 fF</div><div class="l">$C_{I,2}$ → floor &lt;−170 dBc/Hz</div></div>
+</div>
+
+<h4>Frequency-domain model</h4>
+<p>
+Because $V_\text{smp}$ is a ZOH updated once per reference cycle, the SPD behaves as a <b>first-order IIR</b> filter inside
+the loop <span class="tag t-slide">slide p20</span>. For $f\ll f_\text{ref}/2$ we approximate the sampled path by its
+continuous-time equivalent $K_\text{SPD}\cdot \tfrac{1}{1+s/\omega_\text{IIR}}$, with $\omega_\text{IIR}$ near
+$f_\text{ref}\times$(loop gain); a fully rigorous treatment is in the z-domain
+<span class="tag t-derive">derived</span> <span class="tag t-std">textbook (sampled-data PLL)</span>. The
+input-referred SPD+GM noise is white and enters at the reference, so it is low-pass shaped by $H_\text{ref}$.
+</p>
+
+<h4>Non-idealities → jitter mechanism</h4>
+<ul>
+  <li><b>Comparator/GM offset:</b> a static offset shifts the mean of the 1-bit error $e[k]=\operatorname{sign}(\text{PHE})$ away from zero, which biases the sign-LMS calibrations <span class="tag t-slide">slide p27</span>. A 1-bit ΔV-DAC on $V_\text{ref}$ nulls it (the offset cal) <span class="tag t-slide">slide p28</span>.</li>
+  <li><b>SPD+GM thermal floor:</b> contributes the "SPD+GM" slice of the budget — about <b>3.9%</b> of total jitter variance, suppressed by the large $K_\text{SPD}$ <span class="tag t-slide">slide p42</span>.</li>
+</ul>
+
+<figure class="slide"><img src="assets/slides/slide_20.png" alt="slide 20"><figcaption>PDF p.20 / slide p.20 — DTC-assisted PD in an analog PLL: the SPD (sample/hold → 1st-order IIR), $K_\text{SPD}=K_\text{slope}/(2\pi f_\text{ref})$, feeding GM → loop filter → VCO → MMD → DSM.</figcaption></figure>
+</div>
+
+<hr>
+
+<h2>(3) GM transconductor + loop filter</h2>
+
+<div class="card">
+<h3>3. GM + type-II loop filter</h3>
+
+<h4>Purpose</h4>
+<p>
+The transconductor (GM) converts the held SPD voltage into a current that charges the loop-filter capacitors, producing the
+VCO control voltage(s). With the dual-path VCO it drives both a proportional node $V_\text{ctrl,P}$ and an integral node
+$V_\text{ctrl,I}$ (slide 39) — together a <b>type-II</b> loop (zero + pole) <span class="tag t-slide">slide p39</span>.
+</p>
+
+<h4>Inputs / outputs</h4>
+<ul>
+  <li><b>In:</b> $V_\text{smp}$ (relative to $V_\text{ref}$) from the SPD.</li>
+  <li><b>Out:</b> $V_\text{ctrl,P}$ / $V_\text{ctrl,I}$ to the dual-core VCO.</li>
+</ul>
+
+<h4>Time-domain model</h4>
+<p>
+GM is a voltage-controlled current source $i = g_m\,(V_\text{smp}-V_\text{ref})$, integrated onto the loop capacitors. Note
+the GM can be <b>µA-level</b> because its noise is suppressed by the high $K_\text{SPD}$ ahead of it
+<span class="tag t-slide">slide p20</span>.
+</p>
+
+<h4>Frequency-domain model</h4>
+<p>
+The loop filter sets $G_\text{ol}(s)$. For the type-II shape used in the model, with a zero $\omega_z$ (proportional path)
+for phase margin and a pole $\omega_p$ to clean HF ripple <span class="tag t-std">textbook (Gardner)</span>
+<span class="tag t-derive">derived</span>:
+</p>
+$$ G_\text{ol}(s)=K_\text{loop}\,\frac{1+s/\omega_z}{s^{2}\,(1+s/\omega_p)},\qquad
+   \text{PM}=180^\circ+\angle G_\text{ol}(j\omega_c),\quad \omega_c=\sqrt{\omega_z\omega_p}\ \text{(max PM)} $$
+<p>
+The two poles at the origin are the VCO integrator plus the loop integrator (the $V_\text{ctrl,I}$ path). With the design
+knobs $f_c=1.5$ MHz, PM $=60^\circ$ <span class="tag t-assume">assumption [A1][A2]</span>, the model measures
+$f_c=1.501$ MHz <span class="tag t-derive">derived</span>. Loop-filter / PD-output-referred noise sees a band-pass
+$(K_\text{vco}/s)/(1+G_\text{ol})$ <span class="tag t-derive">derived</span>.
+</p>
+
+<h4>Non-idealities → jitter mechanism</h4>
+<ul>
+  <li><b>GM thermal/flicker noise:</b> injected after the SPD; it is divided down by $K_\text{SPD}$ when input-referred, so it is a small slice (bundled into the "SPD+GM" ≈ 3.9% of the budget) <span class="tag t-slide">slide p42</span>.</li>
+  <li><b>Loop-filter resistor noise:</b> band-pass shaped around $f_c$; folded into the type-II response above.</li>
+</ul>
+<div class="assume">
+The deck gives the topology (dual-path type-II, slide 39) but not numeric $R_z$, $C_z$, $C_p$, $g_m$. The loop component
+values are <b>chosen</b> in <code>docs/assumptions.md</code> [A1][A2] to hit $f_c=1.5$ MHz and PM $60^\circ$; treat them as a
+representative design, not a slide fact.
+</div>
+</div>
+
+<hr>
+
+<h2>(4) VCO (dual-core LC)</h2>
+
+<div class="card">
+<h3>4. Voltage-Controlled Oscillator</h3>
+
+<h4>Purpose</h4>
+<p>
+Generates the 6.72 GHz output. As a phase block it is a pure <b>integrator</b>: control voltage → output frequency →
+output phase. It is the dominant noise contributor at <b>≈51.8%</b> of the jitter budget
+<span class="tag t-slide">slide p42</span>.
+</p>
+
+<h4>Inputs / outputs</h4>
+<ul>
+  <li><b>In:</b> $V_\text{ctrl,P}$ / $V_\text{ctrl,I}$.</li>
+  <li><b>Out:</b> CKVCO at $f_\text{out}=6.72$ GHz, divided down by the MMD.</li>
+</ul>
+
+<h4>Time-domain / frequency-domain model</h4>
+<p>
+Frequency is $f=f_0+K_\text{VCO}\,V_\text{ctrl}$ (with $K_\text{VCO}$ in Hz/V); phase is the integral of frequency, so the
+small-signal phase transfer is an integrator <span class="tag t-derive">derived</span>
+<span class="tag t-std">textbook</span>:
+</p>
+$$ \frac{\Phi_\text{vco}(s)}{V_\text{ctrl}(s)} = \frac{2\pi\,K_\text{VCO}}{s} = \frac{K_\text{vco}}{s}\quad(K_\text{vco}\text{ in rad/s/V}) $$
+<p>
+Its own (free-running) phase noise is the white-FM $-20$ dB/dec slope plus a $1/f^3$ flicker region. Through the loop it is
+<b>high-pass</b> filtered:
+</p>
+$$ H_\text{vco}(s)=\frac{1}{1+G_\text{ol}(s)}\quad\Rightarrow\quad \text{LF: suppressed }(\to 0),\ \ \text{HF: passes }(\to 1) $$
+<p>
+So the loop scrubs close-in VCO noise up to $f_c$ and lets far-out VCO noise through — the classic reason a higher $f_c$
+helps VCO noise but hurts reference-domain noise <span class="tag t-derive">derived</span>.
+</p>
+<div class="assume">
+The free-running VCO level (−116.5 dBc/Hz @ 1 MHz, $1/f^3$ corner 150 kHz) is back-solved in
+<code>assumptions.md</code> [A13] to reproduce the slide-42 split (VCO ≈ 51%); the slides give the percentage, not the raw
+curve <span class="tag t-assume">assumption [A13]</span>.
+</div>
+
+<h4>Non-idealities → jitter mechanism</h4>
+<ul>
+  <li><b>VCO duty-cycle error:</b> if the duty cycle ≠ 50%, the two VCO phases used for the ½-range divider are not exactly $T_\text{vco}/2$ apart, $\Delta t_\text{err}=\Delta t-T_\text{vco}/2\neq0$. This injects a <code>SEL_CKFB</code>-correlated error that corrupts $K_\text{DTC}$ and re-creates a spur <span class="tag t-slide">slide p35</span>; the <code>vco_dcc</code> sign-LMS removes it (see block 5) <span class="tag t-slide">slide p36</span>.</li>
+  <li><b>VCO phase noise:</b> the largest single slice of the budget (≈51.8%) — high-pass shaped, dominant beyond $f_c$.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>(5) MMD divider + modified ΣΔ (DSM)</h2>
+
+<div class="card">
+<h3>5. Multi-Modulus Divider + modified DSM (½-range)</h3>
+
+<h4>Purpose</h4>
+<p>
+The MMD divides CKVCO by $/N$ or $/N{+}1$ under control of a <b>modified MASH ΣΔ-modulator</b> to realize the fractional
+ratio. The "modified" part also drives <code>SEL_CKFB</code> to pick between two VCO phases, <b>halving</b> the residual
+quantization-error range the DTC must cover <span class="tag t-slide">slide p34</span>.
+</p>
+
+<h4>Inputs / outputs</h4>
+<ul>
+  <li><b>In:</b> CKVCO; the fractional control word (here $\text{FCW}'=\text{FCW}+\texttt{ckref\_dcc}$, slide 40).</li>
+  <li><b>Out:</b> CKFB to the SPD; the divide sequence $N_\text{DIV}$; the phase select $\text{SEL\_CKFB}\,(\pm1)$; the accumulated quantization error $\Phi_\text{QE}[n]$ that the DTC cancels.</li>
+</ul>
+
+<h4>Time-domain model — DSM quantization-error range</h4>
+<p>
+The MASH order sets how far CKFB wanders, i.e. how much DTC range is needed
+<span class="tag t-slide">slide p6</span>:
+</p>
+<table>
+<thead><tr><th>MASH order</th><th class="num">QE range $\Phi_e$</th></tr></thead>
+<tbody>
+<tr><td>MASH1</td><td class="num">$[-T_\text{vco}/2,\,+T_\text{vco}/2]$</td></tr>
+<tr><td>MASH1-1</td><td class="num">$[-T_\text{vco},\,+T_\text{vco}]$</td></tr>
+<tr><td>MASH1-1-1</td><td class="num">$[-2T_\text{vco},\,+2T_\text{vco}]$</td></tr>
+</tbody>
+</table>
+<p>
+The <b>½-range</b> trick: switching CKFB1 → CKFB2 (= CKFB1 delayed by ½$T_\text{vco}$) via <code>SEL_CKFB</code> folds the QE
+into $\Phi_e\in[0,\,0.5\,T_\text{vco}]$ instead of $[-T_\text{vco}/2,+T_\text{vco}/2]$ — half the range, hence (from block 1)
+lower noise, power, and INL <span class="tag t-slide">slide p34</span>.
+</p>
+
+<h4>Frequency-domain model — DSM noise shaping</h4>
+<p>
+A MASH-$m$ modulator produces high-pass-shaped quantization noise at the divider input
+<span class="tag t-std">textbook (Riley, JSSC 1993)</span>:
+</p>
+$$ S_{Q,\text{DSM}}(f)=\frac{1}{12}\cdot\frac{1}{f_\text{ref}}\big[\,2\sin(\pi f/f_\text{ref})\,\big]^{2m} $$
+<p>
+Referred to output phase it is multiplied by $(2\pi)^2$ (cycles → rad) and then low-pass filtered by the loop — the classic
+"DSM hump." But the DTC cancels the in-band accumulated part (slide 9), so the residual collapses to
+<b>≈0%</b> of the budget (the model applies an ~80 dB cancellation factor)
+<span class="tag t-slide">slide p42</span> <span class="tag t-derive">derived</span>.
+</p>
+
+<h4>The cancellation chain (LMS, slide 40)</h4>
+<p>
+Three sign-LMS integrators share the 1-bit error $e[k]=\operatorname{sign}(\text{PHE})$
+<span class="tag t-slide">slide p40</span> <span class="tag t-std">textbook (Widrow &amp; Stearns)</span>:
+</p>
+<div class="walk">
+<div class="ln">K_DTC[k+1] = K_DTC[k] + μ2·e[k]·Φe[k−n]</div>
+<div class="ex">DTC <b>gain cal</b> — the adaptive weight <i>is</i> $K_\text{DTC}$; main DTC term $=K_\text{DTC}\cdot\Phi_e[n]$ <span class="tag t-slide">slide p26-28</span></div>
+<div class="ln">vco_dcc[k+1] = vco_dcc[k] + μ1·SEL_CKFB[k]·(e[k]−e[k−1])</div>
+<div class="ex"><b>VCO duty-cycle cal</b> — correlating with $\text{SEL\_CKFB}(\pm1)$ isolates the alternating duty error; converges to $\Delta t_\text{err}/2$, added to the DTC code <span class="tag t-slide">slide p36,40</span></div>
+<div class="ln">ckref_dcc[k+1] = ckref_dcc[k] + μ3·even_cycle[k]·(e[k]−e[k−1])</div>
+<div class="ex"><b>CKREF duty-cycle cal</b> — regressor alternates every reference cycle; injected as $\text{FCW}'=\text{FCW}+\texttt{ckref\_dcc}$ before the modified DSM <span class="tag t-slide">slide p40</span></div>
+<div class="ln">Vref_adj[k+1] = Vref_adj[k] + μ_os·e[k]</div>
+<div class="ex"><b>Offset cal</b> — a DC servo driving the mean of $e[k]$ to zero (so the sign-LMS loops are unbiased), via a ΔΣ-dithered 1-bit ΔV-DAC <span class="tag t-slide">slide p28,40</span></div>
+</div>
+<p>
+Final code: $\text{DTC code}=\operatorname{quantize}\!\big(K_\text{DTC}\,\Phi_e[n]+\texttt{vco\_dcc}+\texttt{offset}\big)$,
+all converging in &lt;30 µs even with 20 ps VCO duty error, 32 mV comparator offset, and a 1 ns (57%) CKREF duty error
+injected <span class="tag t-slide">slide p40</span>.
+</p>
+
+<h4>Non-idealities → spur mechanism</h4>
+<ul>
+  <li><b>Uncancelled DSM QE:</b> would show as a fractional-spur hump; suppressed to ≈0 by the DTC + cals.</li>
+  <li><b>MMD input-referred noise:</b> the divider's own thermal/flicker, the "MMD" slice ≈ <b>6.2%</b> of the budget — distinct from DSM QN <span class="tag t-slide">slide p42</span>.</li>
+  <li><b>VCO / CKREF duty errors:</b> create <code>SEL_CKFB</code>- / even-cycle-correlated tones; removed by <code>vco_dcc</code> / <code>ckref_dcc</code> above.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Putting the blocks together: the budget they produce</h2>
+<p>
+Stacking each block's input-referred PSD through its NTF gives the output phase-noise budget below, which reproduces slide 42.
+The integrated jitter is <b>87.6 fs</b> <span class="tag t-derive">model</span> ≈ 87.5 fs <span class="tag t-slide">slide p42</span>,
+with IPN $-51.6$ dBc <span class="tag t-derive">model</span> ≈ $-51.7$ dBc <span class="tag t-slide">slide p42</span>
+(SSB convention $\mathrm{IPN}=10\log_{10}(\tfrac{1}{2}\sigma_\phi^2)$, matching <code>utils.ipn_dbc</code> ssb=True).
+</p>
+
+<table>
+<thead><tr><th>Block</th><th class="num">Budget share</th><th>Shaped by</th><th>Dominant mechanism</th></tr></thead>
+<tbody>
+<tr><td>VCO</td><td class="num">51.8%</td><td>$H_\text{vco}$ (high-pass)</td><td>free-running $1/f^2$/$1/f^3$ PN beyond $f_c$</td></tr>
+<tr><td>REF + DTC</td><td class="num">~37.8%</td><td>$H_\text{ref}$ (low-pass)</td><td>CKREF floor/flicker + DTC QN (−163) &amp; thermal (−171)</td></tr>
+<tr><td>MMD</td><td class="num">6.2%</td><td>$H_\text{ref}$</td><td>divider input-referred thermal/flicker</td></tr>
+<tr><td>SPD + GM</td><td class="num">3.9%</td><td>$H_\text{ref}$</td><td>SPD/GM floor, suppressed by $K_\text{SPD}$</td></tr>
+<tr><td>DSM-QN</td><td class="num">~0.3%</td><td>$H_\text{ref}$ × $(1{-}z^{-1})^m$</td><td>cancelled by DTC (slide 9)</td></tr>
+</tbody>
+</table>
+
+<figure><img src="assets/figures/fd_phase_noise_budget.png" alt="output phase-noise budget at 6.72 GHz">
+<figcaption>Output phase-noise budget at 6.72 GHz from <code>frequency_domain_model.py</code> — VCO high-pass, all reference-domain blocks low-pass, DSM-QN suppressed. Reproduces slide 42 (TOTAL 87.6 fs, IPN −51.6 dBc).</figcaption></figure>
+
+<div class="cite">
+<b>Sources.</b> Deck: <i>Design of DTC-Assisted High Performance Fractional-N PLLs</i>, W. Wu (Samsung), 2024-11-10,
+slides 5, 6, 9, 15–20, 26–28, 33–36, 39–42. Project docs: <code>docs/slide_inventory.md</code>,
+<code>docs/derivations.md</code> (§1–9). Model: <code>models/frequency_domain_model.py</code>
+(NTFs, jitter budget). Standard theory named inline (Gardner, Razavi, Bennett, Riley JSSC 1993, Widrow &amp; Stearns).
+</div>

@@ -1,0 +1,220 @@
+<h1>Numerical Examples</h1>
+<p class="lead">A consolidated, fully worked set of the seven number-checkable calculations behind the DTC-assisted fractional-N PLL — each shown as GIVEN → FORMULA → CALCULATION → RESULT → INTERPRETATION, with every figure traced back to the deck, the derivations, or the model JSON.</p>
+
+<div class="note">
+<b>How to read this page.</b> Each card is a self-contained worked example. The <i>FORMULA</i> row is the symbolic relation (provenance tagged), the <i>CALCULATION</i> row substitutes the verified inputs, and the <i>RESULT</i> row is what the model reproduces. The summary KPIs below are the anchors everything ties back to — all cross-checked against <span class="tag t-slide">slide p42</span> and <code>freq_domain.json</code>.
+</div>
+
+<div class="kpi">
+  <div class="box"><div class="v">6.72 GHz</div><div class="l">f_out</div></div>
+  <div class="box"><div class="v">104 MHz</div><div class="l">f_ref</div></div>
+  <div class="box"><div class="v">64.62</div><div class="l">N (fractional)</div></div>
+  <div class="box"><div class="v">1.50 MHz</div><div class="l">loop BW f_c</div></div>
+  <div class="box"><div class="v">60&deg;</div><div class="l">phase margin</div></div>
+  <div class="box"><div class="v">87.6 fs</div><div class="l">total RMS jitter</div></div>
+  <div class="box"><div class="v">&minus;51.6 dBc</div><div class="l">IPN (SSB)</div></div>
+</div>
+
+<h2>1 &mdash; DTC quantization noise floor</h2>
+<div class="card">
+<h4>GIVEN</h4>
+<p>Time resolution <span class="tag t-slide">slide p15</span> <span class="tag t-need">needs citation</span> (target spec) $T_{res} = 400\ \text{fs}$; reference rate <span class="tag t-slide">slide p42</span> $f_{ref} = 104\ \text{MHz}$. The DTC quantizes the reference edge once per reference cycle, so its timing error is white over the Nyquist band.</p>
+<h4>FORMULA <span class="tag t-slide">slide p15</span> <span class="tag t-derive">derived</span></h4>
+<p>A uniform time quantizer of step $T_{res}$ has timing variance $\sigma_t^2 = T_{res}^2/12$ <span class="tag t-std">textbook (Bennett quantization)</span>. Converting to reference phase via $\varphi = 2\pi f_{ref}\,\Delta t$ and spreading the variance over the full Nyquist span $f_{ref}$ gives the flat single-sided PSD:</p>
+$$\Phi_{\text{DTC,QN}} = \frac{(2\pi\,T_{res})^2}{12}\,f_{ref}\qquad[\text{rad}^2/\text{Hz}]$$
+<h4>CALCULATION <span class="tag t-derive">derived</span></h4>
+$$\frac{(2\pi\cdot 400\times10^{-15})^2}{12}\cdot 104\times10^{6}
+= \frac{(2.513\times10^{-12})^2}{12}\cdot 1.04\times10^{8}$$
+$$= \frac{6.317\times10^{-24}}{12}\cdot 1.04\times10^{8}
+= 5.264\times10^{-25}\cdot 1.04\times10^{8} = 5.47\times10^{-17}$$
+$$\mathcal{L}_{\text{DTC,QN}} = 10\log_{10}(5.47\times10^{-17}) = -162.6\ \text{dBc/Hz}$$
+<h4>RESULT</h4>
+<div class="kpi">
+  <div class="box"><div class="v">5.47e-17</div><div class="l">rad&sup2;/Hz</div></div>
+  <div class="box"><div class="v">&minus;162.6</div><div class="l">computed dBc/Hz</div></div>
+  <div class="box"><div class="v">&minus;163</div><div class="l">slide p15 value</div></div>
+</div>
+<h4>INTERPRETATION</h4>
+<p>The 0.4-dB gap (&minus;162.6 vs &minus;163) is rounding in the slide. The PLL <code>freq_domain.json</code> carries <code>dtc_qn_dbc = -163.0</code> as the modeled in-band DTC quantization floor. Because $\Phi_{\text{DTC,QN}}\propto T_{res}^2$, halving the LSB drops this floor by 6 dB — the motivation for the range-reduction tricks (slides 33/34/38).</p>
+<div class="warn"><b>&plusmn;3 dB convention flag.</b> Whether you normalize the variance by $f_{ref}$ (double-sided over $[-f_{ref}/2,\,f_{ref}/2]$) or by $f_{ref}/2$ (single-sided) is a factor-of-2 (3 dB) choice <span class="tag t-need">needs citation</span>. We adopt the slide's $(2\pi T_{res})^2/12\cdot f_{ref}$ form because it is what reproduces &minus;163 dBc/Hz; the single/double-sided ambiguity recurs throughout (see Example 5).</div>
+</div>
+
+<h2>2 &mdash; DTC delay range</h2>
+<div class="card">
+<h4>GIVEN <span class="tag t-slide">slide p15</span></h4>
+<p>Resolution per LSB $T_{res} = 400\ \text{fs}$; DTC word width $n = 10\ \text{bits}$.</p>
+<h4>FORMULA <span class="tag t-slide">slide p15</span> <span class="tag t-slide">slide p33</span></h4>
+$$DR = 2^{n}\cdot T_{res} = 2^{n}\cdot \ln 2\cdot R\cdot C_{LSB}$$
+<h4>CALCULATION</h4>
+$$DR = 2^{10}\cdot 400\times10^{-15} = 1024\cdot 4.0\times10^{-13} = 4.096\times10^{-10}\ \text{s}$$
+<h4>RESULT</h4>
+<div class="kpi">
+  <div class="box"><div class="v">409.6 ps</div><div class="l">computed range</div></div>
+  <div class="box"><div class="v">&asymp;400 ps</div><div class="l">slide p15</div></div>
+</div>
+<h4>INTERPRETATION</h4>
+<p>The DTC must span at least one reference-edge interval of fractional slip; ~400&nbsp;ps with 10-bit resolution gives 400-fs LSBs. Since DTC power $\propto DR^2$ and DTC QN $\propto T_{res}^2$ <span class="tag t-slide">slide p33</span>, the design wants the <i>smallest</i> range that still covers the required edge motion — exactly why the ½-range (p34) and ⅛-range (p38) schemes exist.</p>
+</div>
+
+<h2>3 &mdash; Sampling phase-detector gain $K_{SPD}$</h2>
+<div class="card">
+<h4>GIVEN <span class="tag t-slide">slide p20</span></h4>
+<p>Slope of the sampled waveform at the sampling instant $K_{slope} = 6\ \text{GV/s}$ <span class="tag t-need">needs citation</span> (slide quotes "6 GV/s"); $f_{ref} = 104\ \text{MHz}$.</p>
+<h4>FORMULA <span class="tag t-slide">slide p20</span></h4>
+$$K_{SPD} = \frac{K_{slope}}{2\pi f_{ref}}\qquad[\text{V/rad}]$$
+<p>Reasoning: a phase error $\varphi$ rad at the reference equals a time error $\varphi/(2\pi f_{ref})$ s, which the slope converts to a sampled voltage $K_{slope}\cdot\varphi/(2\pi f_{ref}) = K_{SPD}\,\varphi$.</p>
+<h4>CALCULATION <span class="tag t-derive">derived</span></h4>
+$$\frac{K_{slope}}{f_{ref}} = \frac{6\times10^{9}}{104\times10^{6}} = 57.7\qquad\Rightarrow\qquad K_{SPD} = \frac{57.7}{2\pi} = 9.18\ \text{V/rad}$$
+<h4>RESULT</h4>
+<div class="kpi">
+  <div class="box"><div class="v">57.7</div><div class="l">K_slope / f_ref</div></div>
+  <div class="box"><div class="v">9.18 V/rad</div><div class="l">K_SPD</div></div>
+  <div class="box"><div class="v">"57/2&pi;"</div><div class="l">slide p20 (rounded)</div></div>
+</div>
+<h4>INTERPRETATION</h4>
+<p>The large $K_{SPD}\approx 9.2$ V/rad is the whole point of the sampling PD: it provides high "phase-to-voltage" gain so that the downstream GM/comparator noise, referred to the input phase, is divided by this gain and becomes negligible (it lands at only ~3.9% of the budget — see Example 5).</p>
+</div>
+
+<h2>4 &mdash; Loop design: zero/pole from $f_c$ and PM</h2>
+<div class="card">
+<h4>GIVEN <span class="tag t-assume">assumption [A1][A2]</span></h4>
+<p>Crossover (loop bandwidth) $f_c = 1.5\ \text{MHz}$ <span class="tag t-assume">[A1]</span>, phase margin $\text{PM} = 60^\circ$ <span class="tag t-assume">[A2]</span> (slide 42 gives no loop numbers). From <code>freq_domain.json</code>: $K_{vco}=100$ MHz/V, $N=64.62$, DSM order 2.</p>
+<h4>FORMULA <span class="tag t-std">textbook (Gardner, max-PM placement)</span> <span class="tag t-derive">derived</span></h4>
+<p>For a Type-II loop the PM is maximized when the crossover sits at the geometric mean of zero and pole, $\omega_c = \sqrt{\omega_z\,\omega_p}$. Defining the spacing factor $k = \omega_p/\omega_z$ in terms of PM:</p>
+$$k = \tan\!\left(45^\circ + \tfrac{\text{PM}}{2}\right) = \tan(75^\circ),\qquad
+\omega_z = \frac{\omega_c}{k},\quad \omega_p = \omega_c\,k$$
+<h4>CALCULATION <span class="tag t-derive">derived</span></h4>
+$$k = \tan(75^\circ) = 3.732 \;\Rightarrow\; \omega_p/\omega_z = k^2 = 13.93$$
+$$f_z = \frac{1.5\ \text{MHz}}{3.732} = 402\ \text{kHz},\qquad f_p = 1.5\ \text{MHz}\times 3.732 = 5.60\ \text{MHz}$$
+<p>Matched against the model parameters in <code>freq_domain.json</code>:</p>
+<table>
+<thead><tr><th>Quantity</th><th class="num">rad/s (json)</th><th class="num">Hz</th></tr></thead>
+<tbody>
+<tr><td>$\omega_z$</td><td class="num">2.5254e6</td><td class="num">401.9 kHz</td></tr>
+<tr><td>$\omega_p$</td><td class="num">3.5174e7</td><td class="num">5.598 MHz</td></tr>
+<tr><td>$\sqrt{\omega_z\omega_p}/2\pi$</td><td class="num">&mdash;</td><td class="num">1.500 MHz</td></tr>
+</tbody>
+</table>
+<h4>RESULT</h4>
+<div class="kpi">
+  <div class="box"><div class="v">3.732</div><div class="l">k = tan75&deg;</div></div>
+  <div class="box"><div class="v">402 kHz</div><div class="l">f_z</div></div>
+  <div class="box"><div class="v">5.60 MHz</div><div class="l">f_p</div></div>
+  <div class="box"><div class="v">1.501 MHz</div><div class="l">measured f_c</div></div>
+  <div class="box"><div class="v">60.0&deg;</div><div class="l">measured PM</div></div>
+</div>
+<h4>INTERPRETATION</h4>
+<p>Placing the zero a factor $k=3.732$ below crossover and the pole the same factor above puts the maximum phase bump right at $f_c$, yielding exactly 60&deg; PM. The model's solved loop ($K_{loop}=2.38\times10^{13}$) reproduces <code>f_c_Hz = 1.501 MHz</code> and <code>phase_margin_deg = 60.0</code> from <code>freq_domain.json</code> — a clean self-consistency check of the open-loop gain.</p>
+<figure><img src="assets/figures/fd_bode.png" alt="open-loop Bode plot showing crossover at 1.5 MHz and 60 degree phase margin"><figcaption>Open-loop Bode — crossover at 1.501 MHz, PM 60&deg;. Source: frequency-domain model (freq_domain.json), construction per <span class="tag t-slide">slide p5</span>.</figcaption></figure>
+</div>
+
+<h2>5 &mdash; Jitter budget &rarr; integrated phase noise</h2>
+<div class="card">
+<h4>GIVEN <span class="tag t-slide">slide p42</span></h4>
+<p>$f_{out} = 6.72\ \text{GHz}$; total RMS jitter $\sigma_t = 87.6\ \text{fs}$ from the summed budget. Per-source contributions from <code>freq_domain.json</code>.</p>
+<h4>FORMULA <span class="tag t-std">textbook (IEEE-1139 / Leeson, small-angle)</span> <span class="tag t-derive">derived</span></h4>
+$$\sigma_\varphi = 2\pi f_{out}\,\sigma_t,\qquad
+\text{IPN}_{\text{SSB}}(\text{dBc}) = 10\log_{10}\!\left(\tfrac{1}{2}\sigma_\varphi^2\right)$$
+<p>The $\tfrac{1}{2}$ is the single-sideband-from-double-sideband conversion (it removes 3 dB versus the DSB form $10\log_{10}\sigma_\varphi^2$).</p>
+<h4>CALCULATION <span class="tag t-derive">derived</span></h4>
+$$\sigma_\varphi = 2\pi\cdot 6.72\times10^{9}\cdot 87.6\times10^{-15} = 3.699\times10^{-3}\ \text{rad}$$
+$$\sigma_\varphi^2 = 1.368\times10^{-5}\ \text{rad}^2$$
+$$\text{IPN}_{\text{SSB}} = 10\log_{10}\!\left(\tfrac{1}{2}\cdot1.368\times10^{-5}\right) = -51.65\ \text{dBc}$$
+<p>(The DSB value would be $10\log_{10}(1.368\times10^{-5}) = -48.6$ dBc — the same 3-dB convention as Example 1.)</p>
+<h4>RESULT &mdash; the reproduced budget</h4>
+<table>
+<thead><tr><th>Source</th><th class="num">&sigma;&phi; (rad)</th><th class="num">jitter (fs)</th><th class="num">share</th></tr></thead>
+<tbody>
+<tr><td>VCO</td><td class="num">2.662e-3</td><td class="num">63.06</td><td class="num">51.8%</td></tr>
+<tr><td>REF</td><td class="num">1.900e-3</td><td class="num">44.99</td><td class="num">26.4%</td></tr>
+<tr><td>DTC</td><td class="num">1.249e-3</td><td class="num">29.58</td><td class="num">11.4%</td></tr>
+<tr><td>MMD</td><td class="num">9.218e-4</td><td class="num">21.83</td><td class="num">6.2%</td></tr>
+<tr><td>SPD+GM</td><td class="num">7.322e-4</td><td class="num">17.34</td><td class="num">3.9%</td></tr>
+<tr><td>DSM-QN (cancelled)</td><td class="num">1.895e-4</td><td class="num">4.49</td><td class="num">0.3%</td></tr>
+<tr><td><b>TOTAL</b></td><td class="num"><b>3.699e-3</b></td><td class="num"><b>87.60</b></td><td class="num"><b>100%</b></td></tr>
+</tbody>
+</table>
+<div class="kpi">
+  <div class="box"><div class="v">87.6 fs</div><div class="l">total &sigma;_t</div></div>
+  <div class="box"><div class="v">&minus;51.65 dBc</div><div class="l">IPN (SSB, computed)</div></div>
+  <div class="box"><div class="v">&minus;51.6 dBc</div><div class="l">slide p42 / json</div></div>
+</div>
+<h4>INTERPRETATION</h4>
+<p>The computed &minus;51.65 dBc matches <code>freq_domain.json</code>'s <code>ipn_dbc_ssb = -51.65</code> and slide 42 (quoted &minus;51.6 / &minus;51.7) to within rounding. Sources add in RMS (variances sum): $\sigma_{tot}^2 = \sum_i \sigma_i^2$. The VCO dominates at ~52% because its phase noise is only high-pass-suppressed inside the loop bandwidth and passes unfiltered above $f_c$; REF + DTC together (~37.8%) are the next lever; the DSM quantization noise is nearly fully cancelled by the DTC (0.3%), which is the central claim of the architecture.</p>
+<figure><img src="assets/figures/fd_jitter_pie.png" alt="pie chart of jitter budget by source"><figcaption>Jitter budget by source — reproduces <span class="tag t-slide">slide p42</span>. Source: freq_domain.json.</figcaption></figure>
+<figure><img src="assets/figures/fd_phase_noise_budget.png" alt="phase noise PSD per source vs offset frequency"><figcaption>Per-source phase-noise PSD vs offset; the integral of the total over 1 kHz&ndash;100 MHz gives 87.6 fs. Source: freq_domain.json, NTFs per <span class="tag t-derive">derivations &sect;2</span>.</figcaption></figure>
+</div>
+
+<h2>6 &mdash; Calibration convergence</h2>
+<div class="card">
+<h4>GIVEN <span class="tag t-slide">slide p40</span> &mdash; all four loops must settle in &lt; 30 &micro;s</h4>
+<p>Initial $K_{DTC}$ error <span class="tag t-assume">assumption</span> [see docs/assumptions.md] = 10% of a 1000-code nominal &rarr; 100 codes of error. Each loop uses a sign-sign-LMS update <span class="tag t-std">textbook (Widrow &amp; Stearns)</span>:</p>
+$$w[k+1] = w[k] + \mu\cdot\operatorname{sign}(e[k])\cdot\operatorname{sign}(x[k])$$
+<h4>FORMULA / MECHANISM <span class="tag t-slide">slide p26-28,35-36,40</span> <span class="tag t-derive">derived</span></h4>
+<p>For the DTC-gain loop, $E\{e\cdot\Phi_e\}\propto(g-\hat g)E\{\Phi_e^2\}$, giving a first-order recursion with time constant $\tau\approx 1/(\mu\,E\{\Phi_e^2\}\,2f_{ref}\,\eta)$, so the gain estimate decays exponentially to truth. The duty-cycle loops correlate $e[k]$ against a deterministic $\pm1$ regressor ($\texttt{SEL\_CKFB}$ for VCO duty, $\texttt{even\_cycle}$ for CKREF) to isolate the alternating error from random noise.</p>
+<h4>RESULT &mdash; from <code>calibrations.json</code></h4>
+<table>
+<thead><tr><th>Loop</th><th class="num">settle (&micro;s)</th><th class="num">target</th><th class="num">final</th></tr></thead>
+<tbody>
+<tr><td>$K_{DTC}$ gain</td><td class="num">6.68</td><td class="num">&mdash;</td><td class="num">0.0001% err</td></tr>
+<tr><td>VCO duty (vco_dcc)</td><td class="num">1.00</td><td class="num">10 ps</td><td class="num">9.6 ps</td></tr>
+<tr><td>CKREF duty (ckref_dcc)</td><td class="num">0.98</td><td class="num">0.337 ns</td><td class="num">0.350 ns</td></tr>
+<tr><td>Comparator offset</td><td class="num">14.63</td><td class="num">32 mV</td><td class="num">33.12 mV</td></tr>
+</tbody>
+</table>
+<div class="kpi">
+  <div class="box"><div class="v">6.7 &micro;s</div><div class="l">K_DTC settle</div></div>
+  <div class="box"><div class="v">14.6 &micro;s</div><div class="l">offset settle (slowest)</div></div>
+  <div class="box"><div class="v">&lt; 30 &micro;s</div><div class="l">slide p40 budget</div></div>
+</div>
+<h4>VCO duty-cycle worked point <span class="tag t-derive">derived</span></h4>
+<p>For a duty error of 20 ps, the correction drives $\texttt{vco\_dcc}\to\Delta t_{err}/2 = 10$ ps (push/pull $\pm\Delta t_{err}/2$ on alternate feedback edges). The model converges to 9.6 ps against the 10-ps target in ~1 &micro;s — confirming the half-step law.</p>
+<h4>INTERPRETATION</h4>
+<p>The slowest loop (offset, 14.6 &micro;s) still finishes inside the 30-&micro;s budget, so the staggered cal scheme of slide 40 closes. Note the residual <code>offset_bias_pct = 22.6%</code> on the raw DTC-gain loop is exactly the bias term $\mu\,m\,E\{\Phi_e\}$ that the $\Delta V$-DAC offset cal (slide 28) is there to remove.</p>
+<figure><img src="assets/figures/cal_background_all.png" alt="convergence traces of all four background calibration loops"><figcaption>All four background loops settling within 30 &micro;s. Source: calibrations.json, <span class="tag t-slide">slide p40</span>.</figcaption></figure>
+</div>
+
+<div class="card">
+<h4>Bonus &mdash; polynomial nonlinearity correction (NLC) <span class="tag t-slide">slide p31</span></h4>
+<p>Three parallel LMS loops adapt $g_1,g_2,g_3$ in $D_{DCW}=g_1 D_{AQ}+g_2 D_{AQ}^2+g_3 D_{AQ}^3$. From <code>calibrations.json</code>, peak integral nonlinearity falls from <b>0.220 LSB</b> to <b>1.1e-4 LSB</b> (effectively zero) after convergence.</p>
+<div class="kpi">
+  <div class="box"><div class="v">0.220</div><div class="l">peak INL before</div></div>
+  <div class="box"><div class="v">&asymp;0</div><div class="l">peak INL after (1.1e-4)</div></div>
+</div>
+<figure><img src="assets/figures/cal_polynomial_nlc.png" alt="INL curve before and after polynomial nonlinearity correction"><figcaption>Polynomial NLC flattens DTC INL from 0.22 LSB to ~0. Source: calibrations.json, <span class="tag t-slide">slide p31</span>.</figcaption></figure>
+</div>
+
+<h2>7 &mdash; Time-domain &harr; frequency-domain cross-check</h2>
+<div class="card">
+<h4>GIVEN <span class="tag t-derive">derived</span></h4>
+<p>Two independent models compute the same RMS jitter over the same band <b>1 kHz &ndash; 49.4 MHz</b> ($\approx 0.95\cdot f_{ref}/2$, i.e. a 5% guard below the 52 MHz Nyquist edge, from <code>time_domain.json</code>):</p>
+<ul>
+<li>Time-domain Monte-Carlo of the phase-error sequence &rarr; std of $\varphi[k]$.</li>
+<li>Frequency-domain integral of the Welch PSD &rarr; $\sigma_t=\sqrt{\int S_\varphi\,df}/(2\pi f_{out})$.</li>
+</ul>
+<h4>FORMULA <span class="tag t-std">textbook (Welch 1967 / Parseval)</span></h4>
+$$S_\varphi(f) = \frac{2}{f_s M U}\,\big|\text{FFT}(w\cdot\varphi)\big|^2,\qquad \int S_\varphi\,df \approx \operatorname{var}(\varphi)$$
+<h4>RESULT &mdash; from <code>time_domain.json</code></h4>
+<table>
+<thead><tr><th>Check</th><th class="num">value</th></tr></thead>
+<tbody>
+<tr><td>Jitter (time-domain std)</td><td class="num">88.22 fs</td></tr>
+<tr><td>Jitter (PSD integral, same band)</td><td class="num">87.44 fs</td></tr>
+<tr><td>Difference</td><td class="num">+0.039 dB</td></tr>
+<tr><td>Parseval: var(&phi;) time</td><td class="num">1.498e-5 rad&sup2;</td></tr>
+<tr><td>Parseval: var(&phi;) PSD</td><td class="num">1.428e-5 rad&sup2;</td></tr>
+</tbody>
+</table>
+<div class="kpi">
+  <div class="box"><div class="v">88.2 fs</div><div class="l">time domain</div></div>
+  <div class="box"><div class="v">87.4 fs</div><div class="l">freq domain</div></div>
+  <div class="box"><div class="v">+0.04 dB</div><div class="l">agreement</div></div>
+</div>
+<h4>INTERPRETATION</h4>
+<p>The two estimators agree to &lt; 0.05 dB and the Parseval variances match to ~5%, validating both the PSD normalization and the NTF construction. The ~0.8-fs offset between the two is the finite-FFT / windowing residual, well inside the &le; 0.5-dB sanity threshold set in <span class="tag t-derive">derivations &sect;9</span>. The slightly higher time-domain figure (88.2 vs the freq-domain budget's 87.6 fs in Example 5) reflects the different integration band edge (49.4 MHz $\approx 0.95\cdot f_{ref}/2$ here, vs 100 MHz in the budget) and Monte-Carlo variance.</p>
+<figure><img src="assets/figures/td_phase_noise.png" alt="time-domain derived phase noise PSD overlaid with frequency-domain model"><figcaption>Time-domain PSD vs frequency-domain model overlay. Source: time_domain.json, cross-check per <span class="tag t-derive">derivations &sect;9</span>.</figcaption></figure>
+</div>
+
+<div class="cite">
+<b>Provenance summary.</b> Slide values: $f_{out},f_{ref},N$, budget &amp; IPN <span class="tag t-slide">slide p42</span>; $T_{res}$, DR, DTC QN <span class="tag t-slide">slide p15</span>; $K_{SPD}$ <span class="tag t-slide">slide p20</span>; cal timing &amp; NLC <span class="tag t-slide">slide p26-40</span>. Derived/model numbers: <code>freq_domain.json</code>, <code>calibrations.json</code>, <code>time_domain.json</code>, and <code>docs/derivations.md</code> (&sect;3 DTC QN, &sect;6 $K_{SPD}$, &sect;7 cal, &sect;8 jitter conversions, &sect;9 cross-check). Standard theory named inline: Bennett quantization, Gardner/Razavi loop design, Widrow &amp; Stearns LMS, Welch PSD, IEEE-1139/Leeson phase-noise conventions.
+</div>

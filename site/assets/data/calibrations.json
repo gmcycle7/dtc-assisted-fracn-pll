@@ -1,0 +1,26 @@
+{
+  "dtc_gain": {
+    "settle_us": 6.6826923076923075,
+    "final_err_pct": 0.0001423251769892886,
+    "offset_bias_pct": 22.625616399613794
+  },
+  "vco_dcc": {
+    "settle_us": 1.0,
+    "target_ps": 10.0,
+    "final_ps": 9.6
+  },
+  "ckref_dcc": {
+    "settle_us": 0.9807692307692308,
+    "target_ns": 0.33653846153846156,
+    "final_ns": 0.35000000000000014
+  },
+  "offset": {
+    "settle_us": 14.625,
+    "target_mv": 32.0,
+    "final_mv": 33.12
+  },
+  "nlc": {
+    "inl_pk_before": 0.22,
+    "inl_pk_after": 0.00010653763043266123
+  }
+}

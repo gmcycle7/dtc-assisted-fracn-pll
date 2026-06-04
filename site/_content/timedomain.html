@@ -1,0 +1,168 @@
+<h1>Time-Domain Noise Analysis</h1>
+<p class="lead">A discrete-time, sample-by-sample simulation of the DTC-assisted fractional-N PLL that injects each physical noise source at its real node, lets the loop shape it, then extracts phase noise and jitter — and reproduces the frequency-domain budget (88.2 fs vs 87.4 fs) as an independent cross-check.</p>
+
+<div class="note">
+<b>Why build a time-domain model at all?</b> The frequency-domain model (Page 6) multiplies each source PSD by an analytic noise transfer function (NTF). That is fast but it <em>assumes</em> the NTFs and the small-angle linearization. The time-domain model makes no such assumption: it runs the actual difference equations of the loop, sample by sample, with noise sequences that have the right statistics. If the two models agree (they do, to <span class="tag t-derive">derived</span> +0.08 dB), each validates the other. This page is "Section H.4 — cross-check" of the brief, plus the source-model and sanity-check sections.
+</div>
+
+<div class="kpi">
+  <div class="box"><div class="v">88.2 fs</div><div class="l">time-domain RMS jitter</div></div>
+  <div class="box"><div class="v">87.4 fs</div><div class="l">freq-domain, same band</div></div>
+  <div class="box"><div class="v">+0.08 dB</div><div class="l">cross-check difference</div></div>
+  <div class="box"><div class="v">104 MHz</div><div class="l">sample rate $f_{ref}$ (Nyquist 52 MHz)</div></div>
+</div>
+
+<h2>A. The noise-source models</h2>
+<p>
+Every noise mechanism in the PLL is a <em>random process</em> with a characteristic spectral shape. In the time domain we cannot inject a PSD directly — we must synthesize a sample sequence whose PSD matches the target. The recipe is always the same three steps: (1) pick the spectral <b>type</b>, (2) generate samples and <b>scale</b> them so the realized PSD hits the target level, (3) inject as a <b>phase</b> at the correct loop node, where the loop turns it into output phase and ultimately jitter. The conversions are standard <span class="tag t-derive">derived</span> in <i>derivations.md</i> §8–9.
+</p>
+
+<p>The model is sampled once per reference cycle, so the simulated Nyquist band is $f_{ref}/2 = 52$ MHz. A <b>white</b> phase source with single-sided PSD $S_\varphi$ [rad²/Hz] must therefore carry total variance spread over that band <span class="tag t-derive">derived</span>:</p>
+$$\sigma_\varphi^2 \;=\; S_\varphi \cdot \frac{f_{ref}}{2}, \qquad S_\varphi = 2\cdot 10^{\,\mathcal{L}/10}$$
+<p>so a target of $\mathcal{L}=-160$ dBc/Hz on a 104-MHz grid becomes a Gaussian sequence with $\sigma_\varphi=\sqrt{2\cdot10^{-16}\cdot 52\times10^6}\approx 1.02\times10^{-4}$ rad per sample. (This exact scaling is checked by <code>test_noise_rms_scaling</code> to within 1.5 dB — see §F.) <span class="tag t-std">DSP — Welch / Parseval</span></p>
+
+<div class="grid">
+  <div class="card">
+    <h4>Reference (CKREF)</h4>
+    <p><b>Type:</b> white floor + flicker (1/f). <b>PSD units:</b> rad²/Hz.</p>
+    <p><b>Generated:</b> <code>gen_white_phase</code> (Gaussian, flat) plus <code>gen_flicker_phase</code> (white shaped by $f^{-a/2}$ in the FFT domain, −10 dB/dec slope). <b>Scaled:</b> flicker normalized so $S_\varphi(10\,\text{kHz})$ hits the anchor. <b>Levels:</b> floor $-168$ dBc/Hz, flicker $-143.5$ dBc/Hz @ 10 kHz <span class="tag t-assume">assumption</span>[A12]. <b>Node:</b> reference input → low-pass NTF $\times N$.</p>
+  </div>
+  <div class="card">
+    <h4>VCO</h4>
+    <p><b>Type:</b> white-FM (−20 dB/dec, random-walk phase) + 1/f³ flicker. <b>PSD units:</b> rad²/Hz.</p>
+    <p><b>Generated:</b> <code>gen_vco_phase</code> integrates white frequency steps (<code>cumsum</code>) → 1/f² phase, adds a flicker bump below the corner. <b>Scaled:</b> normalized to $S_\varphi(1\,\text{MHz})$. <b>Levels:</b> $-116.5$ dBc/Hz @ 1 MHz, corner 150 kHz <span class="tag t-assume">assumption</span>[A13]. <b>Node:</b> VCO accumulator → high-pass NTF (loop suppresses it at low offset).</p>
+  </div>
+  <div class="card">
+    <h4>DTC (QN + thermal)</h4>
+    <p><b>Type:</b> two white sources. <b>PSD units:</b> rad²/Hz.</p>
+    <p><b>Generated:</b> two <code>gen_white_phase</code> draws summed. <b>Levels:</b> quantization $-163$ dBc/Hz <span class="tag t-slide">slide p15</span>, thermal $-171$ dBc/Hz <span class="tag t-slide">slide p16</span>. The QN floor follows $\Phi_{DTC,QN}=\frac{(2\pi T_{res})^2}{12}f_{ref}$ with $T_{res}=400$ fs <span class="tag t-derive">derived</span> (§3). <b>Node:</b> reference path → same low-pass NTF as CKREF.</p>
+  </div>
+  <div class="card">
+    <h4>SPD + GM</h4>
+    <p><b>Type:</b> white, input-referred. <b>PSD units:</b> rad²/Hz.</p>
+    <p><b>Generated:</b> one <code>gen_white_phase</code>. <b>Level:</b> $-167$ dBc/Hz <span class="tag t-slide">slide p20</span>/<span class="tag t-assume">assumption</span>[A15]. The large $K_{SPD}=K_{slope}/(2\pi f_{ref})=9.19$ V/rad <span class="tag t-slide">slide p20</span> is precisely <em>why</em> this floor is low — comparator/GM noise divides by the steep sampling slope. <b>Node:</b> at the phase detector output.</p>
+  </div>
+  <div class="card">
+    <h4>MMD (divider)</h4>
+    <p><b>Type:</b> white, input-referred. <b>PSD units:</b> rad²/Hz.</p>
+    <p><b>Generated:</b> one <code>gen_white_phase</code>. <b>Level:</b> $-165$ dBc/Hz <span class="tag t-assume">assumption</span>[A12]/<span class="tag t-slide">slide p42</span>. <b>Node:</b> added at the $\div N$ feedback output, so it shares the reference-like low-pass NTF.</p>
+  </div>
+  <div class="card">
+    <h4>DSM quantization noise</h4>
+    <p><b>Type:</b> high-pass-shaped (MASH-$m$) at the divider. <b>PSD units:</b> cycles²/Hz: $S=\frac{1}{12 f_{ref}}\big[2\sin(\pi f/f_{ref})\big]^{2m}$ <span class="tag t-std">DSM — Riley JSSC'93</span>. <b>Node:</b> feedback. <b>But:</b> the DTC <em>cancels</em> the in-band DSM QN (slide 9), so the model does not inject it — its residual is ≈0% in the budget. <span class="tag t-slide">slide p42</span></p>
+  </div>
+</div>
+
+<div class="derive">
+<b>Phase → jitter, the through-line.</b> Whatever node a source enters, its contribution to output phase $\varphi_{out}$ is what we ultimately integrate. The chain is identical for all: a <em>timing</em> error $\Delta t$ at the reference becomes a reference phase $\varphi=2\pi f_{ref}\Delta t$; the loop shapes it; the output phase variance integrates to $\sigma_\varphi$; and jitter is $\sigma_t=\sigma_\varphi/(2\pi f_{out})$. Note the conversion uses $f_{out}=6.72$ GHz at the output, not $f_{ref}$. <span class="tag t-derive">derived</span> §8</div>
+
+<h2>B. Discrete-time loop simulation</h2>
+<p>
+The sampling phase detector fires once per reference period, so the entire loop is a <b>discrete-time system clocked at $f_{ref}=104$ MHz</b> (Nyquist $=52$ MHz). The continuous type-II loop (BW $f_c=1.5$ MHz <span class="tag t-assume">assumption</span>[A1], PM $=60°$ <span class="tag t-assume">assumption</span>[A2]) is mapped to two discrete integrators (the VCO phase accumulator and the PI integral) plus one zero (the PI proportional term). The realized gains are $K_p=5.07$, $K_i=0.265$, zero at $f_z=866$ kHz <span class="tag t-derive">derived</span> (from <code>time_domain.json</code>).
+</p>
+
+<h3>State-update equations</h3>
+<p>Each reference tick $k$ runs five lines; together they <em>are</em> the loop. The core is the VCO accumulator:</p>
+$$\varphi_{out}[k] \;=\; \underbrace{\varphi_{out}[k-1]}_{\text{prior phase}} \;+\; \underbrace{K_v\,\text{ctrl}}_{\text{frequency this step}} \;+\; \underbrace{\text{vco\_step}[k]}_{\text{VCO noise increment}}$$
+<p>Reading the four terms: (1) phase is a <b>running accumulator</b> — that is what an oscillator <em>is</em>, an integrator of frequency; (2) the control voltage <code>ctrl</code> sets the instantaneous frequency, scaled by $K_v$ (absorbed to 1 here); (3) <code>vco_step[k]</code> is the per-sample VCO phase <em>increment</em> (the loop sees the difference $\Delta\varphi_{vco}$ between consecutive samples, hence <code>np.diff</code> of the VCO phase); and implicitly (4) the result feeds back through $\div N$ to close the loop next sample. <span class="tag t-derive">derived</span></p>
+
+<div class="walk">
+  <div class="ln">phi_out[k] = phi_out[k-1] + Kv*ctrl + vco_step[k]</div>
+  <div class="ex">VCO <b>phase accumulator</b>: integrate frequency (= $K_v\cdot$ctrl) and add VCO noise. The discrete integrator $\frac{z^{-1}}{1-z^{-1}}$ that gives the loop its second pole.</div>
+  <div class="ln">phi_fb = phi_out[k] / N + mmd_noise[k]</div>
+  <div class="ex"><b>Feedback divider</b> $\div N$ ($N=64.62 = 6720/104$) <span class="tag t-derive">derived [A3]</span>, with MMD/divider noise injected at its output.</div>
+  <div class="ln">phi_ref = ref_noise[k] + dtc_noise[k]</div>
+  <div class="ex"><b>Reference path</b>: CKREF phase noise + DTC (QN+thermal). The DTC cancels the DSM quantization error, so it is <em>not</em> re-added here.</div>
+  <div class="ln">e = phi_ref - phi_fb + spd_noise[k]</div>
+  <div class="ex"><b>Sampling phase detector</b>: error $=\varphi_{ref}-\varphi_{fb}$, plus SPD/GM input-referred noise. This is $K_{PD}$ in the linear model, here normalized.</div>
+  <div class="ln">acc += e</div>
+  <div class="ex"><b>PI integral</b> accumulator — the loop's other integrator, giving type-II behavior (zero steady-state phase error).</div>
+  <div class="ln">ctrl = Kp * e + Ki * acc</div>
+  <div class="ex"><b>PI loop filter</b>: proportional ($K_p$, sets the zero / phase margin) + integral ($K_i$). Output drives the VCO next sample.</div>
+</div>
+
+<figure>
+  <img src="assets/figures/td_timeseries.png" alt="time-domain output excess phase, locked and noise-driven">
+  <figcaption>Output excess phase $\varphi_{out}[k]$ over the first ~190 µs (20 000 samples at 104 MHz). The trace is <b>bounded and stationary</b> — the loop is locked; the wander is the integrated noise, not divergence. Source: <code>td_timeseries.png</code>, <code>time_domain_noise_model.py</code>.</figcaption>
+</figure>
+
+<h2>C. Extracting PSD, phase noise, and jitter</h2>
+<p>From the single phase sequence $\varphi_{out}[k]$ we recover everything via a Welch periodogram. The single-sided PSD is normalized so its integral equals the variance (Parseval) <span class="tag t-std">DSP — Welch 1967</span>:</p>
+$$S_\varphi(f) \;=\; \frac{2}{f_s\,M\,U}\,\big|\text{FFT}(w\cdot\varphi)\big|^2, \qquad U=\overline{w^2}\ \text{(window power)}, \qquad \int S_\varphi(f)\,df \approx \mathrm{var}(\varphi)$$
+<p>Then the standard <span class="tag t-derive">derived</span> §8 conversions give phase noise, integrated phase, and jitter:</p>
+$$\mathcal{L}(f) = 10\log_{10}\!\Big(\tfrac{1}{2}S_\varphi(f)\Big)\ \text{[dBc/Hz]}, \qquad \sigma_\varphi=\sqrt{\int_{f_{lo}}^{f_{hi}} S_\varphi(f)\,df}, \qquad \sigma_t=\frac{\sigma_\varphi}{2\pi f_{out}}$$
+<p>The $\tfrac12$ factor is the single-sided (SSB) Leeson / IEEE-1139 convention <span class="tag t-assume">assumption</span>[A19]; the ±3 dB SSB↔DSB ambiguity is acknowledged throughout. Integration runs over [1 kHz, $0.95\cdot f_{ref}/2$] = [1 kHz, 49.4 MHz] <span class="tag t-assume">assumption</span>[A16].</p>
+
+<pre><code class="language-python">freq, Sxx = U.welch_psd(res["phi_out"], fs, nseg=8)   # single-sided, integral = var
+L = U.Sphi_to_L(Sxx)                                   # L(f) = 10log10(0.5*Sxx)
+sigma_phi = U.integrate_phase_noise(freq, Sxx, f_lo, f_hi)   # sqrt of band integral
+jitter_fs = U.rms_jitter_from_sigma_phi(sigma_phi, f_out) * 1e15   # /(2*pi*f_out)</code></pre>
+
+<h2>D. Per-source contributions</h2>
+<p>Running each source <em>alone</em> through the same loop isolates its shaped contribution. The VCO dominates (high-pass, dominant at mid/high offset); the reference and DTC are next (low-pass, in-band); MMD and SPD sit lowest <span class="tag t-derive">derived</span> (<code>time_domain.json</code>):</p>
+
+<table>
+<thead><tr><th>Source</th><th class="num">Time-domain σ<sub>t</sub> [fs]</th><th>Spectral character</th></tr></thead>
+<tbody>
+<tr><td>VCO</td><td class="num">67.5</td><td>high-pass (white-FM + flicker)</td></tr>
+<tr><td>Reference (CKREF)</td><td class="num">44.8</td><td>low-pass ×N (white + flicker)</td></tr>
+<tr><td>DTC (QN + thermal)</td><td class="num">31.1</td><td>low-pass (white)</td></tr>
+<tr><td>MMD (divider)</td><td class="num">23.0</td><td>low-pass (white)</td></tr>
+<tr><td>SPD + GM</td><td class="num">18.3</td><td>low-pass (white)</td></tr>
+</tbody>
+</table>
+<p class="">These per-source RMS values do not sum linearly to 88 fs — uncorrelated sources add in <b>quadrature</b>: $\sqrt{67.5^2+44.8^2+31.1^2+23.0^2+18.3^2}\approx 90$ fs, consistent with the 88.2 fs full-system run (slight difference from windowing/overlap). The relative ranking matches the slide-42 budget (VCO ~52%, REF+DTC ~38%). <span class="tag t-slide">slide p42</span></p>
+
+<figure>
+  <img src="assets/figures/td_per_source.png" alt="per-source output phase noise, each source simulated alone">
+  <figcaption>Each source simulated in isolation. The VCO curve (red) is high-pass — suppressed below $f_c$, rising at higher offset; the reference/DTC curves are flat-then-rolled-off low-pass. Source: <code>td_per_source.png</code>.</figcaption>
+</figure>
+
+<h2>E. The cross-check (Section H.4)</h2>
+<p>
+This is the payoff. The time-domain Welch PSD (gray), the analytic <em>discrete</em> z-domain NTF prediction (blue), and the continuous frequency-domain model (red dashed) are overlaid. They lie on top of each other across the whole band.
+</p>
+
+<figure>
+  <img src="assets/figures/td_phase_noise.png" alt="time-domain PSD vs analytic discrete NTF vs continuous frequency-domain">
+  <figcaption>Three independent computations of $\mathcal{L}(f)$ agree. Gray = measured-from-simulation (time domain), blue = analytic discrete NTF, red dashed = continuous frequency-domain model (Page 6). Source: <code>td_phase_noise.png</code>.</figcaption>
+</figure>
+
+<div class="kpi">
+  <div class="box"><div class="v">88.2 fs</div><div class="l">time domain, 1 kHz–49.4 MHz</div></div>
+  <div class="box"><div class="v">87.4 fs</div><div class="l">freq domain, identical band</div></div>
+  <div class="box"><div class="v">+0.08 dB</div><div class="l">$20\log_{10}(88.2/87.4)$</div></div>
+  <div class="box"><div class="v">1.50e-5 / 1.43e-5</div><div class="l">Parseval var(time) / var(PSD)</div></div>
+</div>
+
+<p>
+The two RMS jitter numbers agree to <b>+0.08 dB</b> ($20\log_{10}(88.2/87.4)$) — far inside the 1.5 dB test tolerance. <span class="tag t-derive">derived</span> The Parseval check matches: the variance computed directly from the time series, $\mathrm{var}(\varphi)=1.50\times10^{-5}$ rad², equals the integral of the PSD over the full resolved band, $1.43\times10^{-5}$ rad² (within ~5%, expected from Hann windowing and the dropped DC bin). <span class="tag t-std">DSP — Parseval</span>
+</p>
+
+<div class="warn">
+<b>Residual differences — why not exactly zero?</b>
+<ul>
+<li><b>Nyquist band limit.</b> The time-domain model only resolves up to $f_{ref}/2=52$ MHz; the headline frequency-domain budget integrates to 100 MHz <span class="tag t-assume">assumption</span>[A16]. The 52–100 MHz VCO tail is excluded here, which is exactly why the same-band freq number (87.4 fs) is quoted for comparison rather than the full 87.6 fs <span class="tag t-derive">model</span> ≈ 87.5 fs <span class="tag t-slide">slide p42</span>.</li>
+<li><b>Finite record length.</b> $2^{20}$ samples averaged over 8 Welch segments leaves spectral estimation variance — the gray trace is noisy, especially at low offset where few bins exist.</li>
+<li><b>Windowing.</b> The Hann window's power normalization $U=\overline{w^2}$ and 50% overlap introduce a small (sub-dB) bias and account for most of the var(time) vs var(PSD) gap.</li>
+<li><b>Discrete vs continuous.</b> The z-domain NTF $\big[\,$using $z=e^{j2\pi f T_s}\big]$ deviates from the s-domain NTF as $f\to f_{ref}/2$ (the $\sin$ vs linear warp), a fraction of a dB near Nyquist.</li>
+</ul>
+That two completely different computational paths land within 0.08 dB is strong evidence both models — and the slide-42 budget they reproduce — are correct.
+</div>
+
+<h2>F. Sanity checks (Section H.2)</h2>
+<p>Five automated tests in <code>tests/test_time_domain_noise.py</code> gate the model; all pass <span class="tag t-derive">derived</span>:</p>
+<table>
+<thead><tr><th>Test</th><th>What it verifies</th><th>Tolerance</th></tr></thead>
+<tbody>
+<tr><td><code>test_phase_accumulates_and_locks</code></td><td>Output phase stays <b>bounded/stationary</b> (locked, not diverging): 2nd-half std comparable to 1st-half.</td><td class="num">&lt; 10×</td></tr>
+<tr><td><code>test_noise_rms_scaling</code></td><td>A white source injected alone reproduces its <b>target floor</b> ($-160$ dBc/Hz).</td><td class="num">&lt; 1.5 dB</td></tr>
+<tr><td><code>test_welch_psd_normalization</code></td><td><b>Parseval</b>: $\int S\,df \approx \mathrm{var}(x)$ for white input.</td><td class="num">&lt; 10%</td></tr>
+<tr><td><code>test_freq_time_crosscheck</code></td><td>Time vs freq integrated jitter agree over the same band (§E).</td><td class="num">&lt; 1.5 dB</td></tr>
+<tr><td><code>test_discrete_loop_metrics</code></td><td>Analytic NTF: $|H_{ref}|/N\to 1$ at DC, $|H_{vco}|\to 0$ at low offset.</td><td class="num">&lt; 5% / &lt; 0.1</td></tr>
+</tbody>
+</table>
+
+<div class="note">
+<b>Takeaway.</b> The time-domain model is not a separate result — it is the <em>auditor</em> of the frequency-domain budget. By injecting real-statistics noise at real nodes and running the actual loop difference equations, it confirms the 87.6 fs <span class="tag t-derive">model</span> ≈ 87.5 fs <span class="tag t-slide">slide p42</span> / −51.6 dBc <span class="tag t-derive">model</span> ≈ −51.7 dBc <span class="tag t-slide">slide p42</span> figure from first principles, locks the SSB/DSB and band-limit conventions, and passes Parseval. The +0.08 dB agreement is the headline number to remember.
+</div>

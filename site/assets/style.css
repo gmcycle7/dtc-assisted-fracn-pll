@@ -1,0 +1,110 @@
+/* ============================================================
+   DTC-Assisted Fractional-N PLL — teaching site stylesheet
+   Engineer-friendly light theme, sidebar nav, KaTeX + Prism.
+   ============================================================ */
+:root{
+  --bg:#f7f8fa; --panel:#ffffff; --ink:#1f2733; --muted:#5b6776;
+  --line:#e3e7ee; --accent:#c8442b; --accent2:#1f6feb; --accent3:#0a8f5b;
+  --code-bg:#1e2430; --warn:#b26a00; --warn-bg:#fff6e6; --ok:#0a8f5b;
+  --sidebar:280px; --maxw:980px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang TC","Microsoft JhengHei",sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.62;font-size:16px}
+
+/* layout */
+.wrap{display:flex;min-height:100vh}
+nav.side{width:var(--sidebar);background:var(--panel);border-right:1px solid var(--line);
+  padding:18px 16px;position:fixed;top:0;bottom:0;overflow-y:auto}
+nav.side .brand{font-weight:700;font-size:15px;color:var(--accent);line-height:1.3;margin-bottom:4px}
+nav.side .sub{font-size:12px;color:var(--muted);margin-bottom:16px}
+nav.side a{display:block;color:var(--ink);text-decoration:none;padding:7px 10px;border-radius:7px;
+  font-size:14px;margin:2px 0}
+nav.side a .n{color:var(--muted);font-variant-numeric:tabular-nums;margin-right:8px;font-size:12px}
+nav.side a:hover{background:#eef1f6}
+nav.side a.active{background:var(--accent);color:#fff}
+nav.side a.active .n{color:#ffd9cf}
+main{margin-left:var(--sidebar);flex:1;padding:34px 40px 90px;max-width:calc(var(--maxw) + 80px)}
+@media (max-width:900px){nav.side{position:static;width:100%;height:auto;border-right:none;border-bottom:1px solid var(--line)}
+  .wrap{flex-direction:column}main{margin-left:0;padding:20px}}
+
+/* typography */
+h1{font-size:30px;line-height:1.2;margin:0 0 6px;border-bottom:3px solid var(--accent);padding-bottom:10px}
+h2{font-size:23px;margin:38px 0 12px;color:#16202c;border-left:4px solid var(--accent2);padding-left:10px}
+h3{font-size:18px;margin:26px 0 8px;color:#23303d}
+h4{font-size:15px;margin:18px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+p{margin:10px 0}
+a{color:var(--accent2)}
+.lead{font-size:18px;color:var(--muted);margin:6px 0 18px}
+ul,ol{margin:10px 0 10px 4px;padding-left:22px}
+li{margin:5px 0}
+hr{border:none;border-top:1px solid var(--line);margin:30px 0}
+small,.small{font-size:13px;color:var(--muted)}
+
+/* panels / callouts */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:16px 0;
+  box-shadow:0 1px 2px rgba(20,30,50,.04)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.note,.assume,.derive,.cite,.warn{border-radius:10px;padding:12px 15px;margin:14px 0;font-size:14.5px}
+.note{background:#eef4ff;border:1px solid #cdddff}
+.assume{background:var(--warn-bg);border:1px solid #ffe1ad}
+.assume::before{content:"⚙ ASSUMPTION ";font-weight:700;color:var(--warn);font-size:12px;letter-spacing:.05em}
+.derive{background:#eafaf1;border:1px solid #b9ecd0}
+.derive::before{content:"∑ DERIVED ";font-weight:700;color:var(--ok);font-size:12px;letter-spacing:.05em}
+.cite{background:#f3f0fb;border:1px solid #ddd2f3}
+.cite::before{content:"📖 SOURCE ";font-weight:700;color:#6b46c1;font-size:12px;letter-spacing:.05em}
+.warn{background:#fff0ef;border:1px solid #ffc9c2}
+.warn::before{content:"⚠ OPEN QUESTION ";font-weight:700;color:var(--accent);font-size:12px;letter-spacing:.05em}
+
+/* tags */
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;
+  vertical-align:middle;margin:0 3px;letter-spacing:.03em}
+.t-slide{background:#fde7e1;color:#a8341d}.t-derive{background:#d8f5e6;color:#0a7a4c}
+.t-std{background:#e3edff;color:#1857c4}.t-assume{background:#ffeccc;color:#9a5b00}
+.t-need{background:#eee;color:#555}
+
+/* tables */
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.8px;background:var(--panel);
+  display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:#f0f3f8;font-weight:600;position:sticky;top:0}
+tr:nth-child(even) td{background:#fafbfd}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* figures */
+figure{margin:18px 0;text-align:center}
+figure img{max-width:100%;border:1px solid var(--line);border-radius:10px;background:#fff}
+figure.slide img{max-width:560px}
+figcaption{font-size:13px;color:var(--muted);margin-top:7px}
+.figrow{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:760px){.figrow{grid-template-columns:1fr}}
+
+/* code */
+pre[class*="language-"]{border-radius:10px;font-size:13px;margin:14px 0;border:1px solid #2b3342}
+:not(pre)>code{background:#eef1f6;color:#b3361f;padding:1.5px 5px;border-radius:5px;font-size:13.5px}
+.walk{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:0;border:1px solid var(--line);
+  border-radius:10px;overflow:hidden;margin:16px 0}
+.walk .ln{background:var(--code-bg);color:#e6edf3;padding:10px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:12.5px;white-space:pre-wrap;border-bottom:1px solid #2b3342}
+.walk .ex{padding:10px 14px;font-size:13.5px;border-bottom:1px solid var(--line);background:#fff}
+.walk .ex b{color:var(--accent2)}
+@media (max-width:760px){.walk{grid-template-columns:1fr}}
+
+/* misc */
+.kpi{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0}
+.kpi .box{flex:1;min-width:130px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;text-align:center}
+.kpi .box .v{font-size:24px;font-weight:700;color:var(--accent2)}
+.kpi .box .l{font-size:12px;color:var(--muted)}
+.pill{display:inline-block;background:#eef1f6;border-radius:6px;padding:1px 7px;font-size:12px;color:var(--muted);font-family:ui-monospace,monospace}
+.toc{columns:2;font-size:14px}
+@media (max-width:760px){.toc{columns:1}}
+.eqbox{overflow-x:auto;padding:6px 0}
+.footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.crumb{font-size:13px;color:var(--muted);margin-bottom:6px}
+.btnrow{display:flex;justify-content:space-between;margin-top:40px}
+.btnrow a{text-decoration:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:14px}
+.roadmap{counter-reset:step;list-style:none;padding-left:0}
+.roadmap li{counter-increment:step;position:relative;padding:8px 0 8px 42px;border-bottom:1px dashed var(--line)}
+.roadmap li::before{content:counter(step);position:absolute;left:0;top:8px;width:28px;height:28px;border-radius:50%;
+  background:var(--accent2);color:#fff;text-align:center;line-height:28px;font-weight:700;font-size:14px}

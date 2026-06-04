@@ -1,0 +1,15 @@
+# OS / editor junk
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+.venv/
+venv/
+
+# Claude Code harness state (auto-modified)
+.claude/

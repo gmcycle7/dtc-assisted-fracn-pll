@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calibrations · DTC-Assisted Frac-N PLL</title>
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
+</head>
+<body>
+<div class="wrap">
+<nav class="side">
+<div class="brand">DTC-Assisted<br>Fractional-N PLL</div>
+<div class="sub">Interactive study of slides 1–42</div>
+<a class="" href="index.html"><span class="n">1</span>Home</a>
+<a class="" href="slides.html"><span class="n">2</span>Slide-by-slide Map</a>
+<a class="" href="architecture.html"><span class="n">3</span>Architecture</a>
+<a class="" href="blocks.html"><span class="n">4</span>Block Models</a>
+<a class="active" href="calibrations.html"><span class="n">5</span>Calibrations</a>
+<a class="" href="frequency.html"><span class="n">6</span>Frequency-Domain</a>
+<a class="" href="timedomain.html"><span class="n">7</span>Time-Domain Noise</a>
+<a class="" href="codewalk.html"><span class="n">8</span>Code Walkthrough</a>
+<a class="" href="examples.html"><span class="n">9</span>Numerical Examples</a>
+<a class="" href="references.html"><span class="n">10</span>References</a>
+</nav>
+<main>
+<h1>Calibrations — the four background LMS loops that make the DTC honest</h1>
+<p class="lead">A high-performance DTC-assisted fractional-N PLL only works if the DTC gain, the VCO and reference duty cycles, and the comparator/GM offset are all continuously trimmed by sign-LMS loops that converge in under 30&nbsp;µs and track PVT in the background.</p>
+
+<h2>0. Why calibrate at all — the big picture</h2>
+
+<p>In the proposed analog sampling PLL <span class="tag t-slide">slide p9</span>, a <b>Digital-to-Time Converter (DTC)</b> sits in the reference path and adds a programmable delay <span class="tag t-slide">slide p9</span></p>
+
+$$\Delta t[n] \;=\; \frac{1}{K_{\rm DTC}}\,\Phi_{\rm QE}[n], \qquad K_{\rm DTC} = \frac{T_{\rm vco}}{\Delta t_{\rm DTC}}\ \ \text{[codes per VCO period]}$$
+
+<p>that cancels the accumulated ΔΣ quantization error <span class="tag t-slide">slide p9</span>. When the cancellation is perfect, the phase detector sees ≈0 phase error — the fractional-N PLL behaves like an integer-N PLL. But the cancellation is only as good as <b>four physical parameters</b>, every one of which drifts with process, voltage and temperature. So we run a stack of <b>digital background calibrations</b> <span class="tag t-slide">slide p40</span>:</p>
+
+<ul>
+  <li><b>A. DTC gain</b> \(K_{\rm DTC}\): if the gain is wrong the cancellation leaves a residual ∝ \(\Phi_e\) → in-band noise / fractional spur. <span class="tag t-slide">slides p26–28, p40</span></li>
+  <li><b>B. VCO duty-cycle</b> (<code>vco_dcc</code>): the ½-range trick uses two VCO phases that must be exactly \(T_{\rm vco}/2\) apart; duty error breaks that. <span class="tag t-slide">slides p35–37, p40</span></li>
+  <li><b>C. CKREF duty-cycle</b> (<code>ckref_dcc</code>): a non-50% reference clock creates an alternating-cycle period error. <span class="tag t-slide">slide p40</span></li>
+  <li><b>D. Comparator/GM offset</b> (<code>Vref_adj</code>): a DC offset biases the 1-bit error mean, which corrupts <i>all</i> the sign-LMS loops above. <span class="tag t-slide">slides p27–28, p40</span></li>
+</ul>
+
+<p>Plus one <b>survey-only</b> technique we model for completeness:</p>
+<ul>
+  <li><b>E. Polynomial DTC nonlinearity correction</b> (\(g_1,g_2,g_3\)) — three parallel LMS loops that pre-distort the DTC code. <span class="tag t-slide">slide p31</span> (survey, [Park&nbsp;'21])</li>
+</ul>
+
+<div class="note">
+<b>One shared engine.</b> All four proposed loops are the <i>same</i> algorithm: a <b>sign-(sign-)LMS integrator</b> <span class="tag t-std">textbook (Widrow &amp; Stearns, <i>Adaptive Signal Processing</i>)</span>. They all share the single 1-bit error \(e[k]=\operatorname{sign}(\text{PHE})\) from the comparator and differ only in their <b>regressor</b> \(x[k]\) (what they correlate the error against). Learn the engine once and you understand all four. <span class="tag t-derive">derived</span> (derivations.md §7)
+</div>
+
+$$\boxed{\;w[k+1] = w[k] + \mu\,\cdot e[k]\cdot x[k]\;}\qquad\text{generic LMS, integrator } \tfrac{\mu z^{-1}}{1-z^{-1}}$$
+
+<p style="margin-top:-0.5em"><span class="tag t-slide">slide p26</span> <span class="tag t-std">textbook</span></p>
+
+<figure class="slide"><img src="assets/slides/slide_40.png" alt="slide 40"><figcaption>PDF p.40 / slide p.40 — the complete background-calibration block diagram: three sign-LMS integrators (µ1=vco_dcc, µ2=K_DTC, µ3=ckref_dcc) sharing \(e[k]=\operatorname{sign}(\text{PHE})\), plus the ΔV-DAC offset servo. "All converge &lt; 30 µs."</figcaption></figure>
+
+<hr>
+
+<h2>A. DTC gain calibration (\(K_{\rm DTC}\)) — sign-error LMS</h2>
+
+<h3>(1) Purpose / what error it fixes</h3>
+<p>The DTC must apply a delay \(\Delta t[n]=\Phi_{\rm QE}[n]/K_{\rm DTC}\) that exactly cancels the accumulated DSM quantization error <span class="tag t-slide">slide p9</span>. If the actual gain \(\hat K\) differs from the true \(K_{\rm true}\) (because \(\Delta t_{\rm DTC}=T_{\rm vco}/K_{\rm DTC}\) drifts with PVT), the cancellation is imperfect and leaves a residual phase error <b>proportional to \(\Phi_e\)</b> <span class="tag t-slide">slide p27</span>. Since \(\Phi_e\) is correlated with the fractional sequence, this residual reappears as <b>in-band quantization noise and a fractional spur</b> — exactly what the DTC was supposed to remove.</p>
+
+<h3>(2) Signal path</h3>
+<div class="grid">
+  <div class="card"><b>Observable</b><br>Phase-detector error PHE (sampled voltage out of the SPD/GM, sliced to 1 bit by the comparator). <span class="tag t-slide">slide p27</span></div>
+  <div class="card"><b>Actuator</b><br>The DTC code word: main term <code>DTC_code = K_DTC·Φe[n]</code>. <span class="tag t-slide">slide p40</span></div>
+  <div class="card"><b>Target</b><br>\(\hat K \to K_{\rm true}\) so the residual ∝ \((K_{\rm true}-\hat K)\Phi_e \to 0\). <span class="tag t-derive">derived</span></div>
+  <div class="card"><b>Error signal</b><br>\(e[k]=\operatorname{sign}(\text{PHE})\) — a 1-bit comparator output. <span class="tag t-slide">slide p27</span></div>
+  <div class="card"><b>Regressor</b><br>\(x[k]=\Phi_e[k-n]\) (the accumulated DSM phase the DTC was correcting). <span class="tag t-slide">slide p40</span></div>
+  <div class="card"><b>Update law</b><br>\(\hat K[k{+}1]=\hat K[k]+\mu_2\,e[k]\,\Phi_e[k{-}n]\). <span class="tag t-slide">slide p40</span></div>
+</div>
+
+<h3>(3) Mathematical model</h3>
+<p>This is classic <b>LMS system identification</b> <span class="tag t-std">textbook (Widrow &amp; Stearns)</span>: the "plant" is the map from the regressor \(\Phi_e\) to the residual error, and the adaptive weight <i>is</i> \(K_{\rm DTC}\). <span class="tag t-slide">slide p26</span> The residual and update are <span class="tag t-derive">derived</span> (derivations.md §7.1):</p>
+$$\text{PHE}[k] \;=\; \frac{K_{\rm true}-\hat K[k]}{K_{\rm true}}\,\Phi_e[k] \;+\; \text{offset} \;+\; \text{noise}$$
+$$e[k]=\operatorname{sign}\!\big(\text{PHE}[k]\big),\qquad \hat K[k{+}1]=\hat K[k]+\mu_2\,e[k]\,\Phi_e[k]$$
+<p>Because the comparator slices to 1 bit, this is <b>sign-error LMS</b> (the error is 1-bit, the regressor \(\Phi_e\) is full precision).</p>
+
+<h3>(4) Convergence analysis</h3>
+<div class="derive">
+<p><b>Mean recursion &amp; stability bound.</b> Taking expectations (and assuming \(e\) is zero-mean), \(E\{e\cdot\Phi_e\}\propto (K_{\rm true}-\hat K)\,E\{\Phi_e^2\}\), so \(\hat K\) follows a first-order recursion <span class="tag t-derive">derived</span>:</p>
+$$\tau \;\approx\; \frac{1}{\mu_2\,E\{\Phi_e^2\}\,\eta\,(2f_{\rm ref})},\qquad \text{converges iff } 0<\mu_2<\frac{2}{E\{\Phi_e^2\}}$$
+<p>where \(\eta=\sqrt{2/\pi}/\sigma\) is the sign-LMS slope factor for Gaussian residual noise <span class="tag t-std">textbook</span>.</p>
+</div>
+<ul>
+  <li><b>Step-size trade-off.</b> Small \(\mu\) → slow but quiet; large \(\mu\) → fast but overshoots and dithers; too large → instability (violates the bound). See <code>cal_stepsize.png</code>.</li>
+  <li><b>Limit cycle.</b> A 1-bit error never reaches exactly zero — the converged \(\hat K\) <i>dithers</i> by ±\(\mu\) around the truth. The <i>useful</i> output is the smoothed/averaged value (that is why <code>_settle_time</code> measures settling on a moving average).</li>
+  <li><b>Offset bias (the headline coupling).</b> If \(e[k]\) has a nonzero mean \(m\) (from comparator/GM offset), the update picks up a bias term \(\mu_2\,m\,E\{\Phi_e\}\) and \(\hat K\) converges to a <b>wrong value</b> <span class="tag t-slide">slide p27</span>. With \(\Phi_e\in[0,0.5]\) (½-range, so \(E\{\Phi_e\}\neq0\)) this is severe — see cal&nbsp;D.</li>
+  <li><b>Foreground vs background.</b> Run continuously after lock (background) so it tracks PVT <span class="tag t-slide">slide p40</span> <span class="tag t-assume">assumption</span> [A20]; a foreground version would freeze \(\hat K\) after an initial training burst.</li>
+</ul>
+
+<h3>(5) Numerical example</h3>
+<p>Model defaults: \(K_{\rm true}=1000\) codes/cycle, initial error 10% <span class="tag t-assume">assumption</span> [A18], \(\mu=0.5\), ½-range \(\Phi_e\in[0,0.5]\), \(f_{\rm ref}=104\) MHz <span class="tag t-slide">slide p42</span>.</p>
+<div class="kpi">
+  <div class="box"><div class="v">6.7 µs</div><div class="l">settling time (model)</div></div>
+  <div class="box"><div class="v">≈695</div><div class="l">ref cycles (6.7 µs × 104 MHz)</div></div>
+  <div class="box"><div class="v">0.0001%</div><div class="l">final gain error</div></div>
+  <div class="box"><div class="v">&lt; 30 µs</div><div class="l">slide target</div></div>
+</div>
+<p>So in the clean case the gain loop settles to within 1% in <b>6.7&nbsp;µs</b> (≈695 reference cycles) — comfortably inside the slide-37/40 "&lt; 30&nbsp;µs even with 12% VCO duty error" budget <span class="tag t-slide">slides p37, p40</span>. The convergence numbers come from <code>calibrations.json</code> (verified against the model). <b>But add an uncalibrated offset and the loop biases by ≈22.6%</b> — covered in cal&nbsp;D.</p>
+
+<figure><img src="assets/figures/cal_dtc_gain.png" alt="DTC gain convergence"><figcaption>DTC-gain sign-error LMS: ideal vs +comparator noise vs +uncalibrated offset. The offset trace converges to the WRONG \(K_{\rm DTC}\) (≈22% high). — model <code>simulate_dtc_gain_cal</code>, cf. slides p26–28.</figcaption></figure>
+<figure><img src="assets/figures/cal_stepsize.png" alt="step-size sweep"><figcaption>Step-size trade-off: µ=0.1 slow, µ=0.5 good, µ=2/6 overshoot &amp; limit-cycle. — model <code>stepsize_sweep</code>.</figcaption></figure>
+
+<h3>(6) Python model</h3>
+<p>Function: <code>simulate_dtc_gain_cal()</code> in <code>models/calibration_models.py</code>.</p>
+<pre><code class="language-python">phi_e = rng.uniform(0.0, 0.5) if half_range else rng.uniform(-0.5, 0.5)
+phe   = (K_true - Khat) / K_true * phi_e          # residual ∝ gain mismatch
+e     = np.sign(phe + offset / K_true) or 1.0     # 1-bit comparator (slide 27)
+Khat += mu * e * phi_e                             # sign-error LMS update</code></pre>
+
+<h3>(7) Line-by-line walkthrough</h3>
+<p>See the full annotated walkthrough on <a href="codewalk.html#simulate_dtc_gain_cal">codewalk.html → <code>simulate_dtc_gain_cal</code></a>.</p>
+
+<hr>
+
+<h2>B. VCO duty-cycle calibration (<code>vco_dcc</code>) — sign-LMS</h2>
+
+<figure class="slide"><img src="assets/slides/slide_35.png" alt="slide 35"><figcaption>PDF p.35 / slide p.35 — VCO duty-cycle error disrupts \(K_{\rm DTC}\): the two VCO phases are not \(T_{\rm vco}/2\) apart, so \(\Delta t_{\rm err}=\Delta t-T_{\rm vco}/2\neq0\). [Wu ISSCC '21]</figcaption></figure>
+
+<h3>(1) Purpose / what error it fixes</h3>
+<p>The proposed <b>½-range</b> technique <span class="tag t-slide">slide p34</span> halves the DTC dynamic range by selecting between two VCO phases, <code>CKFB1</code> and <code>CKFB2 = CKFB1 + ½T_vco</code>, via <code>SEL_CKFB</code>. This only works if the two phases are <i>exactly</i> \(T_{\rm vco}/2\) apart. If the VCO duty cycle ≠ 50%, they are not <span class="tag t-slide">slide p35</span>:</p>
+$$\Delta t_{\rm err} = \Delta t - \frac{T_{\rm vco}}{2},\qquad \frac{T_{\rm vco}}{2}=\frac{1}{2\cdot6.72\,\text{GHz}}\approx 74\ \text{ps}\ \ (\text{slide quotes }83\ \text{ps @ 6 GHz})$$
+<p>This injects a <code>SEL_CKFB</code>-<i>correlated</i> error that corrupts the \(K_{\rm DTC}\) loop and re-introduces a spur <span class="tag t-slide">slide p35</span>.</p>
+
+<h3>(2) Signal path</h3>
+<div class="grid">
+  <div class="card"><b>Observable</b><br>Same PHE / \(e[k]=\operatorname{sign}(\text{PHE})\). <span class="tag t-slide">slide p36</span></div>
+  <div class="card"><b>Actuator</b><br><code>vco_dcc</code> added into the DTC code, sign set by <code>SEL_CKFB</code>: +1 → push CKDTC back by \(\Delta t_{\rm err}/2\); −1 → pull-in. <span class="tag t-slide">slide p36</span></div>
+  <div class="card"><b>Target</b><br>\(\texttt{vco\_dcc}\to \Delta t_{\rm err}/2\). <span class="tag t-derive">derived</span></div>
+  <div class="card"><b>Error signal</b><br>\(e[k]\) (shared 1-bit comparator). <span class="tag t-slide">slide p40</span></div>
+  <div class="card"><b>Regressor</b><br>\(\texttt{SEL\_CKFB}[k]\in\{+1,-1\}\), the deterministic ±1 phase-select. <span class="tag t-slide">slide p36</span></div>
+  <div class="card"><b>Update law</b><br>\(\texttt{vco\_dcc}[k{+}1]=\texttt{vco\_dcc}[k]+\mu_1\,\texttt{SEL\_CKFB}[k]\,(e[k]-e[k{-}1])\). <span class="tag t-derive">derived</span></div>
+</div>
+
+<h3>(3) Mathematical model</h3>
+<p><span class="tag t-derive">derived</span> (derivations.md §7.2):</p>
+$$\text{PHE}[k]=\texttt{SEL\_CKFB}[k]\,\big(\Delta t_{\rm err}-2\,\texttt{vco\_dcc}[k]\big)+\text{noise}$$
+$$\texttt{vco\_dcc}[k{+}1]=\texttt{vco\_dcc}[k]+\mu_1\,\texttt{SEL\_CKFB}[k]\,e[k]\;\;\longrightarrow\;\;\frac{\Delta t_{\rm err}}{2}$$
+<p><b>Intuition:</b> correlating \(e[k]\) with the known ±1 <code>SEL_CKFB</code> sequence acts as a <b>synchronous detector</b> — it isolates the <i>alternating</i> duty-error component (which is perfectly correlated with <code>SEL_CKFB</code>) from random comparator noise (which is not). The slide-40 form applies a \((1-z^{-1})\) high-pass on \(e[k]\) before correlating <span class="tag t-slide">slide p40</span>.</p>
+
+<h3>(4) Convergence analysis</h3>
+<ul>
+  <li><b>Why it is robust.</b> The regressor is a pure deterministic square wave; any uncorrelated noise averages out, so the loop locks even with a noisy comparator (model uses <code>comp_noise=0.05</code>).</li>
+  <li><b>Stability / step size.</b> Same first-order LMS bound; \(\mu_1=0.02\) <span class="tag t-assume">assumption</span> [A17] is chosen for ≈1-µs settling — much faster than the gain loop because the error is a strong, structured ±1 signal.</li>
+  <li><b>Limit cycle.</b> 1-bit error → small dither around \(\Delta t_{\rm err}/2\); settling measured on a 200-sample moving average.</li>
+  <li><b>Interaction.</b> Without <code>vco_dcc</code>, the <code>SEL_CKFB</code>-correlated error masquerades as gain error and the \(K_{\rm DTC}\) loop chases its tail — running both loops makes the residual orthogonal.</li>
+</ul>
+
+<h3>(5) Numerical example</h3>
+<p>Model defaults: 20-ps VCO duty error <span class="tag t-slide">slide p40</span> <span class="tag t-assume">assumption</span> [A18]. Note the model's internal \(\Delta t_{\rm err}\) maps to a <b>target of 10&nbsp;ps</b> (= \(\Delta t_{\rm err}/2\)), per <code>calibrations.json</code>.</p>
+<div class="kpi">
+  <div class="box"><div class="v">10.0 ps</div><div class="l">target \(\Delta t_{\rm err}/2\)</div></div>
+  <div class="box"><div class="v">9.6 ps</div><div class="l">converged value</div></div>
+  <div class="box"><div class="v">1.0 µs</div><div class="l">settling time</div></div>
+  <div class="box"><div class="v">≈104</div><div class="l">ref cycles (1.0 µs × 104 MHz)</div></div>
+</div>
+
+<figure><img src="assets/figures/cal_vco_dcc.png" alt="VCO duty-cycle cal"><figcaption>VCO duty-cycle cal converging to \(\Delta t_{\rm err}/2=10\) ps in ≈1 µs. — model <code>simulate_vco_dcc</code>, cf. slides p35–36.</figcaption></figure>
+
+<h3>(6) Python model</h3>
+<p>Function: <code>simulate_vco_dcc()</code> in <code>models/calibration_models.py</code>.</p>
+<pre><code class="language-python">sel = 1.0 if (k % 2 == 0) else -1.0          # SEL_CKFB toggles each cycle
+phe = sel * (dt_err - 2.0 * vco_dcc)         # uncorrected duty error
+phe += rng.normal(0.0, comp_noise * dt_err)  # comparator noise
+e = np.sign(phe) or 1.0
+vco_dcc += mu * sel * e * (dt_err)           # sign-LMS, converges to dt_err/2</code></pre>
+
+<h3>(7) Line-by-line walkthrough</h3>
+<p>See <a href="codewalk.html#simulate_vco_dcc">codewalk.html → <code>simulate_vco_dcc</code></a>.</p>
+
+<figure class="slide"><img src="assets/slides/slide_36.png" alt="slide 36"><figcaption>PDF p.36 / slide p.36 — the VCO duty-cycle calibration: sign-LMS integrator \(\alpha\,z^{-1}/(1-z^{-1})\) correlating \(e[k]\) with <code>SEL_CKFB</code>, output added to the DTC code. [Wu ISSCC '21]</figcaption></figure>
+
+<hr>
+
+<h2>C. CKREF duty-cycle calibration (<code>ckref_dcc</code>) — sign-LMS</h2>
+
+<h3>(1) Purpose / what error it fixes</h3>
+<p>The reference is doubled (<code>CKREF ×2 → CKREFX2</code>) before the DTC <span class="tag t-slide">slide p39</span>. If the original reference clock duty cycle ≠ 50%, the doubled clock has <b>alternating long/short periods</b> — every other reference cycle is timed wrong, producing an alternating-cycle phase error <span class="tag t-slide">slide p40</span>. This is the same kind of structured error as the VCO duty case, but on the reference side.</p>
+
+<h3>(2) Signal path</h3>
+<div class="grid">
+  <div class="card"><b>Observable</b><br>Shared \(e[k]=\operatorname{sign}(\text{PHE})\). <span class="tag t-slide">slide p40</span></div>
+  <div class="card"><b>Actuator</b><br><code>ckref_dcc</code> injected into the <b>FCW path before the modified DSM</b>: \(\text{FCW}'=\text{FCW}+\texttt{ckref\_dcc}\cdot\texttt{even\_cycle}\). <span class="tag t-slide">slide p40</span></div>
+  <div class="card"><b>Target</b><br>\(\texttt{ckref\_dcc}\to\Delta t_{\rm ref}/2\). <span class="tag t-derive">derived</span></div>
+  <div class="card"><b>Error signal</b><br>\((1-z^{-1})e[k]\) (high-passed 1-bit error). <span class="tag t-slide">slide p40</span></div>
+  <div class="card"><b>Regressor</b><br>\(\texttt{even\_cycle}[k]\in\{+1,-1\}\), toggling every reference cycle. <span class="tag t-slide">slide p40</span></div>
+  <div class="card"><b>Update law</b><br>\(\texttt{ckref\_dcc}[k{+}1]=\texttt{ckref\_dcc}[k]+\mu_3\,\texttt{even\_cycle}[k]\,(e[k]-e[k{-}1])\). <span class="tag t-derive">derived</span></div>
+</div>
+
+<h3>(3) Mathematical model</h3>
+<p><span class="tag t-derive">derived</span> (derivations.md §7.3); structurally identical to the VCO case but regressed on <code>even_cycle</code>:</p>
+$$\text{PHE}[k]=\texttt{even\_cycle}[k]\,\big(\Delta t_{\rm ref}-2\,\texttt{ckref\_dcc}[k]\big)+\text{noise}$$
+$$\Delta t_{\rm ref}=\frac{(\text{duty}\%-50)}{100}\,T_{\rm ref},\qquad \texttt{ckref\_dcc}[k{+}1]=\texttt{ckref\_dcc}[k]+\mu_3\,\texttt{even\_cycle}[k]\,e[k]$$
+
+<h3>(4) Convergence analysis</h3>
+<ul>
+  <li><b>Synchronous detection again.</b> <code>even_cycle</code> is a deterministic ±1 sequence; correlating with it picks out only the alternating-cycle error and rejects noise — same robustness argument as cal&nbsp;B.</li>
+  <li><b>Step size / settling.</b> \(\mu_3=0.02\) <span class="tag t-assume">assumption</span> [A17] → ≈1-µs settling, same family of dynamics as <code>vco_dcc</code>.</li>
+  <li><b>Limit cycle &amp; background.</b> Same 1-bit dither; runs continuously to track reference-clock duty drift over temperature <span class="tag t-slide">slide p40</span>.</li>
+</ul>
+
+<h3>(5) Numerical example</h3>
+<p>Model uses 57% CKREF duty <span class="tag t-slide">slide p40</span> <span class="tag t-assume">assumption</span> [A18] (slide injects "1 ns (57%)" CKREF duty error). With \(T_{\rm ref}=1/104\,\text{MHz}=9.6\) ns, the 7% asymmetry gives a target \(\Delta t_{\rm ref}/2\), per <code>calibrations.json</code>:</p>
+<div class="kpi">
+  <div class="box"><div class="v">0.337 ns</div><div class="l">target \(\Delta t_{\rm ref}/2\)</div></div>
+  <div class="box"><div class="v">0.350 ns</div><div class="l">converged value</div></div>
+  <div class="box"><div class="v">0.98 µs</div><div class="l">settling time</div></div>
+  <div class="box"><div class="v">≈102</div><div class="l">ref cycles (0.98 µs × 104 MHz)</div></div>
+</div>
+
+<figure><img src="assets/figures/cal_ckref_dcc.png" alt="CKREF duty-cycle cal"><figcaption>CKREF duty-cycle cal converging to ≈0.34 ns in ≈1 µs (57% reference duty). — model <code>simulate_ckref_dcc</code>, cf. slide p40.</figcaption></figure>
+
+<h3>(6) Python model</h3>
+<p>Function: <code>simulate_ckref_dcc()</code> in <code>models/calibration_models.py</code>.</p>
+<pre><code class="language-python">dt_ref = (ckref_duty_pct - 50.0) / 100.0 * T_ref   # 7% of 9.6 ns ≈ 0.67 ns
+ec = 1.0 if (k % 2 == 0) else -1.0                 # even_cycle toggles each cycle
+phe = ec * (dt_ref - 2.0 * ckref_dcc)
+e = np.sign(phe + rng.normal(0, comp_noise*dt_ref)) or 1.0
+ckref_dcc += mu * ec * e * dt_ref                  # sign-LMS, converges to dt_ref/2</code></pre>
+
+<h3>(7) Line-by-line walkthrough</h3>
+<p>See <a href="codewalk.html#simulate_ckref_dcc">codewalk.html → <code>simulate_ckref_dcc</code></a>.</p>
+
+<hr>
+
+<h2>D. Comparator/GM offset calibration (<code>Vref_adj</code>) — DC servo</h2>
+
+<figure class="slide"><img src="assets/slides/slide_27.png" alt="slide 27"><figcaption>PDF p.27 / slide p.27 — comparator/GM offsets \(V_{\rm Gm,os},V_{\rm cmp,os}\) shift the mean of \(e[k]\); the \(e[k]\) waveform depends on the offset sign. Sign-LMS only converges correctly when \(e[k]\) is zero-mean.</figcaption></figure>
+
+<h3>(1) Purpose / what error it fixes — the key coupling</h3>
+<p>Every loop above uses \(e[k]=\operatorname{sign}(\text{PHE})\). Sign-LMS implicitly assumes \(e[k]\) is <b>zero-mean when the system is correct</b>. A static comparator + GM input offset adds a DC term to PHE, so \(\operatorname{sign}(\text{PHE})\) is biased toward +1 or −1 even at the correct operating point <span class="tag t-slide">slide p27</span>. That mean bias \(m\) feeds the bias term \(\mu_2\,m\,E\{\Phi_e\}\) into the gain loop → <b>\(K_{\rm DTC}\) converges to the wrong value</b>. This calibration is the <b>prerequisite</b> for all the others.</p>
+
+<h3>(2) Signal path</h3>
+<div class="grid">
+  <div class="card"><b>Observable</b><br>The <i>mean</i> of \(e[k]\) (leaky-integrated). <span class="tag t-slide">slide p28</span></div>
+  <div class="card"><b>Actuator</b><br>A 1-bit ΔΣ-dithered ΔV-DAC sets <code>Vref_adj</code> on <code>Vref1</code>. <span class="tag t-slide">slide p28</span></div>
+  <div class="card"><b>Target</b><br><code>Vref_adj</code> → cancels the input-referred offset (32 mV) so \(\overline{e[k]}\to0\). <span class="tag t-slide">slide p40</span></div>
+  <div class="card"><b>Error signal</b><br>\(e[k]\) directly (its sign drives the servo). <span class="tag t-slide">slide p28</span></div>
+  <div class="card"><b>Regressor</b><br>None — it is a <b>DC servo</b> on the mean (regressor = constant 1). <span class="tag t-derive">derived</span></div>
+  <div class="card"><b>Update law</b><br>\(\texttt{Vref\_adj}[k{+}1]=\texttt{Vref\_adj}[k]+\mu_{\rm os}\,e[k]\). <span class="tag t-derive">derived</span></div>
+</div>
+
+<h3>(3) Mathematical model</h3>
+<p><span class="tag t-derive">derived</span> (derivations.md §7.4) — a sign-LMS on the <i>mean</i>, i.e. a DC servo. The offset referred to phase uses the SPD gain \(K_{\rm SPD}\):</p>
+$$V_{\rm os,rad}=\frac{V_{\rm os}}{K_{\rm SPD}},\qquad K_{\rm SPD}=\frac{K_{\rm slope}}{2\pi f_{\rm ref}}=\frac{6\,\text{GV/s}}{2\pi\cdot104\,\text{MHz}}\approx 9.19\ \text{V/rad}$$
+<p><span class="tag t-slide">slide p20</span> <span class="tag t-derive">derived</span>. Update drives the effective offset \(V_{\rm os,rad}-\texttt{Vref\_adj}/K_{\rm SPD}\) to zero:</p>
+$$e[k]=\operatorname{sign}\!\big(\text{PHE}+V_{\rm os,rad}-\tfrac{\texttt{Vref\_adj}}{K_{\rm SPD}}\big),\qquad \texttt{Vref\_adj}[k{+}1]=\texttt{Vref\_adj}[k]+\mu_{\rm os}\,e[k]$$
+
+<h3>(4) Convergence analysis</h3>
+<ul>
+  <li><b>Coarse DAC → residual.</b> The ΔV-DAC is a coarse 1-bit element <span class="tag t-slide">slide p28</span>, so the servo settles to within a few-% residual (model uses a tol of 0.08, not 0.01). It is slower than B/C because the only "signal" is the small DC mean of a noisy 1-bit stream.</li>
+  <li><b>Offset → bias coupling (the emphasis).</b> If you skip this servo, the gain loop's converged \(\hat K\) is biased. The model quantifies it: an injected offset (80 LSB) drives the gain loop to <b>+22.6% error</b> <span class="tag t-derive">derived</span> (<code>calibrations.json: offset_bias_pct = 22.6</code>). That is why <code>cal_dtc_gain.png</code> shows the "+uncal offset (BIAS!)" trace landing far above \(K_{\rm true}\).</li>
+  <li><b>Background.</b> Runs continuously; tracks offset drift over temperature.</li>
+</ul>
+<div class="warn">
+<b>Order matters.</b> Because the offset servo is the slowest of the four and gates the correctness of the others, in practice the offset loop must be settled (or co-adapting with a larger time constant) before the gain estimate can be trusted. The ≈22% bias is the cost of getting this wrong. <span class="tag t-derive">derived</span>
+</div>
+
+<h3>(5) Numerical example</h3>
+<p>Model defaults: 32-mV offset <span class="tag t-slide">slide p40</span> <span class="tag t-assume">assumption</span> [A18], \(K_{\rm SPD}=9.19\) V/rad <span class="tag t-assume">assumption</span> [A9], \(\mu_{\rm mv}=0.09\) mV/step <span class="tag t-assume">assumption</span> [A17].</p>
+<div class="kpi">
+  <div class="box"><div class="v">32 mV</div><div class="l">target offset</div></div>
+  <div class="box"><div class="v">33.1 mV</div><div class="l">converged Vref_adj</div></div>
+  <div class="box"><div class="v">14.6 µs</div><div class="l">settling time</div></div>
+  <div class="box"><div class="v">≈1520</div><div class="l">ref cycles (14.6 µs × 104 MHz)</div></div>
+</div>
+<p>It is the slowest of the four (14.6&nbsp;µs vs 1–7&nbsp;µs) but still well inside the 30-µs budget. Per <code>calibrations.json</code>.</p>
+
+<figure><img src="assets/figures/cal_offset.png" alt="offset cal"><figcaption>Offset cal: <code>Vref_adj</code> servos to 32 mV (top) while mean(e[k]) is driven to zero (bottom). — model <code>simulate_offset_cal</code>, cf. slides p27–28.</figcaption></figure>
+
+<h3>(6) Python model</h3>
+<p>Function: <code>simulate_offset_cal()</code> in <code>models/calibration_models.py</code>.</p>
+<pre><code class="language-python">os_rad = (offset_mv * 1e-3) / K_spd          # offset referred to phase [rad]
+eff_offset = os_rad - (vref_adj * 1e-3) / K_spd
+e = np.sign(phe + eff_offset) or 1.0
+vref_adj += mu_mv * e                         # DC servo toward zero-mean e
+run = 0.98 * run + 0.02 * e                   # leaky mean of e[k]</code></pre>
+
+<h3>(7) Line-by-line walkthrough</h3>
+<p>See <a href="codewalk.html#simulate_offset_cal">codewalk.html → <code>simulate_offset_cal</code></a>.</p>
+
+<figure class="slide"><img src="assets/slides/slide_28.png" alt="slide 28"><figcaption>PDF p.28 / slide p.28 — the fix [Wu '19]: a 1-bit ΔV-DAC adjusts \(V_{\rm ref1}\) to null the offset and restore zero-mean \(\operatorname{sign}(\text{PHE})\), unblocking the \(K_{\rm DTC}\) loop.</figcaption></figure>
+
+<hr>
+
+<h2>E. (Survey) Polynomial DTC nonlinearity correction (\(g_1,g_2,g_3\))</h2>
+
+<figure class="slide"><img src="assets/slides/slide_31.png" alt="slide 31"><figcaption>PDF p.31 / slide p.31 — polynomial NLC [Park '21, survey]: \(D_{\rm DCW}=g_1 D_{\rm AQ}+g_2 D_{\rm AQ}^2+g_3 D_{\rm AQ}^3\), three LMS loops pre-distort the DTC code so total delay is linear.</figcaption></figure>
+
+<div class="note">This is a <b>survey technique</b> (not the proposed Wu calibration set); we model the concept for completeness. <span class="tag t-slide">slide p31</span></div>
+
+<h3>(1) Purpose</h3>
+<p>The DTC's intrinsic static INL is dominated by a 2nd-order term plus a smaller 3rd-order term <span class="tag t-slide">slide p17</span> <span class="tag t-assume">assumption</span> [A8]. A wrong code-to-delay curvature → fractional spurs. NLC pre-distorts the code with a cubic polynomial so the <i>total</i> delay is linear in \(D_{\rm AQ}\) (the accumulated DSM phase).</p>
+
+<h3>(2)–(3) Signal path &amp; model</h3>
+<p>Three parallel LMS loops, regressors \([D, D^2, D^3]\) <span class="tag t-derive">derived</span> (derivations.md §7.5):</p>
+$$D_{\rm DCW}=g_1 D + g_2 D^2 + g_3 D^3,\qquad e = (g_1^{\rm true}-g_1)D + (a_2-g_2)D^2 + (a_3-g_3)D^3$$
+$$g_i[k{+}1]=g_i[k]+\mu_i\,e[k]\,D^{\,i},\qquad g\to(g_1^{\rm true},a_2,a_3)$$
+<p>Here \(g_1\) absorbs the linear gain (= \(K_{\rm DTC}\)) and \(g_2,g_3\) cancel the intrinsic INL coefficients \(a_2,a_3\). <span class="tag t-slide">slide p31</span> <span class="tag t-slide">slide p9</span></p>
+
+<h3>(4)–(5) Convergence &amp; numbers</h3>
+<p>Three LMS loops with steps \((\mu_1,\mu_2,\mu_3)=(0.03,0.02,0.01)\); model defaults \(a_2=0.18, a_3=0.04\), 10% initial gain error. The peak INL collapses from <b>0.220 → ≈0</b> (1.07×10⁻⁴) after convergence, per <code>calibrations.json</code>.</p>
+<div class="kpi">
+  <div class="box"><div class="v">0.220</div><div class="l">peak INL before NLC (norm.)</div></div>
+  <div class="box"><div class="v">≈0.0001</div><div class="l">peak INL after NLC (norm.)</div></div>
+  <div class="box"><div class="v">~50 fs</div><div class="l">slide-31 residual INL target</div></div>
+</div>
+
+<figure><img src="assets/figures/cal_polynomial_nlc.png" alt="polynomial NLC"><figcaption>Left: DTC INL before/after polynomial NLC (peak 0.220 → ≈0). Right: \(g_1,g_2,g_3\) LMS convergence. — model <code>simulate_polynomial_nlc</code>, cf. slide p31.</figcaption></figure>
+
+<h3>(6)–(7) Python model &amp; walkthrough</h3>
+<pre><code class="language-python">regress  = np.array([D, D**2, D**3])
+residual = (g1_true-g[0])*D + (a2-g[1])*D**2 + (a3-g[2])*D**3
+g = g + np.array(mu) * residual * regress          # 3 parallel LMS</code></pre>
+<p>Function <code>simulate_polynomial_nlc()</code>; full walkthrough at <a href="codewalk.html#simulate_polynomial_nlc">codewalk.html → <code>simulate_polynomial_nlc</code></a>.</p>
+
+<hr>
+
+<h2>All four together — the background-calibration result (mimics slide 40)</h2>
+<p>Running all four sign-LMS loops concurrently, every one converges well inside the 30-µs budget while sharing the single 1-bit comparator error — reproducing slide 40's claim "all converge &lt; 30 µs" for both integer and fractional channels <span class="tag t-slide">slide p40</span>.</p>
+
+<figure><img src="assets/figures/cal_background_all.png" alt="all background cals"><figcaption>All four background calibrations converging in parallel, each crossing well before the dotted 30-µs line. — model <code>make_figures</code>, mimics slide p40.</figcaption></figure>
+
+<h3>Summary table</h3>
+<table>
+  <thead>
+    <tr><th>Cal</th><th>Algorithm</th><th>Regressor \(x[k]\)</th><th class="num">Target</th><th class="num">Converge (µs)</th><th class="num">Residual</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>A. \(K_{\rm DTC}\) gain</td><td>sign-error LMS</td><td>\(\Phi_e\)</td><td class="num">1000 codes/cyc</td><td class="num">6.7</td><td class="num">0.0001%</td></tr>
+    <tr><td>B. VCO duty (<code>vco_dcc</code>)</td><td>sign-LMS</td><td>\(\texttt{SEL\_CKFB}(\pm1)\)</td><td class="num">10.0 ps</td><td class="num">1.0</td><td class="num">9.6 ps</td></tr>
+    <tr><td>C. CKREF duty (<code>ckref_dcc</code>)</td><td>sign-LMS</td><td>\(\texttt{even\_cycle}(\pm1)\)</td><td class="num">0.337 ns</td><td class="num">0.98</td><td class="num">0.350 ns</td></tr>
+    <tr><td>D. Offset (<code>Vref_adj</code>)</td><td>DC servo (sign-LMS on mean)</td><td>—</td><td class="num">32 mV</td><td class="num">14.6</td><td class="num">33.1 mV</td></tr>
+    <tr><td>E. Polynomial NLC (survey)</td><td>3× LMS</td><td>\([D, D^2, D^3]\)</td><td class="num">linear</td><td class="num">—</td><td class="num">INL 0.220→≈0</td></tr>
+  </tbody>
+</table>
+<p style="margin-top:0.4em">All numbers from <code>calibrations.json</code> (cross-checked against <code>calibration_models.py</code>). Injected impairments (20 ps VCO duty, 57% CKREF duty, 32 mV offset, 10% initial gain) are verbatim from slide&nbsp;40 <span class="tag t-slide">slide p40</span> <span class="tag t-assume">assumption</span> [A18].</p>
+
+<div class="warn">
+<b>The one coupling to remember:</b> the offset servo (D) is the keystone. An uncalibrated 32-mV offset biases the \(K_{\rm DTC}\) gain estimate (A) by <b>≈22.6%</b> — large enough to undo the DTC's quantization-noise cancellation and bring back a fractional spur. The other three loops also rely on a zero-mean \(e[k]\). Calibrate the offset, and the rest fall into place. <span class="tag t-derive">derived</span> <span class="tag t-slide">slide p27</span>
+</div>
+
+<h2>Where these calibrations sit in the budget</h2>
+<p>Once all loops are converged, the residual DSM quantization noise is essentially cancelled (slide-42 budget shows ΣΔM QE ≈ 0.3%, "cancelled") and the integrated jitter is dominated by VCO (51.8%) and REF+DTC (≈37.8%), totaling <b>87.6 fs <span class="tag t-derive">model</span> ≈ 87.5 fs <span class="tag t-slide">slide p42</span></b> / <b>−51.6 dBc <span class="tag t-derive">model</span> ≈ −51.7 dBc <span class="tag t-slide">slide p42</span></b> at \(f_{\rm out}=6.72\) GHz. The calibrations are what let the small-DR, high-gain DTC-assisted PD deliver that number — see the noise-budget page for the full breakdown.</p>
+
+<div class="btnrow"><div><a href="blocks.html">← Block Models</a></div><div><a href="frequency.html">Frequency-Domain →</a></div></div>
+<div class="footer">
+  Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
+  (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
+  Every claim is tagged: <span class="tag t-slide">slide pX</span>
+  <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
+  <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
+</div>
+</main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  renderMathInElement(document.body, {
+    delimiters:[
+      {left:"$$",right:"$$",display:true},
+      {left:"\\[",right:"\\]",display:true},
+      {left:"$",right:"$",display:false},
+      {left:"\\(",right:"\\)",display:false}
+    ],
+    throwOnError:false
+  });
+});
+</script>
+</body>
+</html>

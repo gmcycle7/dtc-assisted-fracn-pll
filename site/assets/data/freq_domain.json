@@ -1,0 +1,73 @@
+{
+  "params": {
+    "f_out": 6720000000.0,
+    "f_ref": 104000000.0,
+    "f_c": 1500000.0,
+    "pm_deg": 60.0,
+    "K_vco_hz": 100000000.0,
+    "dsm_order": 2,
+    "ref_floor_dbc": -168.0,
+    "ref_flicker_dbc": -143.5,
+    "ref_flicker_f": 10000.0,
+    "vco_dbc_at_1mhz": -116.5,
+    "vco_flicker_corner": 150000.0,
+    "spd_gm_dbc": -167.0,
+    "dtc_qn_dbc": -163.0,
+    "dtc_thermal_dbc": -171.0,
+    "mmd_dbc": -165.0,
+    "N": 64.61538461538461,
+    "K_vco": 628318530.7179586,
+    "wz": 2525361.643430801,
+    "wp": 35173750.19964669,
+    "Kloop": 23800972759978.953
+  },
+  "loop_metrics": {
+    "f_c_Hz": 1501097.2192691166,
+    "phase_margin_deg": 59.99999336745786
+  },
+  "budget": [
+    {
+      "source": "VCO",
+      "sigma_phi_rad": 0.0026624723718427787,
+      "jitter_fs": 63.0573867298186,
+      "percent": 51.82124022281619
+    },
+    {
+      "source": "REF",
+      "sigma_phi_rad": 0.0018996964781389915,
+      "jitter_fs": 44.99197691519125,
+      "percent": 26.381896857510583
+    },
+    {
+      "source": "DTC",
+      "sigma_phi_rad": 0.0012490020276010986,
+      "jitter_fs": 29.581078366743267,
+      "percent": 11.404174912554664
+    },
+    {
+      "source": "MMD",
+      "sigma_phi_rad": 0.0009217584473247564,
+      "jitter_fs": 21.830716254232946,
+      "percent": 6.211147396245014
+    },
+    {
+      "source": "SPD+GM",
+      "sigma_phi_rad": 0.000732178760305669,
+      "jitter_fs": 17.340754304991552,
+      "percent": 3.9189690673098276
+    },
+    {
+      "source": "DSM-QN (cancelled)",
+      "sigma_phi_rad": 0.00018951999539217244,
+      "jitter_fs": 4.488548226401409,
+      "percent": 0.2625715435637071
+    }
+  ],
+  "total": {
+    "source": "TOTAL",
+    "sigma_phi_rad": 0.0036985475670514496,
+    "jitter_fs": 87.59555469594368,
+    "ipn_dbc_ssb": -51.64967578586304,
+    "percent": 100.0
+  }
+}
