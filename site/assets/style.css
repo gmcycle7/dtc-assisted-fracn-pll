@@ -108,3 +108,90 @@ pre[class*="language-"]{border-radius:10px;font-size:13px;margin:14px 0;border:1
 .roadmap li{counter-increment:step;position:relative;padding:8px 0 8px 42px;border-bottom:1px dashed var(--line)}
 .roadmap li::before{content:counter(step);position:absolute;left:0;top:8px;width:28px;height:28px;border-radius:50%;
   background:var(--accent2);color:#fff;text-align:center;line-height:28px;font-weight:700;font-size:14px}
+
+/* ============================================================
+   v2 additions: TOC rail, back-to-top, hamburger, details/quiz,
+   interactive widgets, print
+   ============================================================ */
+
+/* main becomes a 2-col grid: article + sticky TOC rail (desktop) */
+main{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:34px;align-items:start}
+main > .article{min-width:0}
+@media (max-width:1150px){ main{grid-template-columns:1fr} aside.toc-rail{display:none} }
+
+aside.toc-rail{position:sticky;top:24px;font-size:12.5px;max-height:calc(100vh - 48px);overflow-y:auto;
+  border-left:1px solid var(--line);padding-left:14px}
+aside.toc-rail .toc-title{font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;
+  font-size:11px;margin-bottom:8px}
+aside.toc-rail a{display:block;color:var(--muted);text-decoration:none;padding:3px 0;border-left:2px solid transparent;
+  margin-left:-2px;padding-left:8px;line-height:1.35}
+aside.toc-rail a.h3{padding-left:18px;font-size:12px}
+aside.toc-rail a:hover{color:var(--ink)}
+aside.toc-rail a.current{color:var(--accent);border-left-color:var(--accent);font-weight:600}
+
+/* span footer/btnrow across both columns */
+main > .footer, main > .btnrow{grid-column:1 / -1}
+
+/* mobile top bar + hamburger */
+.topbar{display:none}
+@media (max-width:900px){
+  .topbar{display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50;background:var(--panel);
+    border-bottom:1px solid var(--line);padding:10px 14px}
+  .topbar .ham{font-size:22px;background:none;border:none;cursor:pointer;color:var(--ink)}
+  .topbar .ttl{font-weight:700;color:var(--accent);font-size:14px}
+  nav.side{position:fixed;z-index:60;left:0;top:0;bottom:0;width:78%;max-width:320px;transform:translateX(-100%);
+    transition:transform .2s ease;box-shadow:2px 0 12px rgba(0,0,0,.15)}
+  nav.side.open{transform:translateX(0)}
+  .scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:55}
+  .scrim.show{display:block}
+}
+
+/* back-to-top */
+#toTop{position:fixed;right:18px;bottom:18px;width:42px;height:42px;border-radius:50%;border:1px solid var(--line);
+  background:var(--panel);color:var(--accent2);font-size:20px;cursor:pointer;display:none;z-index:40;
+  box-shadow:0 2px 8px rgba(20,30,50,.12)}
+#toTop.show{display:block}
+
+/* expandable derivations */
+details.deriv{border:1px solid var(--line);border-radius:10px;padding:6px 14px;margin:14px 0;background:#fbfcfe}
+details.deriv > summary{cursor:pointer;font-weight:600;color:var(--accent2);padding:6px 0;list-style:none}
+details.deriv > summary::-webkit-details-marker{display:none}
+details.deriv > summary::before{content:"▸ ";color:var(--accent2)}
+details.deriv[open] > summary::before{content:"▾ "}
+
+/* self-check quiz */
+.quiz{border:1px solid #cdddff;background:#f3f8ff;border-radius:10px;padding:14px 16px;margin:16px 0}
+.quiz .q{font-weight:600;margin-bottom:6px}
+.quiz .q::before{content:"❓ ";}
+.quiz details{margin-top:6px}
+.quiz summary{cursor:pointer;color:var(--accent2);font-size:14px}
+.quiz .ans{margin-top:8px;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid var(--line);font-size:14.5px}
+
+/* interactive widgets */
+.widget{border:1px solid var(--line);border-radius:12px;padding:16px;margin:18px 0;background:var(--panel)}
+.widget .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px 22px;margin-bottom:12px}
+.widget .ctl{font-size:13px}
+.widget .ctl label{display:flex;justify-content:space-between;color:var(--muted);margin-bottom:2px}
+.widget .ctl label b{color:var(--accent2);font-variant-numeric:tabular-nums}
+.widget input[type=range]{width:100%;accent-color:var(--accent)}
+.widget .plot{width:100%;min-height:360px}
+.widget .readout{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:13px}
+.widget .readout .b{background:#eef1f6;border-radius:8px;padding:6px 12px}
+.widget .readout .b b{color:var(--accent2);font-size:16px}
+.widget .toggles{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0;font-size:13px}
+.widget .btn{background:var(--accent2);color:#fff;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-size:13px}
+.widget .btn.sec{background:#eef1f6;color:var(--ink)}
+
+/* native SVG diagrams */
+figure.diagram svg{max-width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:10px}
+
+/* print */
+@media print{
+  nav.side,.topbar,#toTop,aside.toc-rail,.btnrow,.widget .controls,.widget .toggles{display:none!important}
+  main{margin:0;grid-template-columns:1fr;padding:0;max-width:100%}
+  body{background:#fff;font-size:11pt}
+  .card,.note,.assume,.derive,.cite,.warn{break-inside:avoid}
+  figure,table{break-inside:avoid}
+  a{color:#000;text-decoration:none}
+  h1,h2{break-after:avoid}
+}

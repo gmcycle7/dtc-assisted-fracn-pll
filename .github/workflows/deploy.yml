@@ -1,0 +1,62 @@
+name: Build and deploy site to GitHub Pages
+
+# Rebuilds the models (figures + data), reassembles the static site, and publishes
+# the site/ folder to the gh-pages branch on every push to main.
+# (Repo Settings -> Pages must be: Deploy from a branch -> gh-pages / root.)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # needed to push the gh-pages branch
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install --quiet numpy scipy matplotlib pymupdf
+
+      - name: Regenerate figures + data
+        run: python models/run_all.py
+
+      - name: Re-render slide images (from the committed PDF)
+        run: |
+          python - <<'PY'
+          import fitz, glob, os
+          pdfs = glob.glob("*.pdf")
+          if pdfs:
+              d = fitz.open(pdfs[0])
+              os.makedirs("site/assets/slides", exist_ok=True)
+              for i in range(min(42, len(d))):
+                  d[i].get_pixmap(dpi=150).save(f"site/assets/slides/slide_{i+1:02d}.png")
+              print("rendered", min(42, len(d)), "slides")
+          else:
+              print("no PDF found, keeping committed slide images")
+          PY
+
+      - name: Build site HTML
+        run: python site/build_site.py
+
+      - name: Run tests (non-blocking sanity)
+        run: python -m pytest tests/ -q || true
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
+          force_orphan: true

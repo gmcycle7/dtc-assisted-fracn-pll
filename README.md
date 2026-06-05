@@ -12,6 +12,13 @@ It contains (a) a slide-by-slide inventory, (b) runnable Python models for the f
 linear PLL, the time-domain noise simulation, and every calibration, (c) auto-generated figures,
 (d) a test suite of sanity checks, and (e) a static, browser-openable teaching website.
 
+**v2 additions:** the website is now **fully offline** (KaTeX/Prism/Plotly vendored locally),
+**interactive** (live phase-noise/Bode explorer + calibration playground whose JS math is a
+validated port of the Python model — reproduces 87.6 fs), has **native SVG block diagrams**,
+three extra pages (**Notation & Glossary**, **DTC Topologies**, **Validation & Limits**),
+**self-check quizzes**, a sticky table-of-contents, mobile nav, a print stylesheet, downloadable
+CSV/JSON data, and a **GitHub Actions** workflow that rebuilds and redeploys on every push.
+
 ---
 
 ## What was found in the deck (slides 1–42)
@@ -122,7 +129,14 @@ cd site && python3 -m http.server 8000   # -> http://localhost:8000
 ```
 
 Pages: **Home · Slide-by-slide Map · Architecture · Block Models · Calibrations ·
-Frequency-Domain · Time-Domain Noise · Code Walkthrough · Numerical Examples · References.**
+Frequency-Domain · Time-Domain Noise · Code Walkthrough · Numerical Examples ·
+DTC Topologies · Notation & Glossary · Validation & Limits · References.**
+
+The site renders **offline** (all of KaTeX, Prism and Plotly are vendored under
+`site/assets/vendor/`). The interactive widgets live in `site/assets/app/` (`pll.js` is a
+browser port of the Python model; `widgets.js` drives the Plotly explorers). A push to `main`
+triggers `.github/workflows/deploy.yml`, which regenerates figures, rebuilds the HTML, and
+publishes `site/` to the `gh-pages` branch.
 
 ---
 

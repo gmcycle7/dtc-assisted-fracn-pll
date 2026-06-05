@@ -105,6 +105,36 @@ def H_vco(params: PLLParams, f):
     return 1.0 / (1 + G)
 
 
+# ----------------------------------------------------------------------------
+#  Type-I sampling-loop variant (open_questions.md #1)  [Derived]
+# ----------------------------------------------------------------------------
+def design_type1(params: PLLParams):
+    """First-order-dominant type-I loop at the same crossover f_c.
+    G_I(s) = K1 / ( s (1 + s/wp) ).  Single integrator (VCO) -> one pole at origin,
+    one extra pole wp for HF roll-off. PM = 90deg - atan(wc/wp).  [Derived]
+    """
+    wc = 2 * np.pi * params.f_c
+    wp = 8.0 * wc                       # far pole -> PM ~ 90 - atan(1/8) ~ 82.9 deg
+    jwc = 1j * wc
+    K1 = 1.0 / abs(1.0 / (jwc * (1 + jwc / wp)))
+    return {"wc": wc, "wp": wp, "K1": K1}
+
+
+def open_loop_type1(params: PLLParams, f, d1):
+    s = 1j * 2 * np.pi * np.asarray(f, dtype=float)
+    return d1["K1"] / (s * (1 + s / d1["wp"]))
+
+
+def H_ref_type1(params, f, d1):
+    G = open_loop_type1(params, f, d1)
+    return params.N * G / (1 + G)
+
+
+def H_vco_type1(params, f, d1):
+    G = open_loop_type1(params, f, d1)
+    return 1.0 / (1 + G)
+
+
 def H_lf(params: PLLParams, f):
     """Loop-filter / PD-output referred noise -> output (band-pass).  [derivations.md Sec.2]
     Same denominator (1+G); numerator ~ forward path after the PD = K_vco/s shaped.
@@ -294,6 +324,21 @@ def make_figures(params: PLLParams):
                  f"(slide 42: 87.5 fs; VCO 51% / REF 39% / MMD 6% / SPD+GM 4%)")
     U.savefig_both(fig, "fd_jitter_pie.png"); plt.close(fig)
 
+    # ---- Fig 5: type-I vs type-II loop comparison (open_questions #1) ----
+    d1 = design_type1(params)
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(11, 4.2))
+    a1.semilogx(f, U.db20(H_ref(params, f) / params.N), label="type-II Href/N", color="tab:blue")
+    a1.semilogx(f, U.db20(H_ref_type1(params, f, d1) / params.N), label="type-I Href/N", color="tab:red", ls="--")
+    a1.set_title("Reference NTF (low-pass)"); a1.set_xlabel("Hz"); a1.set_ylabel("|H| [dB]")
+    a1.set_ylim(-40, 8); a1.grid(True, which="both", alpha=0.3); a1.legend(fontsize=8)
+    a2.semilogx(f, U.db20(H_vco(params, f)), label="type-II Hvco", color="tab:blue")
+    a2.semilogx(f, U.db20(H_vco_type1(params, f, d1)), label="type-I Hvco", color="tab:red", ls="--")
+    a2.set_title("VCO NTF (high-pass)"); a2.set_xlabel("Hz"); a2.set_ylabel("|H| [dB]")
+    a2.set_ylim(-40, 8); a2.grid(True, which="both", alpha=0.3); a2.legend(fontsize=8)
+    fig.suptitle("Type-I vs type-II at the same f_c — type-II suppresses LF ref noise harder "
+                 "(2 integrators) but can peak; type-I is first-order, no peaking")
+    U.savefig_both(fig, "fd_type_comparison.png"); plt.close(fig)
+
     return met, rows, total
 
 
@@ -329,7 +374,19 @@ def main():
         "budget": rows,
         "total": total,
     }, "freq_domain.json")
-    print("figures + freq_domain.json written.")
+
+    # ---- CSV exports (downloadable from the website) ----
+    U.dump_csv([[r["source"], f"{r['jitter_fs']:.2f}", f"{r['percent']:.2f}"] for r in rows]
+               + [["TOTAL", f"{total['jitter_fs']:.2f}", "100.00"]],
+               ["source", "jitter_fs", "percent"], "jitter_budget.csv")
+    fcsv = U.logspace(1e3, 1e8, 400)
+    c = output_contributions(p, fcsv)
+    U.dump_csv([[f"{fcsv[i]:.3f}"] + [f"{U.Sphi_to_L(c[k][i]):.3f}" for k in
+                ["VCO", "REF", "DTC", "MMD", "SPD+GM", "DSM-QN (cancelled)", "total"]]
+                for i in range(len(fcsv))],
+               ["freq_Hz", "VCO", "REF", "DTC", "MMD", "SPD_GM", "DSM_QN", "TOTAL"],
+               "phase_noise_budget.csv")
+    print("figures + freq_domain.json + CSVs written.")
 
 
 if __name__ == "__main__":

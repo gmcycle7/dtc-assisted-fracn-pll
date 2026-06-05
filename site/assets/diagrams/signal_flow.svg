@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 360" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="14">
+  <defs>
+    <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1f2733"/></marker>
+  </defs>
+  <style>
+    .blk{fill:#fff;stroke:#1f2733;stroke-width:2;rx:8}
+    .blkc{fill:#fdeee9;stroke:#c8442b;stroke-width:2}
+    .blkd{fill:#eef4ff;stroke:#1f6feb;stroke-width:2}
+    .lbl{fill:#1f2733;text-anchor:middle}
+    .sig{fill:#5b6776;font-size:12px;text-anchor:middle}
+    .wire{stroke:#1f2733;stroke-width:2;fill:none}
+    .red{fill:#c8442b;font-weight:700}
+  </style>
+
+  <!-- forward path -->
+  <text x="20" y="86" class="sig" text-anchor="start">CKREF</text>
+  <line x1="20" y1="95" x2="78" y2="95" class="wire" marker-end="url(#ah)"/>
+  <rect x="80" y="72" width="74" height="46" class="blkc" rx="8"/><text x="117" y="100" class="lbl red">DTC</text>
+  <text x="180" y="86" class="sig">CKDTC</text>
+  <line x1="154" y1="95" x2="214" y2="95" class="wire" marker-end="url(#ah)"/>
+  <rect x="216" y="72" width="92" height="46" class="blk" rx="8"/><text x="262" y="96" class="lbl">Sampling</text><text x="262" y="111" class="lbl" font-size="12">PD (SPD)</text>
+  <line x1="308" y1="95" x2="346" y2="95" class="wire" marker-end="url(#ah)"/>
+  <rect x="348" y="72" width="104" height="46" class="blk" rx="8"/><text x="400" y="96" class="lbl">G&#8344; +</text><text x="400" y="111" class="lbl" font-size="12">Loop Filter</text>
+  <line x1="452" y1="95" x2="496" y2="95" class="wire" marker-end="url(#ah)"/>
+  <text x="474" y="86" class="sig">V<tspan baseline-shift="sub" font-size="8">ctrl</tspan></text>
+  <rect x="498" y="72" width="74" height="46" class="blk" rx="8"/><text x="535" y="100" class="lbl">VCO</text>
+  <line x1="572" y1="95" x2="700" y2="95" class="wire" marker-end="url(#ah)"/>
+  <text x="690" y="86" class="sig" text-anchor="end">CKVCO (f<tspan baseline-shift="sub" font-size="9">out</tspan>)</text>
+  <text x="715" y="100" class="red" font-size="15">f<tspan baseline-shift="sub" font-size="9">out</tspan></text>
+
+  <!-- feedback path -->
+  <line x1="640" y1="95" x2="640" y2="200" class="wire"/>
+  <line x1="640" y1="200" x2="572" y2="200" class="wire" marker-end="url(#ah)"/>
+  <rect x="470" y="177" width="102" height="46" class="blk" rx="8"/><text x="521" y="205" class="lbl">MMD &#247;N</text>
+  <line x1="470" y1="200" x2="310" y2="200" class="wire"/>
+  <text x="395" y="193" class="sig">CKFB</text>
+  <!-- CKFB up into SPD -->
+  <line x1="262" y1="200" x2="262" y2="120" class="wire" marker-end="url(#ah)"/>
+  <line x1="310" y1="200" x2="262" y2="200" class="wire"/>
+
+  <!-- modified DSM -->
+  <rect x="350" y="270" width="120" height="44" class="blkd" rx="8"/><text x="410" y="290" class="lbl">Modified</text><text x="410" y="305" class="lbl" font-size="12">&#931;&#916; (½-range)</text>
+  <line x1="521" y1="223" x2="521" y2="292" class="wire"/><line x1="521" y1="292" x2="470" y2="292" class="wire" marker-end="url(#ah)"/>
+  <text x="500" y="262" class="sig">NDIV, SEL_CKFB</text>
+  <line x1="560" y1="292" x2="521" y2="292" class="wire"/>
+  <text x="600" y="296" class="sig" text-anchor="start">&#8592; FCW</text>
+  <line x1="640" y1="296" x2="560" y2="292" class="wire" marker-end="url(#ah)"/>
+
+  <!-- DTC code cancellation path: DSM -> KDTC -> DTC -->
+  <line x1="350" y1="292" x2="117" y2="292" class="wire"/>
+  <line x1="117" y1="292" x2="117" y2="118" class="wire" marker-end="url(#ah)"/>
+  <circle cx="250" cy="292" r="13" fill="#fff" stroke="#c8442b" stroke-width="2"/><text x="250" y="297" class="red lbl" font-size="14">&#215;</text>
+  <text x="250" y="325" class="red lbl" font-size="13">K<tspan baseline-shift="sub" font-size="9">DTC</tspan></text>
+  <text x="190" y="285" class="sig">&#934;&#8337;[n]</text>
+  <text x="117" y="345" class="red lbl" font-size="13">DTC code = K<tspan baseline-shift="sub" font-size="9">DTC</tspan>&#183;&#934;&#8337;[n] (cancels &#931;&#916; QE)</text>
+
+  <text x="20" y="30" font-size="15" font-weight="700" fill="#c8442b">Signal flow — proposed DTC-assisted sampling fractional-N PLL</text>
+  <text x="20" y="48" class="sig" text-anchor="start">Red = DTC / reference path · Blue = digital ΔΣ · arrows show signal direction</text>
+</svg>

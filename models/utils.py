@@ -53,6 +53,17 @@ def dump_json(obj, name):
     return os.path.join(SITE_DATA, name)
 
 
+def dump_csv(rows, header, name):
+    """Write a list-of-rows table as CSV to results/tables + site/assets/data."""
+    import csv
+    for d in (RESULTS_TAB, SITE_DATA):
+        with open(os.path.join(d, name), "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(header)
+            w.writerows(rows)
+    return os.path.join(SITE_DATA, name)
+
+
 def _json_default(o):
     if isinstance(o, (np.floating,)):
         return float(o)

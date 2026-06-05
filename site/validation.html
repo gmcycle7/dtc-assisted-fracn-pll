@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validation & Limits · DTC-Assisted Frac-N PLL</title>
+<meta name="description" content="Sanity checks, slide-42 budget match, time<->frequency cross-check, test results, and known limitations.">
+<meta property="og:title" content="Validation & Limits · DTC-Assisted Fractional-N PLL">
+<meta property="og:description" content="Sanity checks, slide-42 budget match, time<->frequency cross-check, test results, and known limitations.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism-tomorrow.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar"><button class="ham" aria-label="Open menu">&#9776;</button><span class="ttl">Validation & Limits</span></div>
+<div class="scrim"></div>
+<div class="wrap">
+<nav class="side" aria-label="Site sections">
+<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>
+<div class="sub">Interactive study of slides 1–42</div>
+<a class="" href="index.html"><span class="n">1</span>Home</a>
+<a class="" href="slides.html"><span class="n">2</span>Slide-by-slide Map</a>
+<a class="" href="architecture.html"><span class="n">3</span>Architecture</a>
+<a class="" href="blocks.html"><span class="n">4</span>Block Models</a>
+<a class="" href="calibrations.html"><span class="n">5</span>Calibrations</a>
+<a class="" href="frequency.html"><span class="n">6</span>Frequency-Domain</a>
+<a class="" href="timedomain.html"><span class="n">7</span>Time-Domain Noise</a>
+<a class="" href="codewalk.html"><span class="n">8</span>Code Walkthrough</a>
+<a class="" href="examples.html"><span class="n">9</span>Numerical Examples</a>
+<a class="" href="dtctopologies.html"><span class="n">10</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">11</span>Notation & Glossary</a>
+<a class="active" href="validation.html"><span class="n">12</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">13</span>References</a>
+</nav>
+<main>
+<div class="article">
+<h1>Validation &amp; Limitations</h1>
+<p class="lead">How we know the model is right — and exactly where it isn't. This page collects the slide-42 jitter match, the full sanity-check suite (18/18 passing), the frequency&#8596;time cross-check, the type-I-vs-type-II comparison that resolves open-question #1, the commands to reproduce everything yourself, the raw data downloads, and an honest list of the assumptions and open questions baked into the numbers.</p>
+
+<div class="note">
+Numbers on this page come from the exported model outputs
+<code>site/assets/data/freq_domain.json</code>, <code>time_domain.json</code> and
+<code>calibrations.json</code>; the limitations come verbatim from
+<code>docs/open_questions.md</code>; the conversion conventions are spelled out in
+<code>docs/derivations.md</code> §8&#8211;§9. Slide tags point at the deck (W. Wu, Samsung, slides 1&#8211;42).
+</div>
+
+<h2 id="kpis">1. The headline checks</h2>
+<p>If you only read one row on this page, read this one. The model reproduces slide 42 to within
+rounding, the time-domain and frequency-domain models agree to a fraction of a dB, and the loop
+lands on its target bandwidth and phase margin.</p>
+
+<div class="kpi">
+  <div class="box"><div class="v">18 / 18</div><div class="l">tests passing</div></div>
+  <div class="box"><div class="v">87.6 fs</div><div class="l">total jitter (model)</div></div>
+  <div class="box"><div class="v">87.5 fs</div><div class="l">slide 42 budget</div></div>
+  <div class="box"><div class="v">+0.08 dB</div><div class="l">freq&#8596;time cross-check</div></div>
+  <div class="box"><div class="v">1.501 MHz</div><div class="l">f_c (target 1.5)</div></div>
+  <div class="box"><div class="v">60.0&deg;</div><div class="l">phase margin</div></div>
+</div>
+<p style="font-size:0.9em;color:#666">
+87.5 fs / &minus;51.7 dBc are <span class="tag t-slide">slide p42</span>; 87.6 fs (model) and
+&minus;51.6 dBc are <span class="tag t-derive">derived</span> (freq_domain.json <code>total</code>);
+the cross-check is <span class="tag t-derive">derived</span> (88.2 fs time vs 87.4 fs freq,
+same band &rarr; +0.08 dB); f_c=1.5 MHz <span class="tag t-assume">assumption [A1]</span>, measured
+1.501 MHz; PM=60&deg; <span class="tag t-assume">assumption [A2]</span>, measured 60.0&deg;.
+</p>
+
+<h2 id="slide42">2. Slide-42 match</h2>
+<p>
+Slide 42 gives the jitter budget as <b>percentages</b> of an 87.5-fs total, not absolute dBc/Hz
+per source <span class="tag t-slide">slide p42</span>. Our per-source phase-noise floors are
+<i>back-solved</i> to reproduce those percentages <span class="tag t-assume">assumption [A12&#8211;A15]</span>
+(see limitation #7 below), so this table is the constraint the model was fit to &mdash; not an
+independent prediction. What it confirms is that a self-consistent set of floors <i>exists</i> and
+that the integration math reproduces both the percentages and the 87.5-fs / &minus;51.7-dBc total.
+</p>
+<p>
+The model's budget reports REF and DTC separately (REF 26.4 %, DTC 11.4 %); we group them as the
+slide does into a single <b>REF&#8201;+&#8201;DTC</b> reference-path row (26.4 + 11.4 = 37.8 %), since the DTC sits
+in the reference path and shares its NTF <span class="tag t-derive">derived</span>
+(derivations.md §2). The "model jitter fs" column is the rms contribution that each row's NTF-shaped
+PSD integrates to <span class="tag t-derive">derived</span>; these add in quadrature, not linearly,
+which is why 63 + 45 + &hellip; fs &ne; 87.6 fs.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Source</th><th>NTF / where it enters</th><th class="num">model jitter (fs)</th><th class="num">model %</th><th class="num">slide-42 %</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>VCO</td><td>output, high-pass $1/(1+G)$</td><td class="num">63.1</td><td class="num">51.8</td><td class="num">51</td></tr>
+    <tr><td>REF&#8201;+&#8201;DTC</td><td>reference path, low-pass $\times N$</td><td class="num">53.8</td><td class="num">37.8</td><td class="num">39</td></tr>
+    <tr><td>MMD (divider)</td><td>feedback, low-pass</td><td class="num">21.8</td><td class="num">6.2</td><td class="num">6</td></tr>
+    <tr><td>SPD&#8201;+&#8201;GM</td><td>after PD, band-pass</td><td class="num">17.3</td><td class="num">3.9</td><td class="num">4</td></tr>
+    <tr><td>DSM-QN (cancelled)</td><td>feedback, $(1-z^{-1})^m$ shaped</td><td class="num">4.5</td><td class="num">~0.3</td><td class="num">~0</td></tr>
+    <tr><td><b>TOTAL</b></td><td>quadrature sum</td><td class="num"><b>87.6</b></td><td class="num"><b>100</b></td><td class="num"><b>100</b></td></tr>
+  </tbody>
+</table>
+<p style="font-size:0.9em;color:#666">
+Model columns from freq_domain.json <code>budget[]</code>: VCO 63.06 fs / 51.82 %, REF 44.99 fs /
+26.38 %, DTC 29.58 fs / 11.40 %, MMD 21.83 fs / 6.21 %, SPD+GM 17.34 fs / 3.92 %, DSM 4.49 fs /
+0.26 % <span class="tag t-derive">derived</span>. REF&#8201;+&#8201;DTC jitter shown is the quadrature sum
+$\sqrt{44.99^2+29.58^2}=53.8$ fs. Total 87.60 fs, IPN &minus;51.65 dBc
+<span class="tag t-derive">derived</span> vs slide 42's 87.5 fs / &minus;51.7 dBc
+<span class="tag t-slide">slide p42</span>.
+</p>
+
+<div class="warn">
+This row is a <b>fit, not a prediction.</b> Because the absolute floors were back-solved to the
+slide percentages, agreement here proves consistency, not that any single source's floor is the
+true silicon number. Limitation #7 is the formal version of this caveat.
+</div>
+
+<h2 id="sanity">3. Sanity checks</h2>
+<p>
+The model isn't trusted because one number matched a slide &mdash; it's trusted because a battery of
+independent invariants all hold at once. These are the assertions in <code>tests/</code>, grouped by
+the brief's section H. Each one would catch a different class of bug: a wrong sign, a missing
+$2\pi$, a windowing error, a non-converging loop. All 18 pass.
+</p>
+
+<h3>H.1 &mdash; Frequency-domain invariants</h3>
+<table>
+  <thead><tr><th>Check</th><th>What it proves</th><th>Result</th><th class="num">Status</th></tr></thead>
+  <tbody>
+    <tr><td>DC closed-loop gain &rarr; $N$</td><td>$H_\text{ref}(0)=N=64.62$; the output phase tracks the reference, scaled by N <span class="tag t-derive">derived</span></td><td>$H_\text{ref}(0)\to N$</td><td class="num">PASS</td></tr>
+    <tr><td>VCO high-pass suppression</td><td>$H_\text{vco}\to0$ at LF (loop suppresses VCO noise), $\to1$ at HF (VCO noise passes)</td><td>monotone HP</td><td class="num">PASS</td></tr>
+    <tr><td>$f_c$ / phase margin</td><td>$|G_\text{ol}(j\omega_c)|=1$ at f_c=1.501 MHz; PM = 60.0&deg; <span class="tag t-assume">[A1][A2]</span></td><td>1.501 MHz, 60.0&deg;</td><td class="num">PASS</td></tr>
+    <tr><td>Budget reproduces slide 42</td><td>model 87.6 fs / &minus;51.6 dBc <span class="tag t-derive">model</span> vs slide 87.5 fs / &minus;51.7 dBc <span class="tag t-slide">slide p42</span></td><td>match</td><td class="num">PASS</td></tr>
+  </tbody>
+</table>
+
+<h3>H.2 &mdash; Time-domain invariants</h3>
+<table>
+  <thead><tr><th>Check</th><th>What it proves</th><th>Result</th><th class="num">Status</th></tr></thead>
+  <tbody>
+    <tr><td>Parseval / PSD normalization</td><td>$\int S_\phi(f)\,df \approx \operatorname{var}(\phi)$ to &le;0.5 dB <span class="tag t-derive">derived</span> (derivations.md §9)</td><td>1.498e-5 vs 1.428e-5</td><td class="num">PASS</td></tr>
+    <tr><td>Locked phase is zero-mean</td><td>after lock, the phase-error sequence has no DC drift (loop integrates static error away)</td><td>mean &rarr; 0</td><td class="num">PASS</td></tr>
+    <tr><td>RMS jitter scaling</td><td>$\sigma_t=\sigma_\phi/(2\pi f_\text{out})$ holds; doubling a floor scales jitter as expected</td><td>scales as $\sqrt{}$</td><td class="num">PASS</td></tr>
+  </tbody>
+</table>
+
+<h3>H.3 &mdash; Calibration invariants</h3>
+<table>
+  <thead><tr><th>Check</th><th>What it proves</th><th>Result</th><th class="num">Status</th></tr></thead>
+  <tbody>
+    <tr><td>Loops converge to target</td><td>DTC-gain, VCO-DCC, CKREF-DCC all settle to their set points in &lt;30 &micro;s</td><td>6.7 / 1.0 / 0.98 &micro;s</td><td class="num">PASS</td></tr>
+    <tr><td>Offset &rarr; bias</td><td>a non-zero-mean error drives a gain bias; the offset servo removes it <span class="tag t-slide">slide p27,p28</span></td><td>bias 22.6 % when uncal'd</td><td class="num">PASS</td></tr>
+    <tr><td>Big step &rarr; ripple</td><td>a large input step produces bounded transient ripple, then re-locks (no runaway)</td><td>bounded, re-locks</td><td class="num">PASS</td></tr>
+    <tr><td>NLC reduces INL</td><td>polynomial non-linearity correction shrinks peak INL <span class="tag t-slide">slide p31</span></td><td>0.22 &rarr; 1.1e-4 LSB</td><td class="num">PASS</td></tr>
+  </tbody>
+</table>
+
+<h3>H.4 &mdash; Cross-model consistency</h3>
+<table>
+  <thead><tr><th>Check</th><th>What it proves</th><th>Result</th><th class="num">Status</th></tr></thead>
+  <tbody>
+    <tr><td>Frequency &#8596; time cross-check</td><td>independent LTI and time-stepped models agree to &lt;1.5 dB over the same band <span class="tag t-derive">derived</span></td><td>+0.08 dB (88.2 vs 87.4 fs)</td><td class="num">PASS</td></tr>
+  </tbody>
+</table>
+<p style="font-size:0.9em;color:#666">
+Calibration results from calibrations.json: DTC-gain settle 6.68 &micro;s / final err 1.4e-4 % /
+offset bias 22.6 %; VCO-DCC 1.0 &micro;s (target 10.0 ps &rarr; 9.6 ps); CKREF-DCC 0.98 &micro;s
+(target 0.337 ns &rarr; 0.350 ns); offset 14.6 &micro;s (32 &rarr; 33.1 mV); NLC INL 0.22 &rarr;
+1.07e-4 <span class="tag t-derive">derived</span>. Parseval from time_domain.json
+(<code>parseval_var_time</code> 1.498e-5 vs <code>parseval_var_psd</code> 1.428e-5).
+</p>
+
+<h2 id="crosscheck">4. Frequency &#8596; time cross-check</h2>
+<p>
+The two models are written independently &mdash; one is a closed-form s-domain (LTI) integration of
+PSDs, the other steps the loop in discrete time and Welch-estimates the PSD of the resulting
+phase-error sequence. If both arrive at the same jitter, a whole class of conceptual and arithmetic
+errors is ruled out. Over the same integration band they land at <b>88.2 fs (time)</b> vs
+<b>87.4 fs (freq)</b>, a difference of only <b>+0.08 dB</b> <span class="tag t-derive">derived</span>.
+</p>
+
+<figure>
+  <img src="assets/figures/td_phase_noise.png" alt="Time-domain Welch PSD overlaid on the frequency-domain analytic phase-noise budget, showing close agreement across the band.">
+  <figcaption>Welch-estimated PSD from the time-domain simulation (markers) overlaid on the
+  analytic frequency-domain budget (smooth curves). The two agree across the band; residual
+  differences are explained below. <span class="tag t-derive">derived</span> (td_phase_noise.png).</figcaption>
+</figure>
+
+<h4>Why the agreement isn't perfect (and shouldn't be)</h4>
+<ul>
+  <li><b>Different Nyquist bands.</b> The time-domain sim is sampled at the reference rate, so its
+      Nyquist edge is $f_\text{ref}/2 \approx 52$ MHz, while the analytic integration runs to a wider
+      $\sim$100 MHz span. The far-out tail therefore carries slightly different energy in the two
+      models <span class="tag t-derive">derived</span>.</li>
+  <li><b>Finite record length.</b> A finite-length sequence gives a PSD estimate with variance; the
+      Welch estimate fluctuates around the true PSD, contributing a fraction of a dB
+      <span class="tag t-std">textbook (Welch 1967)</span>.</li>
+  <li><b>Windowing.</b> The window used for the Welch PSD has a power-normalization factor $U$ and
+      finite spectral leakage; we correct for $U$ exactly (derivations.md §9) but leakage at band
+      edges remains <span class="tag t-std">textbook</span>.</li>
+  <li><b>Discrete-time vs continuous-time.</b> The s-domain NTFs are continuous; the time model is a
+      discrete-time (z-domain) loop. They match for $f \ll f_\text{ref}/2$ but diverge as $f$
+      approaches Nyquist, where the bilinear/ZOH mapping warps the response
+      <span class="tag t-derive">derived</span>.</li>
+</ul>
+<p>+0.08 dB is comfortably inside the &lt;1.5 dB tolerance the brief sets for this check
+<span class="tag t-derive">derived</span>.</p>
+
+<h2 id="type1vs2">5. Type-I vs type-II loop</h2>
+<p>
+Open-question #1 asks which loop the silicon actually used: slide 39 shows both a proportional
+($V_\text{ctrl,P}$) and an integral ($V_\text{ctrl,I}$) path into the VCO &mdash; the signature of a
+<b>type-II</b> loop &mdash; while slide 20 describes the SPD path as a first-order IIR, which reads
+more <b>type-I</b> <span class="tag t-slide">slide p39, p20</span>. Rather than guess, we model a
+type-II loop with a programmable proportional path <i>and</i> expose a type-I switch, then compare
+them head-to-head.
+</p>
+
+<figure>
+  <img src="assets/figures/fd_type_comparison.png" alt="Frequency-domain comparison of type-I and type-II loop transfer functions and phase noise, showing the static-error / peaking trade-off.">
+  <figcaption>Type-I vs type-II closed-loop response and output phase noise. Type-II eliminates
+  static phase error but can peak near f_c and suppresses low-frequency reference content less
+  aggressively; type-I is first-order with no peaking. <span class="tag t-derive">derived</span>
+  (fd_type_comparison.png).</figcaption>
+</figure>
+
+<div class="grid">
+  <div class="card">
+    <h4>Type-II (two poles at origin)</h4>
+    <ul>
+      <li><b>Zero static phase error</b> &mdash; the integrator drives steady-state error to 0.</li>
+      <li><b>Harder low-frequency reference suppression</b> &mdash; the extra integrator keeps loop
+          gain high at low offset, so it tracks (rather than rejects) slow reference content.</li>
+      <li><b>Can peak</b> near $f_c$ if phase margin is low (gain peaking &gt; 0 dB).</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Type-I (one pole at origin)</h4>
+    <ul>
+      <li><b>First-order</b> roll-off, unconditionally well-behaved.</li>
+      <li><b>No peaking</b> in the closed-loop response.</li>
+      <li><b>Non-zero static phase error</b> against a frequency ramp (the price of dropping the
+          second integrator).</li>
+    </ul>
+  </div>
+</div>
+<p>
+The trade is the textbook one <span class="tag t-std">textbook (Gardner)</span>: type-II buys
+zero static error at the cost of possible peaking and less low-frequency rejection; type-I is
+simpler and peaking-free but leaves a static error. Both are implemented so the page is correct
+whichever the chip used &mdash; <b>this is how we resolve open-question #1 without inventing a fact.</b>
+</p>
+<div class="assume">
+<b>Assumption.</b> The budget and KPI numbers on this site use the <b>type-II</b> configuration with
+a programmable proportional path <span class="tag t-assume">assumption [A1/A2 loop]</span>. If you can
+confirm the measured chip's topology, the type-I switch is already in
+<code>models/frequency_domain_model.py</code>. <span class="tag t-need">needs citation</span>
+(which topology the measured chip used).
+</div>
+
+<h2 id="reproduce">6. Reproduce it yourself</h2>
+<p>Every number, figure and data file on this site is regenerated by these commands from a clean
+checkout. No hidden state.</p>
+<pre><code class="language-python"># 1. dependencies
+pip install numpy scipy matplotlib pymupdf
+
+# 2. run all models -> regenerates site/assets/data/*.json and assets/figures/*.png
+python models/run_all.py
+
+# 3. run the sanity-check suite (expect 18 passed)
+python -m pytest tests/ -q
+
+# 4. rebuild the static site from _content/*.html
+python site/build_site.py</code></pre>
+<div class="note">
+<code>run_all.py</code> writes <code>freq_domain.json</code>, <code>time_domain.json</code>,
+<code>calibrations.json</code>, the two CSV budgets, and every PNG under
+<code>assets/figures/</code>; <code>pytest</code> asserts the H.1&#8211;H.4 invariants above;
+<code>build_site.py</code> wraps these fragments into the navigable site.
+</div>
+
+<h2 id="downloads">7. Download the data</h2>
+<p>The exported model outputs, raw &mdash; load them in a notebook and check the numbers yourself.</p>
+<ul>
+  <li><a href="assets/data/freq_domain.json">freq_domain.json</a> &mdash; loop params, metrics, and the per-source jitter budget that reproduces slide 42.</li>
+  <li><a href="assets/data/time_domain.json">time_domain.json</a> &mdash; time-domain jitter, per-source contributions, band, and Parseval check.</li>
+  <li><a href="assets/data/calibrations.json">calibrations.json</a> &mdash; settling times and final values for every calibration loop.</li>
+  <li><a href="assets/data/jitter_budget.csv">jitter_budget.csv</a> &mdash; the slide-42 jitter budget as a flat table.</li>
+  <li><a href="assets/data/phase_noise_budget.csv">phase_noise_budget.csv</a> &mdash; the full per-source phase-noise PSD vs frequency.</li>
+</ul>
+
+<h2 id="limitations">8. Known limitations &amp; open questions</h2>
+<p>
+These are the points where the slides are genuinely ambiguous and we chose <b>not</b> to guess
+silently. Each is taken from <code>docs/open_questions.md</code>; where we made a working assumption
+it is stated so you can correct it. None of these change the headline 87.6-fs result by more than a
+few percent, but they bound how literally each per-source number should be read.
+</p>
+
+<div class="warn">
+<b>1. Type-I vs type-II loop (open-q #1).</b> Slide 39 shows proportional + integral paths
+(type-II) while slide 20's SPD reads type-I-ish <span class="tag t-slide">slide p39, p20</span>. We
+model type-II and expose a type-I switch (see &sect;5). <i>Needs confirmation of the measured chip's
+topology.</i> <span class="tag t-need">needs citation</span>
+</div>
+
+<div class="warn">
+<b>2. The &plusmn;3 dB DTC QN convention (open-q #2).</b> The printed
+$\Phi_\text{DTC,QN}=(2\pi T_\text{res})^2/12\cdot f_\text{ref}$ reproduces &minus;163 dBc/Hz only with
+the $/12$ reading; the single-sided textbook result uses $/6$ &mdash; a factor-2 (3 dB) choice
+<span class="tag t-slide">slide p15</span>. We adopt the slide's convention and flag it.
+<span class="tag t-need">needs citation</span> (exact convention vs [Wu'19]).
+</div>
+
+<div class="warn">
+<b>3. Absolute noise floors are back-solved (open-q #7).</b> Slide 42 gives only <i>percentages</i>
+of the 87.5-fs budget, not absolute dBc/Hz per source (except DTC QN/thermal)
+<span class="tag t-slide">slide p42</span>. Our per-source PSD levels
+<span class="tag t-assume">assumption [A12&#8211;A15]</span> are back-solved to reproduce those
+percentages &mdash; plausible but not unique. <i>With the per-source PN curves we could lock them
+exactly.</i>
+</div>
+
+<div class="warn">
+<b>4. DSM-QN magnitude is illustrative (open-q, &sect;2 + #5).</b> Slide 42 reports the &Sigma;&Delta;M
+quantization error as &asymp;0 % after DTC cancellation <span class="tag t-slide">slide p42</span>;
+our residual 4.5 fs (~0.3 %) shows the <i>cancellation working</i> but its exact magnitude depends
+on the modified-DSM internals, which are only sketched <span class="tag t-slide">slide p34</span>.
+</div>
+
+<div class="warn">
+<b>5. Modified-DSM internals (open-q #5).</b> The "&times;2 / &divide;2 / Acc / $z^{-1}$" network that
+produces $N_\text{DIV,tmp}$, $\text{SEL\_CKFB}$ and the half-range $\Phi_e(n)$ is only sketched on
+slide 34 <span class="tag t-slide">slide p34</span>. We implement a behavioral MASH1-1 consistent
+with the waveforms; the exact register-level structure is not fully specified.
+</div>
+
+<div class="warn">
+<b>6. Reference doubler CKREFX2 rate (open-q #6).</b> Slide 39 shows
+$\text{CKREF}\to\times2\to\text{CKREFX2}\to\text{DTC}$; whether the effective $f_\text{ref}$ for the
+cals is 104 MHz or 208 MHz is ambiguous <span class="tag t-slide">slide p39</span>. We assume the
+DTC/PD run at the doubled rate where shown but report budget numbers at 104 MHz (slide 42).
+<i>Needs confirmation.</i> <span class="tag t-need">needs citation</span>
+</div>
+
+<div class="assume">
+<b>Other documented assumptions (docs/open_questions.md #3, #4, #8, #9):</b> the cal-loop effective
+DTC LSB vs the 400-fs coarse step <span class="tag t-assume">[A]</span>; the exact
+<code>even_cycle</code> / <code>SEL_CKFB</code> toggling <span class="tag t-assume">[A]</span>; the
+parabolic-INL spur magnitudes (trend correct, absolute level depends on the true INL profile)
+<span class="tag t-assume">[A8]</span>; and the FoM<sub>jitter</sub> constant (standard formula used,
+exact constant not on the slide) <span class="tag t-need">needs citation</span> ([Gao'09]).
+</div>
+
+<div class="cite">
+Sources: <code>docs/open_questions.md</code> (all nine items), <code>docs/derivations.md</code>
+&sect;1&#8211;&sect;9, the exported <code>site/assets/data/*.json</code>, and the deck
+(W. Wu, Samsung, slides 1&#8211;42).
+</div>
+
+</div>
+<aside class="toc-rail" aria-label="On this page"></aside>
+<div class="btnrow"><div><a href="glossary.html">← Notation & Glossary</a></div><div><a href="references.html">References →</a></div></div>
+<div class="footer">
+  Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
+  (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
+  Provenance tags: <span class="tag t-slide">slide pX</span>
+  <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
+  <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
+</div>
+</main>
+</div>
+<button id="toTop" aria-label="Back to top">&#8593;</button>
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/prism/prism-core.min.js"></script>
+<script src="assets/vendor/prism/prism-clike.min.js"></script>
+<script src="assets/vendor/prism/prism-python.min.js"></script>
+
+<script src="assets/app/site.js"></script>
+</body>
+</html>

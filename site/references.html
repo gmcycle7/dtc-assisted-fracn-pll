@@ -4,14 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>References · DTC-Assisted Frac-N PLL</title>
+<meta name="description" content="Four-bucket citation policy, the full assumptions list, and open questions.">
+<meta property="og:title" content="References · DTC-Assisted Fractional-N PLL">
+<meta property="og:description" content="Four-bucket citation policy, the full assumptions list, and open questions.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism-tomorrow.min.css">
 <link rel="stylesheet" href="assets/style.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
 </head>
 <body>
+<div class="topbar"><button class="ham" aria-label="Open menu">&#9776;</button><span class="ttl">References</span></div>
+<div class="scrim"></div>
 <div class="wrap">
-<nav class="side">
-<div class="brand">DTC-Assisted<br>Fractional-N PLL</div>
+<nav class="side" aria-label="Site sections">
+<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>
 <div class="sub">Interactive study of slides 1–42</div>
 <a class="" href="index.html"><span class="n">1</span>Home</a>
 <a class="" href="slides.html"><span class="n">2</span>Slide-by-slide Map</a>
@@ -22,9 +30,13 @@
 <a class="" href="timedomain.html"><span class="n">7</span>Time-Domain Noise</a>
 <a class="" href="codewalk.html"><span class="n">8</span>Code Walkthrough</a>
 <a class="" href="examples.html"><span class="n">9</span>Numerical Examples</a>
-<a class="active" href="references.html"><span class="n">10</span>References</a>
+<a class="" href="dtctopologies.html"><span class="n">10</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">11</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">12</span>Validation & Limits</a>
+<a class="active" href="references.html"><span class="n">13</span>References</a>
 </nav>
 <main>
+<div class="article">
 <h1>References, Assumptions &amp; Open Questions</h1>
 <p class="lead">Every number on this site traces back to one of four buckets — the deck itself, papers cited on slides 1–42, standard textbook theory, or items flagged as needing an external citation — and everything the slides do <em>not</em> state is collected here as explicit assumptions and open questions so it is never confused with a slide fact.</p>
 
@@ -412,33 +424,25 @@
 <b>How to use this page.</b> When a number elsewhere on the site is tagged <span class="tag t-assume">assumption [A#]</span>, look it up in the assumptions tables above to see exactly what was assumed and why. When it is tagged <span class="tag t-need">needs citation</span>, see §4. Everything tagged <span class="tag t-slide">slide pX</span> comes straight from <b>[DECK]</b>.
 </div>
 
-<div class="btnrow"><div><a href="examples.html">← Numerical Examples</a></div><div></div></div>
+</div>
+<aside class="toc-rail" aria-label="On this page"></aside>
+<div class="btnrow"><div><a href="validation.html">← Validation & Limits</a></div><div></div></div>
 <div class="footer">
   Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
   (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
-  Every claim is tagged: <span class="tag t-slide">slide pX</span>
+  Provenance tags: <span class="tag t-slide">slide pX</span>
   <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
   <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
 </div>
 </main>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
-<script>
-document.addEventListener("DOMContentLoaded", function(){
-  renderMathInElement(document.body, {
-    delimiters:[
-      {left:"$$",right:"$$",display:true},
-      {left:"\\[",right:"\\]",display:true},
-      {left:"$",right:"$",display:false},
-      {left:"\\(",right:"\\)",display:false}
-    ],
-    throwOnError:false
-  });
-});
-</script>
+<button id="toTop" aria-label="Back to top">&#8593;</button>
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/prism/prism-core.min.js"></script>
+<script src="assets/vendor/prism/prism-clike.min.js"></script>
+<script src="assets/vendor/prism/prism-python.min.js"></script>
+
+<script src="assets/app/site.js"></script>
 </body>
 </html>

@@ -4,14 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Calibrations · DTC-Assisted Frac-N PLL</title>
+<meta name="description" content="The four proposed background sign-LMS calibrations plus polynomial NLC, with an interactive convergence playground.">
+<meta property="og:title" content="Calibrations · DTC-Assisted Fractional-N PLL">
+<meta property="og:description" content="The four proposed background sign-LMS calibrations plus polynomial NLC, with an interactive convergence playground.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism-tomorrow.min.css">
 <link rel="stylesheet" href="assets/style.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
 </head>
 <body>
+<div class="topbar"><button class="ham" aria-label="Open menu">&#9776;</button><span class="ttl">Calibrations</span></div>
+<div class="scrim"></div>
 <div class="wrap">
-<nav class="side">
-<div class="brand">DTC-Assisted<br>Fractional-N PLL</div>
+<nav class="side" aria-label="Site sections">
+<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>
 <div class="sub">Interactive study of slides 1–42</div>
 <a class="" href="index.html"><span class="n">1</span>Home</a>
 <a class="" href="slides.html"><span class="n">2</span>Slide-by-slide Map</a>
@@ -22,11 +30,24 @@
 <a class="" href="timedomain.html"><span class="n">7</span>Time-Domain Noise</a>
 <a class="" href="codewalk.html"><span class="n">8</span>Code Walkthrough</a>
 <a class="" href="examples.html"><span class="n">9</span>Numerical Examples</a>
-<a class="" href="references.html"><span class="n">10</span>References</a>
+<a class="" href="dtctopologies.html"><span class="n">10</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">11</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">12</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">13</span>References</a>
 </nav>
 <main>
+<div class="article">
 <h1>Calibrations — the four background LMS loops that make the DTC honest</h1>
 <p class="lead">A high-performance DTC-assisted fractional-N PLL only works if the DTC gain, the VCO and reference duty cycles, and the comparator/GM offset are all continuously trimmed by sign-LMS loops that converge in under 30&nbsp;µs and track PVT in the background.</p>
+
+<h2 id="interactive-playground">Interactive calibration playground</h2>
+<p>Before the theory, get a feel for it: pick a calibration and drag the sliders. The convergence
+curve is simulated live by <code>assets/app/pll.js</code> (the same sign-LMS as
+<code>calibration_models.py</code>) <span class="tag t-derive">model</span>. Watch how a larger
+step size converges faster but leaves a bigger limit-cycle ripple, how an <b>un-calibrated
+comparator offset</b> biases K_DTC to the wrong value, and how the VCO duty-cycle loop homes in
+on &Delta;t_err/2.</p>
+<div id="cal-playground"></div>
 
 <h2>0. Why calibrate at all — the big picture</h2>
 
@@ -349,33 +370,32 @@ g = g + np.array(mu) * residual * regress          # 3 parallel LMS</code></pre>
 <h2>Where these calibrations sit in the budget</h2>
 <p>Once all loops are converged, the residual DSM quantization noise is essentially cancelled (slide-42 budget shows ΣΔM QE ≈ 0.3%, "cancelled") and the integrated jitter is dominated by VCO (51.8%) and REF+DTC (≈37.8%), totaling <b>87.6 fs <span class="tag t-derive">model</span> ≈ 87.5 fs <span class="tag t-slide">slide p42</span></b> / <b>−51.6 dBc <span class="tag t-derive">model</span> ≈ −51.7 dBc <span class="tag t-slide">slide p42</span></b> at \(f_{\rm out}=6.72\) GHz. The calibrations are what let the small-DR, high-gain DTC-assisted PD deliver that number — see the noise-budget page for the full breakdown.</p>
 
+<h2 id="self-check">Self-check</h2>
+<div class="quiz"><div class="q">Q1. All four proposed loops share one 1-bit error \(e[k]=\operatorname{sign}(\text{PHE})\). Write the generic sign-LMS update they all use, and explain why a nonzero <i>mean</i> of \(e[k]\) (from comparator/GM offset) makes the \(K_{\rm DTC}\) gain loop converge to the wrong value.</div><details><summary>Show answer</summary><div class="ans">The shared engine is \(w[k{+}1]=w[k]+\mu\,e[k]\,x[k]\), an integrator \(\tfrac{\mu z^{-1}}{1-z^{-1}}\) <span class="tag t-slide">slide p26</span> <span class="tag t-std">textbook</span>. Sign-LMS assumes \(e[k]\) is zero-mean at the correct operating point. A static offset adds a DC term to PHE, giving \(e[k]\) a nonzero mean \(m\); the gain update then picks up a bias term \(\mu_2\,m\,E\{\Phi_e\}\). With the ½-range regressor \(\Phi_e\in[0,0.5]\), \(E\{\Phi_e\}\neq0\), so the bias does not average out and \(\hat K\) converges off-target. Quantitatively, a 32-mV (80-LSB) uncalibrated offset drives the gain loop to <b>+22.6% error</b> <span class="tag t-derive">derived</span> (calibrations.json: offset_bias_pct = 22.6). <span class="tag t-slide">slide p27</span></div></details></div>
+<div class="quiz"><div class="q">Q2. In the step-size trade-off, why does a 1-bit error mean the converged weight never sits exactly on target, and what does the model report for the VCO-duty and CKREF-duty residuals? What practical choice tames the resulting limit cycle?</div><details><summary>Show answer</summary><div class="ans">A 1-bit (sign) error can never be exactly zero, so the converged weight <i>dithers</i> by about \(\pm\mu\) around the truth — a limit cycle. Larger \(\mu\) converges faster but leaves a bigger ripple (and too large violates the bound \(0<\mu_2<2/E\{\Phi_e^2\}\) <span class="tag t-derive">derived</span>); the useful output is the smoothed/averaged value, which is why settling is measured on a moving average. The model's converged residuals: VCO-duty \(\texttt{vco\_dcc}\to\) <b>9.6 ps</b> against a 10.0-ps target, and CKREF-duty \(\texttt{ckref\_dcc}\to\) <b>0.350 ns</b> against a 0.337-ns target <span class="tag t-derive">model</span> (calibrations.json). The practical step sizes are \(\mu_1=\mu_3=0.02\) <span class="tag t-assume">assumption [A17]</span>, giving ≈1-µs settling on a 200-sample moving average. <span class="tag t-slide">slide p40</span></div></details></div>
+<div class="quiz"><div class="q">Q3. The VCO duty-cycle loop (<code>vco_dcc</code>) regresses \(e[k]\) against the ±1 <code>SEL_CKFB</code> sequence. What value does it converge to, why is that the target (not the full duty error), and why does correlating against a deterministic ±1 sequence make the loop noise-robust?</div><details><summary>Show answer</summary><div class="ans">It converges to <b>\(\Delta t_{\rm err}/2\)</b>, half the phase-spacing error \(\Delta t_{\rm err}=\Delta t-T_{\rm vco}/2\) <span class="tag t-derive">derived</span>. From the model PHE \(=\texttt{SEL\_CKFB}[k]\,(\Delta t_{\rm err}-2\,\texttt{vco\_dcc}[k])\), the error nulls when \(2\,\texttt{vco\_dcc}=\Delta t_{\rm err}\), i.e. \(\texttt{vco\_dcc}=\Delta t_{\rm err}/2\) — the actuator is added on one side of the ±-toggled phase select, so it only needs to remove half the spacing error. Correlating \(e[k]\) with the known deterministic ±1 <code>SEL_CKFB</code> acts as a <b>synchronous detector</b>: it isolates the alternating, <code>SEL_CKFB</code>-correlated duty component while uncorrelated comparator noise averages to zero (model runs with comp_noise = 0.05). Numerically the loop reaches the <b>10.0-ps</b> target (converged 9.6 ps) in ≈1.0 µs <span class="tag t-derive">model</span>. <span class="tag t-slide">slide p36</span></div></details></div>
+
+</div>
+<aside class="toc-rail" aria-label="On this page"></aside>
 <div class="btnrow"><div><a href="blocks.html">← Block Models</a></div><div><a href="frequency.html">Frequency-Domain →</a></div></div>
 <div class="footer">
   Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
   (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
-  Every claim is tagged: <span class="tag t-slide">slide pX</span>
+  Provenance tags: <span class="tag t-slide">slide pX</span>
   <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
   <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
 </div>
 </main>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
-<script>
-document.addEventListener("DOMContentLoaded", function(){
-  renderMathInElement(document.body, {
-    delimiters:[
-      {left:"$$",right:"$$",display:true},
-      {left:"\\[",right:"\\]",display:true},
-      {left:"$",right:"$",display:false},
-      {left:"\\(",right:"\\)",display:false}
-    ],
-    throwOnError:false
-  });
-});
-</script>
+<button id="toTop" aria-label="Back to top">&#8593;</button>
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/prism/prism-core.min.js"></script>
+<script src="assets/vendor/prism/prism-clike.min.js"></script>
+<script src="assets/vendor/prism/prism-python.min.js"></script>
+<script src="assets/vendor/plotly/plotly.min.js"></script>
+<script src="assets/app/pll.js"></script>
+<script src="assets/app/widgets.js"></script>
+<script src="assets/app/site.js"></script>
 </body>
 </html>

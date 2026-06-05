@@ -1,0 +1,165 @@
+<h1>DTC Topologies &amp; Survey Techniques</h1>
+<p class="lead">A digital-to-time converter (DTC) turns a digital code into a precise edge delay. The Wu deck surveys a whole zoo of DTC circuit variants and digital-assist linearization tricks from many groups before settling on its own analog-sampling architecture. This page collects those <strong>survey</strong> techniques — one card per idea, each with its paper tag and the slide it comes from. These are <em>not</em> the proposed Wu core (that lives in <a href="architecture.html">Architecture</a> and <a href="calibrations.html">Calibrations</a>); they are the menu of options the talk compares against.</p>
+
+<div class="note">
+<strong>How to read this page.</strong> Every technique below is tagged with its originating paper, e.g. <span class="tag t-slide">slide p21</span> [Ru'15]. Cards marked as survey are documented conceptually; the project's models/code focus on the proposed Wu architecture and its four background calibrations. The two structural <em>range-reduction</em> techniques (½-range with two VCO phases, 1/8-range with eight ring-oscillator phases) are the bridge to the calibration story.
+</div>
+
+<h2>Why DTC range is the master tradeoff</h2>
+<p>Before looking at circuits, fix the one parameter that governs everything: the DTC <strong>dynamic range</strong> (DR), i.e. the total delay the DTC must span. In a fractional-<em>N</em> PLL the divider edge wanders relative to the reference by up to ±(DSM order)·T<sub>VCO</sub>/2, and the DTC has to delay the reference by exactly that much to make the phase detector see ≈0 error (integer-N-like). The bigger that wander, the bigger the DR — and DR drives noise, power, and linearity all at once.</p>
+
+<p>Slide 33 collects the scaling laws for an <em>n</em>-bit RC variable-slope DTC with unit step <span class="katex-inline">$t_{res}$</span>:</p>
+
+$$\mathrm{DR} = 2^{n}\,t_{res} = 2^{n}\,\ln 2\cdot R\,C_{LSB}$$
+
+<div class="grid">
+  <div class="card">
+    <h4>Quantization noise <span class="tag t-slide">slide p33</span></h4>
+    <p>QN <span class="katex-inline">$\propto t_{res}^{2}$</span>. Finer step → lower in-band quantization floor. <span class="tag t-slide">slide p15</span></p>
+  </div>
+  <div class="card">
+    <h4>Thermal noise <span class="tag t-slide">slide p33</span></h4>
+    $$\mathcal{L}\cong 10\log_{10}\!\Big[2kT\,f_{ref}\,\tfrac{(2\pi)^2}{\ln 2}\,\mathrm{DR}\cdot R\Big]$$
+    <p>so <span class="katex-inline">$\mathcal{L}\propto \mathrm{DR}$</span> (noise rises with range).</p>
+  </div>
+  <div class="card">
+    <h4>Power <span class="tag t-slide">slide p33</span></h4>
+    <p>power <span class="katex-inline">$\propto \mathrm{DR}^{2}$</span>. The buffer that drives the ramp must charge a bigger cap array faster — cost grows quadratically.</p>
+  </div>
+  <div class="card">
+    <h4>Linearity <span class="tag t-slide">slide p33</span></h4>
+    <p>Smaller DR → better linearity (less INL across the swept code, smaller fractional spurs and noise folding).</p>
+  </div>
+</div>
+
+<div class="derive">
+<strong>The punchline (slide 33):</strong> shrinking DR improves <em>all</em> of QN, thermal noise, power, and linearity simultaneously. So the most leveraged thing you can do is not build a fancier DTC — it is to <strong>reduce the range the DTC must cover</strong>. That motivates the two structural tricks below.
+</div>
+
+<figure class="slide">
+  <img src="assets/slides/slide_33.png" alt="slide 33">
+  <figcaption>PDF p.33 / slide p.33 — DTC range-reduction tradeoffs: DR = 2ⁿ·t_res, QN ∝ t_res², ℒ ∝ DR, power ∝ DR², linearity better for smaller DR.</figcaption>
+</figure>
+
+<h2>Proposed range reduction: ½-range with two VCO phases <span class="tag t-slide">slide p34</span></h2>
+<div class="card">
+<p><strong>Idea.</strong> Instead of letting the DTC cover the full residual quantization-error range, use a <em>modified MMD + DSM</em> to select between two VCO phases — CKFB1 and CKFB2, where CKFB2 = CKFB1 delayed by ½T<sub>VCO</sub> — via a control bit <code>SEL_CKFB</code>. Switching CKFB1→CKFB2 adds a fixed +½T<sub>VCO</sub> of feedback delay, so the modified DSM only has to leave a <strong>half-range</strong> residual for the DTC to mop up: <span class="katex-inline">$\Phi_e\in[0,\,0.5\,T_{VCO}]$</span> instead of <span class="katex-inline">$[-T_{VCO}/2,\,+T_{VCO}/2]$</span>. <span class="tag t-slide">slide p34</span></p>
+<p><strong>Pro.</strong> Halving DR (per the slide-33 laws) directly improves QN, thermal noise, power, and linearity of the DTC — the cheapest "free lunch" in the design. <span class="tag t-derive">derived from slide 33</span></p>
+<p><strong>Con.</strong> It relies on the two VCO phases being <em>exactly</em> ½T<sub>VCO</sub> apart. A non-50% VCO duty cycle breaks this (<span class="katex-inline">$\Delta t_{err}=\Delta t - T_{VCO}/2\neq 0$</span>), injects a <code>SEL_CKFB</code>-correlated error, and re-introduces a spur — which is exactly why the <strong>VCO duty-cycle calibration</strong> exists. <span class="tag t-slide">slide p35</span></p>
+<p class="cite">Proposed technique [Wu'21] — see the full story (½-range, VCO duty error, <code>vco_dcc</code> sign-LMS) in <a href="calibrations.html">Calibrations</a>.</p>
+</div>
+
+<div class="cite">
+<strong>Link to calibrations.</strong> Range reduction and the digital calibrations are two halves of the same plan: shrink the DR structurally, then null the residual analog imperfections (DTC gain <code>K_DTC</code>, VCO duty cycle, CKREF duty cycle, comparator/GM offset) with background sign-LMS loops. All four are on the <a href="calibrations.html">Calibrations</a> page.
+</div>
+
+<h2>Survey: DTC circuit variants</h2>
+
+<div class="card">
+<h3>RC variable-slope DTC — the baseline <span class="tag t-slide">slide p14</span></h3>
+<p><strong>Idea.</strong> The reference edge buffers onto an RC network: a resistor <span class="katex-inline">$R$</span> charges an <em>n</em>-bit programmable capacitor array <span class="katex-inline">$C_{LSB}$</span>, producing a voltage ramp <span class="katex-inline">$V_{dly}$</span> whose <strong>slope</strong> depends on the selected code. A comparator fires when the ramp crosses threshold, so the digital code sets the edge delay. The unit delay is <span class="tag t-slide">slide p15</span>:</p>
+$$T_{res} = \ln 2 \cdot R \cdot C_{LSB}$$
+<p>The input-referred quantization-noise PSD at CKREF is <span class="katex-inline">$\Phi_{DTC,QN}=\frac{(2\pi T_{res})^2}{12}\,f_{ref}$</span>; with <span class="katex-inline">$T_{res}=400$</span> fs and <span class="katex-inline">$f_{ref}=104$</span> MHz this gives <strong>−163 dBc/Hz</strong>, and a 10-bit array yields DR = 400 ps. <span class="tag t-slide">slide p15</span></p>
+<p><strong>Pro.</strong> Simple, compact, low power; the slope is set by an explicit, easily-programmed cap array. It is the reference against which every other variant is judged.</p>
+<p><strong>Con.</strong> Because each code changes the <em>slope</em>, the comparator crossing time is code- and slope-dependent → static INL (parabolic, &lt;2 LSB with a fixed cap; ±0.2 LSB DNL with DEM) <span class="tag t-slide">slide p17</span> plus dynamic/memory effects from supply settling (±0.6 LSB measured) <span class="tag t-slide">slide p18</span>.</p>
+<figure class="slide">
+  <img src="assets/slides/slide_14.png" alt="slide 14">
+  <figcaption>PDF p.14 / slide p.14 — RC-delay variable-slope DTC: CKREF → buffer → R, C_LSB (n-bit) → ramp V_dly → comparator. T_res = ln2·R·C_LSB.</figcaption>
+</figure>
+</div>
+
+<div class="card">
+<h3>Constant-slope (I/C) DTC <span class="tag t-slide">slide p21</span> [Ru'15]</h3>
+<p><strong>Idea.</strong> Keep the ramp <em>slope</em> fixed and instead vary the <em>start point / threshold</em>. A current DAC (IDAC) and resistor DAC (RDAC) charge a load capacitor <span class="katex-inline">$C_L$</span> with a constant slope, so the delay is <span class="katex-inline">$\Delta t_{DTC}=\int dV\cdot C_L(V)/(K\cdot I)$</span>. Holding the slope constant removes the slope-dependent comparator nonlinearity of the variable-slope baseline. <span class="tag t-slide">slide p21</span></p>
+<p><strong>Pro.</strong> Constant slope → more uniform comparator behavior across codes, improving large-signal linearity vs. the RC baseline.</p>
+<p><strong>Con.</strong> Needs high supply (≈1.5 V) for headroom, and residual nonlinearity still comes from the I/C product — <span class="katex-inline">$C_L(V)$</span> and the IDAC are themselves voltage-dependent. <span class="tag t-slide">slide p21</span></p>
+<p class="cite">Survey technique — [Ru'15] (constant-slope I/C DTC).</p>
+<figure class="slide">
+  <img src="assets/slides/slide_21.png" alt="slide 21">
+  <figcaption>PDF p.21 / slide p.21 — Constant-slope (I/C) DTC: IDAC, RDAC, C_L; Δt_DTC = ∫dV·C_L(V)/(K·I).</figcaption>
+</figure>
+</div>
+
+<div class="card">
+<h3>Inverse-constant-slope (ICS) DTC <span class="tag t-slide">slide p22</span> [Dartizio'23]</h3>
+<p><strong>Idea.</strong> A coarse-fine structure (DFF + mux clocked at <span class="katex-inline">$f_{VCO}$</span>) where the charging current itself is made proportional to the voltage-dependent capacitance, so the delay becomes <span class="katex-inline">$\Delta t_{DTC}=\int C_L(V)\,dV/(K\cdot I_G(V))$</span>. Because <span class="katex-inline">$I_G(V)$</span> tracks <span class="katex-inline">$C_L(V)$</span>, the result is <strong>immune to both <span class="katex-inline">$I_G(V)$</span> and <span class="katex-inline">$C(V)$</span></strong> nonlinearity. <span class="tag t-slide">slide p22</span></p>
+<p><strong>Pro.</strong> First-order cancellation of the dominant voltage-dependent error sources → excellent intrinsic linearity without polynomial pre-distortion.</p>
+<p><strong>Con.</strong> Requires a precise <em>fine</em> DTC and a current generator that accurately mirrors the cap nonlinearity — added analog complexity. <span class="tag t-slide">slide p22</span></p>
+<p class="cite">Survey technique — [Dartizio'23] (inverse-constant-slope DTC).</p>
+<figure class="slide">
+  <img src="assets/slides/slide_22.png" alt="slide 22">
+  <figcaption>PDF p.22 / slide p.22 — Inverse-constant-slope (ICS) DTC: coarse-fine, DFF+mux at f_VCO; Δt_DTC = ∫C_L(V)dV/(K·I_G(V)), immune to I_G(V), C(V).</figcaption>
+</figure>
+</div>
+
+<div class="card">
+<h3>Pseudo-differential DTC <span class="tag t-slide">slide p23</span> [Xu'24]</h3>
+<p><strong>Idea.</strong> Split the conversion across <strong>two half-range DTCs</strong> operating differentially. Each half has an even-symmetric (parabolic-like) INL; subtracting the two paths makes the <strong>even-symmetric INL cancel</strong>, leaving only the smaller odd residual. <span class="tag t-slide">slide p23</span></p>
+<p><strong>Pro.</strong> Cancels the dominant even-order static nonlinearity by construction, and each half only spans half the range (range-reduction benefit too).</p>
+<p><strong>Con.</strong> Needs two matched DTC paths; mismatch between the halves limits the achievable cancellation.</p>
+<p class="cite">Survey technique — [Xu'24] (pseudo-differential DTC).</p>
+<figure class="slide">
+  <img src="assets/slides/slide_23.png" alt="slide 23">
+  <figcaption>PDF p.23 / slide p.23 — Pseudo-differential DTC: two half-range DTCs; even-symmetric INL cancels.</figcaption>
+</figure>
+</div>
+
+<h2>Survey: digital-assist linearization &amp; range-reduction</h2>
+
+<div class="card">
+<h3>DTC NLC — polynomial calibration <span class="tag t-slide">slide p31</span> [Park'21]</h3>
+<p><strong>Idea.</strong> Leave the DTC analog-imperfect and fix it in the digital domain with a <strong>polynomial pre-distortion</strong> of the DTC control word. The accumulated DSM phase <span class="katex-inline">$D_{AQ}$</span> is mapped through a third-order polynomial whose coefficients are learned by LMS: <span class="tag t-slide">slide p31</span></p>
+$$D_{DCW} = g_1\,D_{AQ} + g_2\,D_{AQ}^{2} + g_3\,D_{AQ}^{3}$$
+<p>where <span class="katex-inline">$g_1$</span> is effectively <code>K_DTC</code> and <span class="katex-inline">$g_2,g_3$</span> capture the curvature. <span class="tag t-slide">slide p31</span></p>
+<p><strong>Pro.</strong> Cancels static INL down to a max of ≈50 fs after NLC, purely with background digital adaptation — no analog redesign. <span class="tag t-slide">slide p31</span></p>
+<p><strong>Con.</strong> Only corrects the <em>static</em>, polynomially-modeled part; dynamic/memory effects (slide 18) are not captured by a memoryless polynomial. Needs three adaptive coefficients to converge.</p>
+<p class="cite">Survey technique — [Park'21] (polynomial DTC NLC). The model concept is reproduced in code; see <a href="codewalk.html#simulate_polynomial_nlc">simulate_polynomial_nlc</a>.</p>
+<figure class="slide">
+  <img src="assets/slides/slide_31.png" alt="slide 31">
+  <figcaption>PDF p.31 / slide p.31 — DTC NLC polynomial calibration via LMS on g1, g2, g3: D_DCW = g1·D + g2·D² + g3·D³.</figcaption>
+</figure>
+</div>
+
+<div class="card">
+<h3>Reverse-concavity variable-slope DTC <span class="tag t-slide">slide p32</span> [Rossoni'24]</h3>
+<p><strong>Idea.</strong> The variable-slope DTC's INL is parabolic with a fixed concavity. Here a voltage DAC adjusts the upper resistor <span class="katex-inline">$R_U$</span> to bend the transfer curve the <em>other</em> way — introducing a controllable <strong>reverse-concavity</strong> that cancels the native curvature. An adaptation loop searches for the DAC code that flattens the residual INL. <span class="tag t-slide">slide p32</span></p>
+<p><strong>Pro.</strong> Linearizes the cheap RC variable-slope DTC in the analog domain with a single tuning knob (<span class="katex-inline">$R_U$</span> DAC) instead of a polynomial.</p>
+<p><strong>Con.</strong> Cancels one dominant curvature term; the analog tuning must track PVT, and the adaptation must find/hold the right DAC code.</p>
+<p class="cite">Survey technique — [Rossoni'24] (reverse-concavity variable-slope DTC).</p>
+<figure class="slide">
+  <img src="assets/slides/slide_32.png" alt="slide 32">
+  <figcaption>PDF p.32 / slide p.32 — Reverse-concavity variable-slope DTC: change R_U via voltage DAC; adaptation loop finds DAC code to cancel INL.</figcaption>
+</figure>
+</div>
+
+<div class="card">
+<h3>POC-DTC: zero-mean phase-error tracking <span class="tag t-slide">slide p29</span> [Renukaswamy'23]</h3>
+<p><strong>Idea.</strong> A phase-offset-calibrated (POC) DTC built around a PFD-CP plus a coarse-fine DTC and a 1-bit TDC. The reference/feedback time-of-flight offset <span class="katex-inline">$\Delta T_{of}$</span> drifts with PVT; the POC loop tracks it so that the sign-of-error <code>Error_Sign[k]</code> stays <strong>zero-mean</strong> — which is exactly the condition a sign-LMS calibration needs to converge without bias. <span class="tag t-slide">slide p29</span></p>
+<p><strong>Pro.</strong> Keeps the phase-detector error zero-mean across PVT, preventing the offset-induced convergence bias that plagues sign-LMS loops (the same problem the proposed Wu offset/ΔV-DAC cal solves differently). <span class="tag t-slide">slide p27</span></p>
+<p><strong>Con.</strong> Needs a coarse+fine DTC and a 1-bit TDC dedicated to tracking <span class="katex-inline">$\Delta T_{of}$</span> — extra hardware beyond the main DTC.</p>
+<p class="cite">Survey technique — [Renukaswamy'23] (POC-DTC zero-mean PHE).</p>
+<figure class="slide">
+  <img src="assets/slides/slide_29.png" alt="slide 29">
+  <figcaption>PDF p.29 / slide p.29 — POC-DTC zero-mean PHE: PFD-CP + coarse-fine DTC + 1-bit TDC; ΔT_of varies with PVT, Error_Sign[k] kept zero-mean.</figcaption>
+</figure>
+</div>
+
+<div class="card">
+<h3>1/8 DTC range reduction with 8 RO phases <span class="tag t-slide">slide p38</span> [Hwang'22]</h3>
+<p><strong>Idea.</strong> Push the range-reduction idea further than the ½-range two-phase scheme: tap <strong>eight ring-oscillator (RO) phases</strong> and use an 8:1 mux plus a window generator and quadruple-timing-margin phase selector (QTM-PS) so the DTC only spans <strong>1/8</strong> of the original range. A first-order ΔΣM handles the residual, and an RO phase-error calibrator (RPEC / DRPEC LMS) corrects the inter-phase mismatch. <span class="tag t-slide">slide p38</span></p>
+<p><strong>Pro.</strong> 8× DR reduction → large QN/thermal/power/linearity wins per the slide-33 laws; the QTM phase selector gives generous timing margin. <span class="tag t-derive">derived from slide 33</span></p>
+<p><strong>Con.</strong> Requires eight matched RO phases (<code>SOUT[7:0]</code>) and a dedicated background LMS calibrator for the RO phase-error mismatch — more phases to generate and match than the proposed two-phase scheme.</p>
+<p class="cite">Survey technique — [Hwang'22] (1/8 DTC-range reduction with QTM phase selector). Contrast with the proposed ½-range two-VCO-phase approach (slide 34) used in this project.</p>
+<figure class="slide">
+  <img src="assets/slides/slide_38.png" alt="slide 38">
+  <figcaption>PDF p.38 / slide p.38 — 1/8 DTC-range reduction using 8 RO phases: 8:1 MUX, window generator, QTM-PS, 1st-order ΔΣM; DR reduced by 1/8 with RO phase-error calibrator.</figcaption>
+</figure>
+</div>
+
+<div class="note">
+<strong>Where this fits.</strong> All of the above are alternatives the deck weighs. The project's implemented design picks the cheap RC variable-slope DTC (slide 14) and makes it good enough by combining the proposed ½-range two-VCO-phase reduction (slide 34) with four background sign-LMS calibrations. See <a href="architecture.html">Architecture</a> for the full chain and <a href="calibrations.html">Calibrations</a> for the adaptation loops.
+</div>
+
+<div class="assume">
+<strong>Scope note [A].</strong> Per the slide inventory, the survey techniques on this page (ICS, pseudo-differential, polynomial NLC, reverse-concavity, POC-DTC, 8-phase RO reduction, constant-slope) are described conceptually from the slides; the quantitative models and code in this project target the proposed Wu architecture and its four calibrations, not these survey variants.
+</div>

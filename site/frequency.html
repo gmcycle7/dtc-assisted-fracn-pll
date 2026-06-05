@@ -4,14 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Frequency-Domain · DTC-Assisted Frac-N PLL</title>
+<meta name="description" content="Open/closed-loop transfer functions, noise transfer functions, jitter budget, and an interactive phase-noise explorer.">
+<meta property="og:title" content="Frequency-Domain · DTC-Assisted Fractional-N PLL">
+<meta property="og:description" content="Open/closed-loop transfer functions, noise transfer functions, jitter budget, and an interactive phase-noise explorer.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism-tomorrow.min.css">
 <link rel="stylesheet" href="assets/style.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
 </head>
 <body>
+<div class="topbar"><button class="ham" aria-label="Open menu">&#9776;</button><span class="ttl">Frequency-Domain</span></div>
+<div class="scrim"></div>
 <div class="wrap">
-<nav class="side">
-<div class="brand">DTC-Assisted<br>Fractional-N PLL</div>
+<nav class="side" aria-label="Site sections">
+<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>
 <div class="sub">Interactive study of slides 1–42</div>
 <a class="" href="index.html"><span class="n">1</span>Home</a>
 <a class="" href="slides.html"><span class="n">2</span>Slide-by-slide Map</a>
@@ -22,9 +30,13 @@
 <a class="" href="timedomain.html"><span class="n">7</span>Time-Domain Noise</a>
 <a class="" href="codewalk.html"><span class="n">8</span>Code Walkthrough</a>
 <a class="" href="examples.html"><span class="n">9</span>Numerical Examples</a>
-<a class="" href="references.html"><span class="n">10</span>References</a>
+<a class="" href="dtctopologies.html"><span class="n">10</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">11</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">12</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">13</span>References</a>
 </nav>
 <main>
+<div class="article">
 <h1>Frequency-Domain Analysis</h1>
 <p class="lead">A small-signal, s-domain model of the DTC-assisted fractional-N sampling PLL: open-loop gain, closed-loop noise transfer functions, the per-source jitter budget that reproduces slide 42 (87.6 fs rms / -51.6 dBc), and the sanity checks that confirm it all hangs together.</p>
 
@@ -36,6 +48,19 @@ This page is the linear/LTI counterpart to the time-domain page. Everything here
 <code>docs/derivations.md</code> §1, §2, §8. Read the open-loop section first, then the NTFs,
 then the budget.
 </div>
+
+<h2 id="interactive-explorer">Interactive phase-noise &amp; loop explorer</h2>
+<p>Drag the sliders to see how the loop bandwidth, phase margin and each noise floor reshape the
+output phase-noise budget and the integrated jitter — recomputed live in your browser by
+<code>assets/app/pll.js</code>, a direct port of <code>frequency_domain_model.py</code> that
+reproduces 87.6&nbsp;fs at the defaults <span class="tag t-derive">model</span>. Toggle
+<b>"DTC cancels DSM-QN"</b> off to see why a fractional-N PLL <i>without</i> a DTC is hopeless
+(jitter explodes to ~45&nbsp;ps), and press <b>"Switch to Bode view"</b> for the open-loop gain
+and phase margin.</p>
+<div id="freq-explorer"></div>
+<p class="small">Try this: lower the loop bandwidth and watch the VCO/REF crossover move down —
+less reference multiplication but more VCO noise in band. That REF-vs-VCO trade-off is exactly
+what slide 42 says sets the PLL bandwidth <span class="tag t-slide">slide p42</span>.</p>
 
 <h2>1. Why a frequency-domain model at all?</h2>
 <p>
@@ -310,7 +335,7 @@ $\mathrm{IPN}=10\log_{10}(\tfrac{1}{2}\sigma_\phi^2)$ (the ½ one-sideband facto
       <figcaption>
         Output $\mathcal{L}(f)$ at 6.72 GHz. The VCO (red) high-pass dominates the far-out region;
         REF/DTC/MMD/SPD (low-pass) dominate inside $f_c$; black is the total. The shape that the
-        integral of these curves produces is the 87.6 fs budget. Reproduces <span class="tag t-slide">slide p42</span>.
+        integral of these curves produces is the 87.6 fs <span class="tag t-derive">model</span> budget, reproducing slide 42&rsquo;s 87.5 fs <span class="tag t-slide">slide p42</span>.
         Model: <code>output_contributions</code>.
       </figcaption>
     </figure>
@@ -388,33 +413,34 @@ All numbers above are emitted by <code>models/frequency_domain_model.py</code> i
 <code>site/assets/data/freq_domain.json</code> and checked by <code>tests/test_frequency_domain.py</code>.
 </div>
 
+<h2 id="self-check">Self-check</h2>
+<div class="quiz"><div class="q">Q1. The open-loop gain is written $G_\text{ol}(s) = K_\text{loop}\,(1+s/\omega_z)/[s^2(1+s/\omega_p)]$. What makes this a <i>type-II</i> loop, and where do the two integrations physically come from?</div><details><summary>Show answer</summary><div class="ans">Type-II means there are <b>two poles at the origin</b> — the $s^2$ in the denominator. One integration comes from the VCO (control voltage &rarr; phase is $K_\text{VCO}/s$) and the other from the integral path of the loop filter (the $V_\text{ctrl,I}$ path). Two integrators give $-180^\circ$ of phase, so a stabilizing zero $\omega_z$ (the proportional $V_\text{ctrl,P}$ path) is added to recover phase margin. <span class="tag t-slide">slide p39</span> <span class="tag t-derive">derived</span></div></details></div>
+
+<div class="quiz"><div class="q">Q2. As $f\!\to\!0$, what does $H_\text{ref}(s)=NG/(1+G)$ approach, and what does $H_\text{vco}(s)=1/(1+G)$ approach? Give the actual DC value of $H_\text{ref}$.</div><details><summary>Show answer</summary><div class="ans">At DC, $G\!\to\!\infty$, so $H_\text{ref}\to N = 64.62$ — the output phase tracks the reference scaled by the divide ratio (low-pass, $\times N$). Meanwhile $H_\text{vco}\to 0$: inside the loop bandwidth the feedback <b>suppresses</b> VCO noise. At high frequency the roles flip ($H_\text{ref}\to 0$ low-pass, $H_\text{vco}\to 1$ high-pass). DC gain $N=64.62$ is confirmed by the sanity check $H_\text{ref}(0)\to 64.62$. <span class="tag t-derive">derived (derivations §1)</span> <span class="tag t-slide">slide p5</span></div></details></div>
+
+<div class="quiz"><div class="q">Q3. In the 87.6 fs budget, which source dominates and why does the loop bandwidth $f_c$ set up a REF-vs-VCO trade-off?</div><details><summary>Show answer</summary><div class="ans">The <b>VCO dominates at 51.8%</b> of the variance (63.06 fs of the 87.60 fs total), because it is the lone high-pass source ($H_\text{vco}=1/(1+G)\to 1$ above $f_c$) and runs free outside the loop bandwidth. Widening $f_c$ suppresses more VCO noise (lowers the 51.8% share), but the low-pass REF+DTC sources (37.8%) then leak in more — so $f_c = 1.5$ MHz is the chosen compromise. The fs numbers add in quadrature: $\sqrt{63.06^2+44.99^2+\dots}=87.6$ fs. <span class="tag t-slide">slide p42</span> <span class="tag t-derive">model</span></div></details></div>
+
+</div>
+<aside class="toc-rail" aria-label="On this page"></aside>
 <div class="btnrow"><div><a href="calibrations.html">← Calibrations</a></div><div><a href="timedomain.html">Time-Domain Noise →</a></div></div>
 <div class="footer">
   Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
   (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
-  Every claim is tagged: <span class="tag t-slide">slide pX</span>
+  Provenance tags: <span class="tag t-slide">slide pX</span>
   <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
   <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
 </div>
 </main>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
-<script>
-document.addEventListener("DOMContentLoaded", function(){
-  renderMathInElement(document.body, {
-    delimiters:[
-      {left:"$$",right:"$$",display:true},
-      {left:"\\[",right:"\\]",display:true},
-      {left:"$",right:"$",display:false},
-      {left:"\\(",right:"\\)",display:false}
-    ],
-    throwOnError:false
-  });
-});
-</script>
+<button id="toTop" aria-label="Back to top">&#8593;</button>
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/prism/prism-core.min.js"></script>
+<script src="assets/vendor/prism/prism-clike.min.js"></script>
+<script src="assets/vendor/prism/prism-python.min.js"></script>
+<script src="assets/vendor/plotly/plotly.min.js"></script>
+<script src="assets/app/pll.js"></script>
+<script src="assets/app/widgets.js"></script>
+<script src="assets/app/site.js"></script>
 </body>
 </html>

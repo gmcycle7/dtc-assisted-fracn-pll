@@ -4,14 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Numerical Examples · DTC-Assisted Frac-N PLL</title>
+<meta name="description" content="Every number-checkable worked example: DTC QN, K_SPD, loop design, jitter budget, calibration convergence.">
+<meta property="og:title" content="Numerical Examples · DTC-Assisted Fractional-N PLL">
+<meta property="og:description" content="Every number-checkable worked example: DTC QN, K_SPD, loop design, jitter budget, calibration convergence.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism-tomorrow.min.css">
 <link rel="stylesheet" href="assets/style.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
 </head>
 <body>
+<div class="topbar"><button class="ham" aria-label="Open menu">&#9776;</button><span class="ttl">Numerical Examples</span></div>
+<div class="scrim"></div>
 <div class="wrap">
-<nav class="side">
-<div class="brand">DTC-Assisted<br>Fractional-N PLL</div>
+<nav class="side" aria-label="Site sections">
+<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>
 <div class="sub">Interactive study of slides 1–42</div>
 <a class="" href="index.html"><span class="n">1</span>Home</a>
 <a class="" href="slides.html"><span class="n">2</span>Slide-by-slide Map</a>
@@ -22,24 +30,28 @@
 <a class="" href="timedomain.html"><span class="n">7</span>Time-Domain Noise</a>
 <a class="" href="codewalk.html"><span class="n">8</span>Code Walkthrough</a>
 <a class="active" href="examples.html"><span class="n">9</span>Numerical Examples</a>
-<a class="" href="references.html"><span class="n">10</span>References</a>
+<a class="" href="dtctopologies.html"><span class="n">10</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">11</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">12</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">13</span>References</a>
 </nav>
 <main>
+<div class="article">
 <h1>Numerical Examples</h1>
 <p class="lead">A consolidated, fully worked set of the seven number-checkable calculations behind the DTC-assisted fractional-N PLL — each shown as GIVEN → FORMULA → CALCULATION → RESULT → INTERPRETATION, with every figure traced back to the deck, the derivations, or the model JSON.</p>
 
 <div class="note">
-<b>How to read this page.</b> Each card is a self-contained worked example. The <i>FORMULA</i> row is the symbolic relation (provenance tagged), the <i>CALCULATION</i> row substitutes the verified inputs, and the <i>RESULT</i> row is what the model reproduces. The summary KPIs below are the anchors everything ties back to — all cross-checked against <span class="tag t-slide">slide p42</span> and <code>freq_domain.json</code>.
+<b>How to read this page.</b> Each card is a self-contained worked example. The <i>FORMULA</i> row is the symbolic relation (provenance tagged), the <i>CALCULATION</i> row substitutes the verified inputs, and the <i>RESULT</i> row is what the model reproduces. The summary KPIs below mix slide-42 anchors (f_out, f_ref), derived values (N, total jitter, IPN), and loop assumptions (f_c, PM) &mdash; each tagged at its first use. Model numbers come from <code>freq_domain.json</code>.
 </div>
 
 <div class="kpi">
   <div class="box"><div class="v">6.72 GHz</div><div class="l">f_out</div></div>
   <div class="box"><div class="v">104 MHz</div><div class="l">f_ref</div></div>
   <div class="box"><div class="v">64.62</div><div class="l">N (fractional)</div></div>
-  <div class="box"><div class="v">1.50 MHz</div><div class="l">loop BW f_c</div></div>
-  <div class="box"><div class="v">60&deg;</div><div class="l">phase margin</div></div>
-  <div class="box"><div class="v">87.6 fs</div><div class="l">total RMS jitter</div></div>
-  <div class="box"><div class="v">&minus;51.6 dBc</div><div class="l">IPN (SSB)</div></div>
+  <div class="box"><div class="v">1.50 MHz</div><div class="l">loop BW f_c &middot; assumption [A1]</div></div>
+  <div class="box"><div class="v">60&deg;</div><div class="l">phase margin &middot; assumption [A2]</div></div>
+  <div class="box"><div class="v">87.6 fs</div><div class="l">total RMS jitter (model; slide 87.5)</div></div>
+  <div class="box"><div class="v">&minus;51.6 dBc</div><div class="l">IPN model SSB (slide &minus;51.7)</div></div>
 </div>
 
 <h2>1 &mdash; DTC quantization noise floor</h2>
@@ -137,7 +149,7 @@ $$f_z = \frac{1.5\ \text{MHz}}{3.732} = 402\ \text{kHz},\qquad f_p = 1.5\ \text{
 
 <h2>5 &mdash; Jitter budget &rarr; integrated phase noise</h2>
 <div class="card">
-<h4>GIVEN <span class="tag t-slide">slide p42</span></h4>
+<h4>GIVEN <span class="tag t-slide">slide p42</span> <span class="tag t-derive">model</span></h4>
 <p>$f_{out} = 6.72\ \text{GHz}$; total RMS jitter $\sigma_t = 87.6\ \text{fs}$ from the summed budget. Per-source contributions from <code>freq_domain.json</code>.</p>
 <h4>FORMULA <span class="tag t-std">textbook (IEEE-1139 / Leeson, small-angle)</span> <span class="tag t-derive">derived</span></h4>
 $$\sigma_\varphi = 2\pi f_{out}\,\sigma_t,\qquad
@@ -164,7 +176,7 @@ $$\text{IPN}_{\text{SSB}} = 10\log_{10}\!\left(\tfrac{1}{2}\cdot1.368\times10^{-
 <div class="kpi">
   <div class="box"><div class="v">87.6 fs</div><div class="l">total &sigma;_t</div></div>
   <div class="box"><div class="v">&minus;51.65 dBc</div><div class="l">IPN (SSB, computed)</div></div>
-  <div class="box"><div class="v">&minus;51.6 dBc</div><div class="l">slide p42 / json</div></div>
+  <div class="box"><div class="v">&minus;51.6 dBc</div><div class="l">model/json SSB (slide &minus;51.7 dBc)</div></div>
 </div>
 <h4>INTERPRETATION</h4>
 <p>The computed &minus;51.65 dBc matches <code>freq_domain.json</code>'s <code>ipn_dbc_ssb = -51.65</code> and slide 42 (quoted &minus;51.6 / &minus;51.7) to within rounding. Sources add in RMS (variances sum): $\sigma_{tot}^2 = \sum_i \sigma_i^2$. The VCO dominates at ~52% because its phase noise is only high-pass-suppressed inside the loop bandwidth and passes unfiltered above $f_c$; REF + DTC together (~37.8%) are the next lever; the DSM quantization noise is nearly fully cancelled by the DTC (0.3%), which is the central claim of the architecture.</p>
@@ -243,36 +255,33 @@ $$S_\varphi(f) = \frac{2}{f_s M U}\,\big|\text{FFT}(w\cdot\varphi)\big|^2,\qquad
 </div>
 
 <div class="cite">
-<b>Provenance summary.</b> Slide values: $f_{out},f_{ref},N$, budget &amp; IPN <span class="tag t-slide">slide p42</span>; $T_{res}$, DR, DTC QN <span class="tag t-slide">slide p15</span>; $K_{SPD}$ <span class="tag t-slide">slide p20</span>; cal timing &amp; NLC <span class="tag t-slide">slide p26-40</span>. Derived/model numbers: <code>freq_domain.json</code>, <code>calibrations.json</code>, <code>time_domain.json</code>, and <code>docs/derivations.md</code> (&sect;3 DTC QN, &sect;6 $K_{SPD}$, &sect;7 cal, &sect;8 jitter conversions, &sect;9 cross-check). Standard theory named inline: Bennett quantization, Gardner/Razavi loop design, Widrow &amp; Stearns LMS, Welch PSD, IEEE-1139/Leeson phase-noise conventions.
+<b>Provenance summary.</b> Slide values: $f_{out},f_{ref}$ <span class="tag t-slide">slide p42</span> (and slide-42 prints total 87.5 fs / &minus;51.7 dBc); $N$ is <span class="tag t-derive">derived</span> ($=f_{out}/f_{ref}$); $T_{res}$, DR, DTC QN <span class="tag t-slide">slide p15</span>; $K_{SPD}$ <span class="tag t-slide">slide p20</span>; cal timing &amp; NLC <span class="tag t-slide">slide p26-40</span>. Derived/model numbers: <code>freq_domain.json</code>, <code>calibrations.json</code>, <code>time_domain.json</code>, and <code>docs/derivations.md</code> (&sect;3 DTC QN, &sect;6 $K_{SPD}$, &sect;7 cal, &sect;8 jitter conversions, &sect;9 cross-check). Standard theory named inline: Bennett quantization, Gardner/Razavi loop design, Widrow &amp; Stearns LMS, Welch PSD, IEEE-1139/Leeson phase-noise conventions.
 </div>
 
-<div class="btnrow"><div><a href="codewalk.html">← Code Walkthrough</a></div><div><a href="references.html">References →</a></div></div>
+<h2 id="self-check">Self-check</h2>
+<div class="quiz"><div class="q">Q1. The DTC quantization-noise floor is modeled as $-163$ dBc/Hz, yet the hand calculation in Example 1 returns a slightly different number. Starting from $\Phi_{\text{DTC,QN}} = (2\pi T_{res})^2/12 \cdot f_{ref}$ with $T_{res}=400$ fs and $f_{ref}=104$ MHz, what value do you compute, and why is it not exactly $-163$?</div><details><summary>Show answer</summary><div class="ans">$\Phi_{\text{DTC,QN}} = (2\pi\cdot400\times10^{-15})^2/12 \cdot 104\times10^{6} = 5.47\times10^{-17}\ \text{rad}^2/\text{Hz}$, so $\mathcal{L} = 10\log_{10}(5.47\times10^{-17}) = -162.6$ dBc/Hz <span class="tag t-derive">derived</span>. The 0.4-dB gap versus the $-163$ dBc/Hz carried in <code>freq_domain.json</code> / <span class="tag t-slide">slide p15</span> is just slide rounding. Because $\Phi_{\text{DTC,QN}}\propto T_{res}^2$, halving the LSB lowers this floor by 6 dB.</div></details></div>
+<div class="quiz"><div class="q">Q2. The sampling phase detector quotes a slope $K_{slope}=6$ GV/s and $f_{ref}=104$ MHz. Using $K_{SPD}=K_{slope}/(2\pi f_{ref})$, what is $K_{SPD}$ in V/rad, and why is such a large gain desirable?</div><details><summary>Show answer</summary><div class="ans">$K_{slope}/f_{ref} = 6\times10^{9}/104\times10^{6} = 57.7$, hence $K_{SPD} = 57.7/(2\pi) = 9.18$ V/rad <span class="tag t-derive">derived</span> (matching the $\approx 9.19$ V/rad anchor; <span class="tag t-slide">slide p20</span> quotes the rounded "$57/2\pi$"). The high phase-to-voltage gain divides down the downstream GM/comparator noise referred to the input phase, so SPD+GM lands at only $\approx 3.9\%$ of the jitter budget.</div></details></div>
+<div class="quiz"><div class="q">Q3. For the Type-II loop with $f_c=1.5$ MHz and $\text{PM}=60^\circ$, the spacing factor is $k=\tan(45^\circ+\text{PM}/2)$ and $f_z=f_c/k$, $f_p=f_c\,k$. Compute $k$, $f_z$, $f_p$. Then, given $\sigma_t=87.6$ fs at $f_{out}=6.72$ GHz, use $\text{IPN}_{\text{SSB}}=10\log_{10}(\tfrac{1}{2}\sigma_\varphi^2)$ with $\sigma_\varphi=2\pi f_{out}\sigma_t$ to find the integrated phase noise.</div><details><summary>Show answer</summary><div class="ans">$k=\tan(75^\circ)=3.732$, so $f_z=1.5\ \text{MHz}/3.732=402$ kHz and $f_p=1.5\ \text{MHz}\times3.732=5.60$ MHz <span class="tag t-derive">derived</span> (the max-PM geometric-mean placement $\omega_c=\sqrt{\omega_z\omega_p}$ that yields $60^\circ$ at crossover). For the IPN: $\sigma_\varphi=2\pi\cdot6.72\times10^{9}\cdot87.6\times10^{-15}=3.699\times10^{-3}$ rad, $\sigma_\varphi^2=1.368\times10^{-5}\ \text{rad}^2$, so $\text{IPN}_{\text{SSB}}=10\log_{10}(\tfrac{1}{2}\cdot1.368\times10^{-5})=-51.65$ dBc <span class="tag t-derive">derived</span>, matching <code>freq_domain.json</code> and <span class="tag t-slide">slide p42</span>.</div></details></div>
+
+</div>
+<aside class="toc-rail" aria-label="On this page"></aside>
+<div class="btnrow"><div><a href="codewalk.html">← Code Walkthrough</a></div><div><a href="dtctopologies.html">DTC Topologies →</a></div></div>
 <div class="footer">
   Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
   (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
-  Every claim is tagged: <span class="tag t-slide">slide pX</span>
+  Provenance tags: <span class="tag t-slide">slide pX</span>
   <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
   <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
 </div>
 </main>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
-<script>
-document.addEventListener("DOMContentLoaded", function(){
-  renderMathInElement(document.body, {
-    delimiters:[
-      {left:"$$",right:"$$",display:true},
-      {left:"\\[",right:"\\]",display:true},
-      {left:"$",right:"$",display:false},
-      {left:"\\(",right:"\\)",display:false}
-    ],
-    throwOnError:false
-  });
-});
-</script>
+<button id="toTop" aria-label="Back to top">&#8593;</button>
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/prism/prism-core.min.js"></script>
+<script src="assets/vendor/prism/prism-clike.min.js"></script>
+<script src="assets/vendor/prism/prism-python.min.js"></script>
+
+<script src="assets/app/site.js"></script>
 </body>
 </html>

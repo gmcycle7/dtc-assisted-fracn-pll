@@ -4,14 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Time-Domain Noise · DTC-Assisted Frac-N PLL</title>
+<meta name="description" content="Discrete-time PLL noise simulation, PSD/jitter extraction, and the frequency<->time cross-check.">
+<meta property="og:title" content="Time-Domain Noise · DTC-Assisted Fractional-N PLL">
+<meta property="og:description" content="Discrete-time PLL noise simulation, PSD/jitter extraction, and the frequency<->time cross-check.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism-tomorrow.min.css">
 <link rel="stylesheet" href="assets/style.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
 </head>
 <body>
+<div class="topbar"><button class="ham" aria-label="Open menu">&#9776;</button><span class="ttl">Time-Domain Noise</span></div>
+<div class="scrim"></div>
 <div class="wrap">
-<nav class="side">
-<div class="brand">DTC-Assisted<br>Fractional-N PLL</div>
+<nav class="side" aria-label="Site sections">
+<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>
 <div class="sub">Interactive study of slides 1–42</div>
 <a class="" href="index.html"><span class="n">1</span>Home</a>
 <a class="" href="slides.html"><span class="n">2</span>Slide-by-slide Map</a>
@@ -22,9 +30,13 @@
 <a class="active" href="timedomain.html"><span class="n">7</span>Time-Domain Noise</a>
 <a class="" href="codewalk.html"><span class="n">8</span>Code Walkthrough</a>
 <a class="" href="examples.html"><span class="n">9</span>Numerical Examples</a>
-<a class="" href="references.html"><span class="n">10</span>References</a>
+<a class="" href="dtctopologies.html"><span class="n">10</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">11</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">12</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">13</span>References</a>
 </nav>
 <main>
+<div class="article">
 <h1>Time-Domain Noise Analysis</h1>
 <p class="lead">A discrete-time, sample-by-sample simulation of the DTC-assisted fractional-N PLL that injects each physical noise source at its real node, lets the loop shape it, then extracts phase noise and jitter — and reproduces the frequency-domain budget (88.2 fs vs 87.4 fs) as an independent cross-check.</p>
 
@@ -194,33 +206,31 @@ That two completely different computational paths land within 0.08 dB is strong 
 <b>Takeaway.</b> The time-domain model is not a separate result — it is the <em>auditor</em> of the frequency-domain budget. By injecting real-statistics noise at real nodes and running the actual loop difference equations, it confirms the 87.6 fs <span class="tag t-derive">model</span> ≈ 87.5 fs <span class="tag t-slide">slide p42</span> / −51.6 dBc <span class="tag t-derive">model</span> ≈ −51.7 dBc <span class="tag t-slide">slide p42</span> figure from first principles, locks the SSB/DSB and band-limit conventions, and passes Parseval. The +0.08 dB agreement is the headline number to remember.
 </div>
 
+<h2 id="self-check">Self-check</h2>
+<div class="quiz"><div class="q">Q1. You want to inject a white phase source at $\mathcal{L}=-160$ dBc/Hz into the model, which is sampled once per reference cycle. What per-sample Gaussian standard deviation $\sigma_\varphi$ do you generate, and why does the answer depend on $f_{ref}$?</div><details><summary>Show answer</summary><div class="ans">$\sigma_\varphi=\sqrt{S_\varphi\cdot f_{ref}/2}=\sqrt{2\cdot10^{-16}\cdot 52\times10^6}\approx 1.02\times10^{-4}$ rad per sample, using $S_\varphi=2\cdot10^{\mathcal{L}/10}$ (double-sided→single-sided) and the simulated Nyquist band $f_{ref}/2 = 52$ MHz (since $f_{ref}=104$ MHz). A white sequence spreads its total variance flat across the resolved band, so the per-sample variance scales with the bandwidth $f_{ref}/2$; a higher sample rate means the same PSD level carries more total variance per sample. <span class="tag t-derive">derived</span> §8–9 / <span class="tag t-std">DSP — Parseval</span></div></details></div>
+<div class="quiz"><div class="q">Q2. After running the loop, the variance of the output phase computed directly from the time series is $1.50\times10^{-5}$ rad², but the integral of the Welch PSD over the resolved band is $1.43\times10^{-5}$ rad². Is this a bug, and what guarantees these should match?</div><details><summary>Show answer</summary><div class="ans">Not a bug. <b>Parseval's theorem</b> guarantees $\int S_\varphi(f)\,df \approx \mathrm{var}(\varphi)$ when the PSD is normalized by the window power $U=\overline{w^2}$: $S_\varphi(f)=\frac{2}{f_s M U}|\text{FFT}(w\cdot\varphi)|^2$. The two numbers agree within ~5%, and the small gap is expected from Hann-window power normalization and the dropped DC bin — not a normalization error. The automated <code>test_welch_psd_normalization</code> gates this to &lt; 10% for a white input. <span class="tag t-std">DSP — Welch 1967 / Parseval</span></div></details></div>
+<div class="quiz"><div class="q">Q3. The time-domain run reports 88.2 fs RMS jitter, but the full frequency-domain budget is 87.6 fs to 100 MHz. Why is 87.4 fs — not 87.6 fs — the correct number to compare against, and what is the resulting cross-check agreement?</div><details><summary>Show answer</summary><div class="ans">The time-domain model only resolves up to its Nyquist limit $f_{ref}/2 = 52$ MHz, so the 52–100 MHz VCO tail is physically absent from the simulation. To compare fairly you must integrate the frequency-domain model over the <em>identical</em> band [1 kHz, 49.4 MHz], which gives 87.4 fs (vs. the full-band 87.6 fs <span class="tag t-derive">model</span> ≈ 87.5 fs <span class="tag t-slide">slide p42</span>). The cross-check is then $20\log_{10}(88.2/87.4)\approx +0.08$ dB — well inside the 1.5 dB test tolerance, confirming the two independent computational paths agree. <span class="tag t-derive">derived</span> §H.4 / <span class="tag t-assume">assumption</span>[A16]</div></details></div>
+
+
+</div>
+<aside class="toc-rail" aria-label="On this page"></aside>
 <div class="btnrow"><div><a href="frequency.html">← Frequency-Domain</a></div><div><a href="codewalk.html">Code Walkthrough →</a></div></div>
 <div class="footer">
   Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
   (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
-  Every claim is tagged: <span class="tag t-slide">slide pX</span>
+  Provenance tags: <span class="tag t-slide">slide pX</span>
   <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
   <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
 </div>
 </main>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
-<script>
-document.addEventListener("DOMContentLoaded", function(){
-  renderMathInElement(document.body, {
-    delimiters:[
-      {left:"$$",right:"$$",display:true},
-      {left:"\\[",right:"\\]",display:true},
-      {left:"$",right:"$",display:false},
-      {left:"\\(",right:"\\)",display:false}
-    ],
-    throwOnError:false
-  });
-});
-</script>
+<button id="toTop" aria-label="Back to top">&#8593;</button>
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/prism/prism-core.min.js"></script>
+<script src="assets/vendor/prism/prism-clike.min.js"></script>
+<script src="assets/vendor/prism/prism-python.min.js"></script>
+
+<script src="assets/app/site.js"></script>
 </body>
 </html>
