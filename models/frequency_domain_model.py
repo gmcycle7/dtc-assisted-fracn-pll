@@ -50,6 +50,8 @@ class PLLParams:
     dtc_qn_dbc: float = -163.0        # DTC quantization noise           Slide p.15
     dtc_thermal_dbc: float = -171.0   # DTC thermal floor                Slide p.16
     mmd_dbc: float = -165.0           # MMD (divider) input-referred     [A12]/Slide p.42
+    dtc_gain_err: float = 1e-4        # residual fractional K_DTC error eps after cal [A17]
+    #   -> uncancelled DSM-QE leaks as eps^2 * S_Qdsm (derivations.md Sec.7.1, replaces a magic factor)
 
     # --- derived (filled in __post_init__) ---
     N: float = field(init=False)
@@ -211,7 +213,9 @@ def Sphi_dsm_at_output(params: PLLParams, f, cancelled=True):
     # shaped by closed loop (low-pass, like reference path)
     shaped = s_rad * np.abs(H_ref(params, f) / params.N) ** 2 * params.N ** 2
     if cancelled:
-        shaped = shaped * 1e-8   # DTC cancellation ~ -80 dB residual (slide 42: ~0%)
+        # residual after DTC gain cal = (fractional gain error eps)^2 of the DSM QE.
+        # eps=1e-4 -> -80 dB, reproducing slide-42 "~0%". See derivations.md Sec.7.1.
+        shaped = shaped * (params.dtc_gain_err ** 2)
     return shaped
 
 
