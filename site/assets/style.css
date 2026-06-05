@@ -185,6 +185,26 @@ details.deriv[open] > summary::before{content:"▾ "}
 /* native SVG diagrams */
 figure.diagram svg{max-width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:10px}
 
+/* ---- overflow / mobile-readability fixes ----
+   Root causes of horizontal scroll on phones: oversized slide images, wide KaTeX display
+   equations, and wide tables/code. Constrain them all to the viewport. */
+img, svg, video, canvas { max-width: 100%; height: auto; }
+figure img { max-width: 100%; }
+figure.slide img { max-width: min(560px, 100%); }   /* desktop cap, but never wider than screen */
+figure.diagram svg { max-width: 100%; }
+.katex-display { max-width: 100%; overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+:not(pre) > code { overflow-wrap: anywhere; }
+table { max-width: 100%; }
+pre[class*="language-"] { max-width: 100%; }
+.widget, .widget .plot, .js-plotly-plot, .plot-container { max-width: 100%; }
+/* backstop: the article column itself never scrolls the page sideways
+   (inner tables / equations / code keep their own internal scroll) */
+main > .article { overflow-x: clip; }
+/* hide KaTeX's off-screen MathML a11y layer from layout width (it can escape clip) */
+.katex-mathml { position: absolute; clip: rect(1px,1px,1px,1px); width: 1px; height: 1px; overflow: hidden; }
+/* final mobile backstop: no sideways page scroll once the TOC rail is gone */
+@media (max-width: 1150px){ html, body { overflow-x: hidden; } }
+
 /* print */
 @media print{
   nav.side,.topbar,#toTop,aside.toc-rail,.btnrow,.widget .controls,.widget .toggles{display:none!important}
