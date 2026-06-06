@@ -185,7 +185,7 @@ def simulate_ckref_dcc(
 def simulate_offset_cal(
     n_cycles=8000,
     offset_mv=32.0,        # comparator+GM offset (slide 40: 32 mV)
-    K_spd=9.19,            # SPD gain [V/rad] (slide 20)
+    K_spd=9.18,            # SPD gain [V/rad] = 6e9/(2*pi*104e6)=9.182 (slide 20)
     mu_mv=0.09,            # DC-servo step [mV]                 [A17]
     phe_noise_rad=0.008,   # locked PHE jitter [rad]
     seed=3,

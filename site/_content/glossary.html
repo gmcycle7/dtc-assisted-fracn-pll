@@ -63,7 +63,7 @@ Anchors you can trust everywhere: $f_\text{out}=6.72$ GHz, $f_\text{ref}=104$ MH
   <tr><td>$T_\text{res}$</td><td>DTC resolution (unit delay $=\ln2\cdot R\,C_\text{LSB}$)</td><td>s</td><td class="num">400 fs</td><td>QN &amp; thermal formulas; $\sigma_t=T_\text{res}/\sqrt{12}=115$ fs <span class="tag t-slide">slide p15</span></td></tr>
   <tr><td>$R$</td><td>RC-delay series resistance</td><td>&Omega;</td><td class="num">&asymp; 289 &Omega;</td><td>Sets $T_\text{res}$ &amp; thermal noise <span class="tag t-slide">slide p14</span> <span class="tag t-assume">[A7]</span></td></tr>
   <tr><td>$C_\text{LSB}$</td><td>Per-LSB capacitance of the cap array</td><td>F</td><td class="num">2 fF</td><td>$T_\text{res}=\ln2\,R\,C_\text{LSB}$; $kT/C$ noise <span class="tag t-slide">slide p15&ndash;16</span> <span class="tag t-assume">[A7]</span></td></tr>
-  <tr><td>$\text{DR}$</td><td>DTC dynamic range ($=2^{n}\,T_\text{res}$)</td><td>s</td><td class="num">400 ps</td><td>Range/power/linearity tradeoff <span class="tag t-slide">slide p15</span> <span class="tag t-slide">slide p33</span></td></tr>
+  <tr><td>$\text{DR}$</td><td>DTC dynamic range ($=2^{n}\,T_\text{res}$)</td><td>s</td><td class="num">409.6 ps</td><td>$2^{10}\times400$ fs (≈400 ps nominal); range/power/linearity tradeoff <span class="tag t-slide">slide p15</span> <span class="tag t-slide">slide p33</span></td></tr>
   <tr><td>$n$</td><td>DTC resolution in bits</td><td>bits</td><td class="num">10</td><td>$\text{DR}=2^{n}T_\text{res}$ <span class="tag t-slide">slide p15</span></td></tr>
   <tr><td>$k_\text{slew}$</td><td>Comparator ramp slew rate ($=1/2RC$ at $V_\text{DD}/2$)</td><td>V/s</td><td class="num">&mdash;</td><td>Converts $\sigma_v$ to timing jitter <span class="tag t-slide">slide p16</span></td></tr>
   <tr><td>$\text{INL}$</td><td>Integral nonlinearity (static + dynamic)</td><td>LSB</td><td class="num">&plusmn;0.6 LSB</td><td>Source of frac spurs / folding <span class="tag t-slide">slide p17&ndash;18</span> <span class="tag t-assume">[A8]</span></td></tr>
@@ -167,6 +167,7 @@ Anchors you can trust everywhere: $f_\text{out}=6.72$ GHz, $f_\text{ref}=104$ MH
 
 <div class="derive">
 <b>Worked conversion (closes slide 42).</b> With $\sigma_t=87.5$ fs and $f_\text{out}=6.72$ GHz: $\sigma_\varphi=2\pi f_\text{out}\sigma_t=3.69\times10^{-3}$ rad, so $\sigma_\varphi^2=1.365\times10^{-5}$ rad<sup>2</sup>. Then $\text{IPN}_\text{SSB}=10\log_{10}(\tfrac12\sigma_\varphi^2)=-51.66$ dBc, matching the deck's &minus;51.7 dBc; the total-variance convention $10\log_{10}(\sigma_\varphi^2)=-48.65$ dBc is exactly 3 dB higher <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>. Our frequency-domain model returns 87.6 fs / &minus;51.6 dBc in the same convention.
+</div>
 
 <div class="derive">
 <b>The same triangle, run backward (dBc &rarr; mrad &rarr; fs).</b> The box above goes <i>jitter&nbsp;&rarr;&nbsp;dBc</i>. Reading a budget plot usually hands you the opposite: a single IPN number, from which you want the RMS phase and the jitter. Invert the SSB definition $\text{IPN}=10\log_{10}\!\big(\tfrac12\sigma_\varphi^2\big)$ to get $\sigma_\varphi=\sqrt{2\cdot 10^{\,\text{IPN}/10}}$, then divide by $2\pi f_\text{out}$.
@@ -184,8 +185,6 @@ Anchors you can trust everywhere: $f_\text{out}=6.72$ GHz, $f_\text{ref}=104$ MH
 </div>
 
 <p style="margin:.4em 0 0"><b>Sanity check.</b> The recovered $88.1$ fs sits right on the model's stored $87.6$ fs (the $0.5$ fs gap is just the rounding of $-51.6$ vs.\ the model's exact $-51.65$ dBc), and $3.72$ mrad matches the forward box's $3.69$ mrad. Forward and reverse close on the same point, so the three columns &mdash; $-51.6$ dBc, $3.7$ mrad, $87.6$ fs &mdash; are one quantity in three units, exactly as the units cheat-sheet promises. <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span></p>
-</div>
-
 </div>
 
 <h2>A tiny KaTeX legend</h2>

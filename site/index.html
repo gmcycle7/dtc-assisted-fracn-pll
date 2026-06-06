@@ -66,7 +66,19 @@
 
 <h2>The problem this deck solves</h2>
 
-<p>Modern radios — WiFi-7 and 5G FR2 (mmWave) — need a local oscillator (LO) so clean that its <b>integrated RMS jitter is below 100 fs</b> <span class="tag t-slide">slide p.3</span>. The reason is the modulation: as you pack more bits per symbol (64-QAM → 256-QAM → 1024-QAM → 4096-QAM), the constellation points crowd together and even a tiny amount of LO phase noise rotates a symbol into its neighbor's decision region. Slide 3 lists the required double-sideband integrated phase noise (DSB-IPN) per scheme: <b>−30 dBc for 64-QAM, −33 dBc for 256-QAM, −44 dBc for 1024-QAM, and −47 dBc for 4096-QAM</b> <span class="tag t-slide">slide p.3</span>. Translated to jitter at carriers of 7–47 GHz, all of these land below 100 fs RMS.</p>
+<p>Modern radios — WiFi-7 and 5G FR2 (mmWave) — need a local oscillator (LO) so clean that its <b>integrated RMS jitter is below 100 fs</b> <span class="tag t-slide">slide p.3</span>. The reason is the modulation: as you pack more bits per symbol (64-QAM → 256-QAM → 1024-QAM → 4096-QAM), the constellation points crowd together and even a tiny amount of LO phase noise rotates a symbol into its neighbor's decision region. Slide 3 lists the required double-sideband integrated phase noise (DSB-IPN) per scheme: <b>−30 dBc for 64-QAM, −33 dBc for 256-QAM, −44 dBc for 1024-QAM, and −47 dBc for 4096-QAM</b> <span class="tag t-slide">slide p.3</span>. Translated to jitter at the slide-3 carriers (7–47 GHz), the <i>dense</i>-QAM specs drive the design below 100 fs RMS (1024-QAM ≈ 23 fs @ 43 GHz, 4096-QAM ≈ 15 fs @ 47 GHz), while looser 64-QAM is ≈ 171 fs @ 7.1 GHz — it is the dense-QAM, high-carrier corner that sets the sub-100 fs target.</p>
+
+<p>The bridge from each IPN spec to a jitter is one identity — \(\sigma_\varphi=10^{\text{IPN}/20}\) (rad), then \(\sigma_t=\sigma_\varphi/(2\pi f_\text{out})\):</p>
+<table>
+  <thead><tr><th>Modulation</th><th class="num">DSB-IPN</th><th class="num">\(\sigma_\varphi\)</th><th class="num">\(\sigma_t\) @ carrier</th></tr></thead>
+  <tbody>
+    <tr><td>64-QAM</td><td class="num">−30 dBc</td><td class="num">31.6 mrad</td><td class="num">171 fs @ 7.1 GHz</td></tr>
+    <tr><td>256-QAM</td><td class="num">−33 dBc</td><td class="num">22.4 mrad</td><td class="num">89 fs @ 40 GHz</td></tr>
+    <tr><td>1024-QAM</td><td class="num">−44 dBc</td><td class="num">6.3 mrad</td><td class="num">23 fs @ 43 GHz</td></tr>
+    <tr><td>4096-QAM</td><td class="num">−47 dBc</td><td class="num">4.5 mrad</td><td class="num">15 fs @ 47 GHz</td></tr>
+  </tbody>
+</table>
+<p style="font-size:0.9em;color:#666">\(\sigma_\varphi,\sigma_t\) <span class="tag t-derive">derived</span> from the slide-3 IPN specs and carriers <span class="tag t-slide">slide p.3</span> (carrier↔QAM pairing <span class="tag t-assume">[A3]</span>); full version on the <a href="system.html">System</a> page.</p>
 
 <p>A <b>fractional-N</b> PLL is what lets you hit an arbitrary frequency (e.g. 6.72 GHz from a 104 MHz reference, an irrational-looking divide ratio <span class="tag t-derive">derived</span> $N = f_\text{out}/f_\text{ref} = 6720/104 = 64.62$). But fractional-N is much harder to make low-jitter than integer-N, for three reasons spelled out on slide 6:</p>
 
@@ -96,7 +108,8 @@
 
 <p>The key relation is the DTC gain — how many DTC delay codes correspond to one VCO period:</p>
 
-$$K_\text{DTC} = \frac{T_\text{vco}}{\Delta t_\text{DTC}} \qquad\text{(codes per VCO period)} \quad\text{\small(slide p.9)}$$
+$$K_\text{DTC} = \frac{T_\text{vco}}{\Delta t_\text{DTC}} = \frac{148.8\ \text{ps}}{400\ \text{fs}} = 372 \quad\text{(codes per VCO period)} \quad\text{\small slide p.9}$$
+<p style="font-size:0.9em;color:#666">where \(\Delta t_\text{DTC}=T_\text{res}=400\) fs is the DTC's LSB delay <span class="tag t-slide">slide p.15</span> (distinct from \(\Delta t[n]\), the per-cycle delay command above).</p>
 
 <p>The DTC is told to add a delay $\Delta t[n] = K_\text{DTC}^{-1}\,\Phi_\text{QE}[n]$, a staircase that exactly mirrors the divider's accumulated phase wander $\Phi_\text{QE}[n]$ <span class="tag t-slide">slide p.9</span>. If $K_\text{DTC}$ is right, the residual phase error collapses to zero and the PD operates in a tiny window around its highest-gain point.</p>
 

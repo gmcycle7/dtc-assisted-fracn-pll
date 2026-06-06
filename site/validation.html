@@ -543,7 +543,7 @@ for fc in np.linspace(1.0e6, 3.0e6, 11):
       buying nothing real by chasing it. <span class="tag t-derive">derived</span></li>
   <li><b>Higher $f_c$ = more peaking and more reference/spur feed-through.</b> A wider loop passes
       more of the reference-path content (REF+DTC, fractional spurs) to the output; with the type-II
-      zero already giving 1.70 dB peaking at 1.5 MHz, widening to 2.1 MHz worsens both peaking and the
+      zero already giving 1.70 dB peaking (the peak sits near 0.70 MHz; crossover is at 1.5 MHz), widening to 2.1 MHz worsens both peaking and the
       &minus;56&#8230;&minus;70 dBc DTC/INL spurs that sit inside the loop band
       <span class="tag t-derive">derived (SPURS)</span>. The jitter optimizer integrates these away;
       a spec sheet with a spur mask does not.</li>

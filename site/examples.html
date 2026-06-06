@@ -266,14 +266,14 @@ $$S_\varphi(f) = \frac{2}{f_s M U}\,\big|\text{FFT}(w\cdot\varphi)\big|^2,\qquad
 <div class="derive">
 <p><b>Given:</b> \(f_{\rm ref}=104\) MHz, \(\alpha=0.6154\) (so \(N=64.6154\)). Resolution and word value vs bit-width:</p>
 <table class="num">
-<thead><tr><th>\(L\) (bits)</th><th>FCW = round(α·2^L)</th><th>\(\Delta f = f_{\rm ref}/2^{L}\)</th><th>output freq error</th></tr></thead>
+<thead><tr><th>\(L\) (bits)</th><th>FCW = round(α·2^L)</th><th>\(\Delta f = f_{\rm ref}/2^{L}\)</th><th>output freq error (actual − target)</th></tr></thead>
 <tbody>
-<tr><td>20</td><td>645,278</td><td>99.2 Hz</td><td>−45.8 Hz</td></tr>
-<tr><td><b>24</b></td><td><b>10,324,441</b></td><td><b>6.20 Hz</b></td><td>−2.4 Hz</td></tr>
-<tr><td>27</td><td>82,595,525</td><td>0.77 Hz</td><td>−0.06 Hz</td></tr>
+<tr><td>20</td><td>645,278</td><td>99.2 Hz</td><td>+45.8 Hz</td></tr>
+<tr><td><b>24</b></td><td><b>10,324,441</b></td><td><b>6.20 Hz</b></td><td>+2.4 Hz</td></tr>
+<tr><td>27</td><td>82,595,525</td><td>0.77 Hz</td><td>+0.06 Hz</td></tr>
 </tbody>
 </table>
-<p><b>Sizing rule:</b> to guarantee a raster finer than \(\Delta f_{\rm spec}\) you need \(L \ge \lceil\log_2(f_{\rm ref}/\Delta f_{\rm spec})\rceil\). For a 1 Hz grid: \(L=\lceil\log_2(104\times10^{6})\rceil = 27\) bits (giving 0.77 Hz). The deck does not specify \(L\); these use [A23]. <span class="tag t-derive">derived</span> <span class="tag t-assume">assumption [A23]</span></p>
+<p><b>Sizing rule:</b> to guarantee a raster finer than \(\Delta f_{\rm spec}\) you need \(L \ge \lceil\log_2(f_{\rm ref}/\Delta f_{\rm spec})\rceil\). (All three errors are positive because \(\operatorname{round}\) here happens to round the FCW <i>up</i>, so the realized frequency sits just above target.) For a 1 Hz grid: \(L=\lceil\log_2(104\times10^{6})\rceil = 27\) bits (giving 0.77 Hz). The deck does not specify \(L\); these use [A23]. <span class="tag t-derive">derived</span> <span class="tag t-assume">assumption [A23]</span></p>
 </div>
 
 <h2 id="ex9">9 &mdash; Capstone: one fraction, all the way to a DTC code</h2>
@@ -283,8 +283,8 @@ $$S_\varphi(f) = \frac{2}{f_s M U}\,\big|\text{FFT}(w\cdot\varphi)\big|^2,\qquad
 <p><b>② Accumulator → residue.</b> The accumulator's leftover each cycle is \(\Phi_{\rm QE}[n]=\text{acc}[n]/2^{24}\) (in \(T_{\rm vco}\)); take a representative residue \(\Phi_{\rm QE}=0.6154\,T_{\rm vco}\).</p>
 <p><b>③ Residue → delay.</b> The DTC must delay the reference by \(\Delta t=\Phi_{\rm QE}\,T_{\rm vco}=0.6154\times148.8\ \text{ps}=91.6\) ps.</p>
 <p><b>④ Delay → DTC code,</b> with \(K_{\rm DTC}=T_{\rm vco}/T_{\rm res}=148.8\ \text{ps}/400\ \text{fs}=372\) codes per \(T_{\rm vco}\):</p>
-$$ \text{code}=\operatorname{round}(K_{\rm DTC}\cdot\Phi_{\rm QE})=\operatorname{round}(372\times0.6154)=\operatorname{round}(228.9)=\mathbf{229}\ \text{codes}. $$
-<p><b>⑤ Code → residual.</b> The 0.1-code rounding leaves \(\delta t=(228.9-229)\times400\ \text{fs}=-25\) fs of uncancelled error per cycle — the DTC quantization that sets the \(-163\) dBc/Hz floor <span class="tag t-slide">slide p15</span>; any DTC <i>nonlinearity</i> on top turns this periodic residue into the fractional spurs of the <a href="spurs.html">Spurs</a> page. <span class="tag t-derive">derived</span></p>
+$$ \text{code}=\operatorname{round}(K_{\rm DTC}\cdot\Phi_{\rm QE})=\operatorname{round}(372\times0.6154)=\operatorname{round}(228.93)=\mathbf{229}\ \text{codes}. $$
+<p><b>⑤ Code → residual.</b> The 0.07-code rounding leaves \(\delta t=(228.93-229)\times400\ \text{fs}=-28\) fs of uncancelled error per cycle — the DTC quantization that sets the \(-163\) dBc/Hz floor <span class="tag t-slide">slide p15</span>; any DTC <i>nonlinearity</i> on top turns this periodic residue into the fractional spurs of the <a href="spurs.html">Spurs</a> page. <span class="tag t-derive">derived</span></p>
 <div class="kpi" style="margin:.5em 0 .2em">
   <div class="box"><div class="v">0.6154</div><div class="l">fraction α</div></div>
   <div class="box"><div class="v">10,324,441</div><div class="l">24-bit FCW</div></div>

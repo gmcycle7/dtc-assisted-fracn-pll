@@ -68,8 +68,8 @@ $$ N = \frac{f_{\rm out}}{f_{\rm ref}} = \frac{6720\ \text{MHz}}{104\ \text{MHz}
 <div class="derive">
 <b>Worked example 2 — encode the fraction as bits (the frequency control word, FCW).</b>
 <p>The fraction lives in an <b>\(L\)-bit accumulator</b>; the digital word you program is \(\text{FCW}=\operatorname{round}(\alpha\cdot 2^{L})\). With \(L=24\) bits <span class="tag t-assume">assumption [A23]</span>:</p>
-$$ \text{FCW} = \operatorname{round}\!\big(0.6153846\times 2^{24}\big) = \operatorname{round}(10\,324\,440.9) = \mathbf{10\,324\,441}. $$
-<p>The realized fraction is \(\text{FCW}/2^{24}=0.6153846\), off target by only \(\approx2.4\) Hz at the output; the <b>channel resolution</b> is one accumulator LSB:</p>
+$$ \text{FCW} = \operatorname{round}\!\big(\underbrace{(6720/104-64)}_{0.6153846154}\times 2^{24}\big) = \operatorname{round}(10\,324\,440.6) = \mathbf{10\,324\,441}. $$
+<p>The realized fraction is \(\text{FCW}/2^{24}=0.61538464\), just above the exact target \(6720/104-64=0.61538462\) — off by only \(\approx2.4\) Hz at the output; the <b>channel resolution</b> is one accumulator LSB:</p>
 $$ \Delta f = \frac{f_{\rm ref}}{2^{L}} = \frac{104\ \text{MHz}}{2^{24}} = 6.20\ \text{Hz}. $$
 <div class="kpi" style="margin:.5em 0 .2em">
   <div class="box"><div class="v">10,324,441</div><div class="l">FCW (24-bit fractional word)</div></div>
@@ -163,7 +163,7 @@ $$\sigma_{\text{leak}} = 0.10\times\frac{T_{vco}}{\sqrt{12}} = 0.10\times 43.0\ 
   <div class="box"><div class="v">&minus;138 fs</div><div class="l">rounding residual (this cycle)</div></div>
   <div class="box"><div class="v">4.3 ps</div><div class="l">RMS leak if \(K_{DTC}\) 10% off</div></div>
 </div>
-<p style="margin:.3em 0 0"><b>Sanity check.</b> 4.3 ps RMS leaked timing is &asymp;100&times; the post-cal DTC bucket (29.6 fs) <span class="tag t-derive">model</span> — a 10% gain error would utterly dominate the budget, which is precisely why the \(\mu_2\) sign-LMS loop drives that 10% to near-zero (the model uses a 0.01% residual, \(K_{DTC}\) error \(10^{-4}\)) <span class="tag t-derive">model</span>. And 231 codes is well inside the 10-bit (1024-code, 400 ps) range <span class="tag t-slide">slide p15</span>, confirming the range-reduction trick keeps the command on-scale.</p>
+<p style="margin:.3em 0 0"><b>Sanity check.</b> 4.3 ps RMS leaked timing is &asymp;145&times; the post-cal DTC bucket (29.6 fs) <span class="tag t-derive">model</span> — a 10% gain error would utterly dominate the budget, which is precisely why the \(\mu_2\) sign-LMS loop drives that 10% to near-zero (the model uses a 0.01% residual, \(K_{DTC}\) error \(10^{-4}\)) <span class="tag t-derive">model</span>. And 231 codes is well inside the 10-bit (1024-code, 400 ps) range <span class="tag t-slide">slide p15</span>, confirming the range-reduction trick keeps the command on-scale.</p>
 </div></details>
 
 

@@ -105,6 +105,7 @@ $\omega_c = \sqrt{\omega_z\,\omega_p}$ <span class="tag t-std">textbook (Gardner
 zero a factor $k$ below $f_c$ and the pole a factor $k$ above $f_c$ gives exactly that geometric-mean
 crossover, so the chosen PM is the <i>maximum</i> phase margin for that zero/pole spacing — the most
 robust design for a given bandwidth. Check: $\sqrt{402\text{ kHz}\cdot 5.60\text{ MHz}} \approx 1.50$ MHz $= f_c$. ✓
+</div>
 
 <div class="derive">
 <b>Worked example — designing the loop from two targets.</b> The §2.2 recipe is just two formulas; here is every digit.
@@ -119,8 +120,6 @@ $$ f_z=\frac{f_c}{k}=\frac{1.5\text{ MHz}}{3.7321}=401.9\text{ kHz},\qquad
 $$ \Bigl|\tfrac{1+j\omega_c/\omega_z}{(j\omega_c)^2\,(1+j\omega_c/\omega_p)}\Bigr| = 4.2015\times10^{-14},\qquad
    K_\text{loop}=\frac{1}{4.2015\times10^{-14}}=2.380\times10^{13}. $$
 <p><b>SANITY CHECK.</b> Geometric-mean crossover $\sqrt{f_z f_p}=\sqrt{401.9\text{ kHz}\times5.598\text{ MHz}}=1.500$ MHz $=f_c$ ✓, and plugging back gives $|G_\text{ol}(j\omega_c)|=1.000$ with $\angle G_\text{ol}=-120^\circ$, so $\text{PM}=180^\circ-120^\circ=60^\circ$ ✓ — matching the numerically-extracted $f_c=1.501$ MHz / PM $=59.99^\circ$ in §6 <span class="tag t-derive">model</span>.</p>
-</div>
-
 </div>
 
 <figure>

@@ -604,13 +604,13 @@ cannot, not a way to improve the fundamental oscillator efficiency.
 <div class="note">
 <b>Why dual-core here.</b> The VCO already eats 12 mW of the 14.2 mW total <span class="tag t-slide">slide p39</span>.
 Going dual-core to claw the last 3 dB of the 51.8% VCO budget slice is the dominant power decision in the whole PLL —
-it is <i>the</i> jitter-vs-power knob, and it leaves FoM (−249.6 dB) untouched while moving the absolute jitter.
+it is <i>the</i> jitter-vs-power knob: it leaves the VCO's own figure-of-merit untouched (3 dB less phase noise bought with 2× power) while lowering the absolute jitter. (The −249.6 dB on the System page is the separate <i>system</i> jitter–power FoM.)
 </div>
 
 <figure><img src="assets/figures/vco_leeson.png" alt="VCO Leeson phase-noise model with 1/f^3, 1/f^2 and floor regions">
 <figcaption>Leeson model ($F{=}4$, $Q{=}10$, $P_\text{sig}{=}1.67$ mW) reproducing the 51.8%-budget VCO curve, with the
 flicker corner marked at 150 kHz, from <code>extras.py::leeson_L</code> — the $1/f^2$ region passes through
-−116.5 dBc/Hz @ 1 MHz and the $1/f^2\!\to$floor corner is at $f_0/2Q=336$ MHz.</figcaption></figure>
+−115.9 dBc/Hz @ 1 MHz (the budget model carries the back-solved −116.5 dBc/Hz as its [A13] anchor, ~0.6 dB apart) and the $1/f^2\!\to$floor corner is at $f_0/2Q=336$ MHz.</figcaption></figure>
 
 <div class="quiz"><div class="q">QA1. A single-core VCO gives −116.5 dBc/Hz @ 1 MHz at 6 mW. You go dual-core. What is the new phase noise, the new power, and the new FoM (relative to before)?</div><details><summary>Show answer</summary><div class="ans">Two uncorrelated cores average to $-10\log_{10}(2)=-3$ dB, so phase noise improves to $\approx\mathbf{-119.5\ \text{dBc/Hz @ }1\text{ MHz}}$, at $2\times$ power $=\mathbf{12\ \text{mW}}$ <span class="tag t-derive">model</span> (matching the VCO's 12 mW slice, slide 39). FoM $=\mathcal{L}+20\log(f_m/f_0)-10\log(P/\text{1mW})$ changes by $(-3)\,\text{dB from }\mathcal{L}$ and $+3\,\text{dB from }10\log(P)$, so <b>FoM is unchanged</b> — multi-core spends power to hit a spec, it does not improve oscillator efficiency.</div></details></div>
 

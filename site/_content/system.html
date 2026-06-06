@@ -24,8 +24,8 @@ $$\sigma_\phi^2=\int S_\phi(f)\,df,\qquad \sigma_t=\frac{\sigma_\phi}{2\pi f_\te
 For small phase error, the error vector on a unit-power symbol is $\approx \sin\phi \approx \phi$, so
 $$\boxed{\;\text{EVM}_\text{rms}\approx \sigma_\phi\ (\text{rad})\;}$$
 and the phase-noise-limited SNR is the inverse of that error power:
-$$\text{SNR}_\text{phase}=-20\log_{10}(\sigma_\phi)=-\text{IPN}\quad(\text{dB}).$$
-<span class="tag t-derive">derived/model</span> The last equality uses the deck's convention $\text{IPN}=20\log_{10}\sigma_\phi$ (the same one-sideband $\tfrac12$ factor that defines $\mathcal{L}(f)$) so that an IPN of $X$ dBc costs you exactly $|X|$ dB of constellation SNR. <span class="tag t-slide">slide p42 convention</span>
+$$\text{SNR}_\text{phase}=-20\log_{10}(\sigma_\phi)=-\text{IPN}_\text{DSB}\quad(\text{dB}).$$
+<span class="tag t-derive">derived/model</span> <b>Mind the convention.</b> $\text{SNR}_\text{phase}=-20\log_{10}\sigma_\phi=-10\log_{10}\sigma_\phi^2$ is minus the <b>total-variance (DSB)</b> IPN — and the slide-3 QAM specs are quoted DSB, so for them SNR $= -\text{IPN}$ directly. But the deck's <i>headline</i> IPN is the <b>SSB</b> form $10\log_{10}(\tfrac12\sigma_\phi^2)$, which is <b>3 dB lower</b>: so $\text{SNR}_\text{phase}=-\text{IPN}_\text{SSB}-3\,\text{dB}$. For 87.6 fs that is SNR $=48.6$ dB while $\text{IPN}_\text{SSB}=-51.6$ dBc (not $-48.6$). Keep them straight: SNR tracks DSB; the $-51.6$ dBc headline is SSB. <span class="tag t-slide">slide p42 convention</span>
 </div>
 
 <h3>Numbers — reproducing slide 3 row by row</h3>
@@ -136,7 +136,7 @@ $$\boxed{\;\text{FoM}_\text{jitter}=10\log_{10}\!\Big[\big(\sigma_t\big)^2\cdot\
 $$\text{FoM}=10\log_{10}\!\big[(87.6\times10^{-15})^2\cdot 14.2\big]=-249.6\ \text{dB}.$$
 
 <details class="deriv"><summary><strong>Worked example — rank three synthesizers, then prove the dual-core VCO does <em>not</em> change the FoM</strong></summary>
-<div class="derive">
+<div>
 <p><strong>GIVEN</strong> three candidates and the FoM \(=10\log_{10}[\sigma_t^2\,(P/1\,\text{mW})]\) (more negative = better):</p>
 <ul>
 <li><strong>This work</strong> &mdash; \(\sigma_t=87.6\) fs <span class="tag t-derive">derived/model</span>, \(P=14.2\) mW <span class="tag t-slide">slide p39</span></li>

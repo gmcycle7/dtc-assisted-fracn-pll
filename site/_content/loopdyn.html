@@ -22,7 +22,9 @@ A designer thinks in <b>phase margin</b> (a frequency-domain robustness number) 
 </p>
 $$ \omega_n = \sqrt{K_\text{loop}}, \qquad \zeta = \frac{\sqrt{K_\text{loop}}}{2\,\omega_z} = \frac{\omega_n}{2\,\omega_z}. $$
 <p>
-With $K_\text{loop}=2.38\times10^{13}$ and $\omega_z = 2\pi\cdot 402$ kHz, this gives $\omega_n/2\pi \approx 0.78$ MHz and $\zeta \approx 0.97$ <span class="tag t-derive">derived (extras.py::zeta_wn)</span> — a nearly critically damped loop
+With $K_\text{loop}=2.38\times10^{13}$ and $\omega_z = 2\pi\cdot 402$ kHz, this gives $\omega_n/2\pi \approx 0.78$ MHz and $\zeta \approx 0.97$ <span class="tag t-derive">derived (extras.py::zeta_wn)</span> — a nearly critically damped loop. The same $\zeta$ controls the <b>closed-loop gain peaking</b> $M_p$ of the magnitude response <span class="tag t-std">textbook (2nd-order)</span>:
+</p>
+$$ M_p = \frac{1}{2\,\zeta\,\sqrt{1-\zeta^2}}\qquad (\text{valid for } \zeta < 1/\sqrt{2}\approx 0.707). $$
 
 <div class="derive">
 <b>Worked example — turn PM = 60&deg; into &zeta; = 0.97, one substitution at a time.</b>
@@ -38,9 +40,6 @@ $$ \frac{\omega_n}{2\pi} = \frac{\sqrt{K_\text{loop}}}{2\pi} = \frac{4.879\times
 <p><b>The peaking paradox (the point of this box).</b> Drop \(\zeta=0.966\) into the textbook \(M_p = 1/(2\zeta\sqrt{1-\zeta^2})\): the denominator is \(2(0.966)\sqrt{1-0.966^2} = 0.500\), so the formula returns \(M_p = 2.0\) (\(+6\) dB) &mdash; which is <em>nonsense</em>, because the formula is only valid for \(\zeta<1/\sqrt2\). It is telling you a 2nd-order pole pair this damped <b>cannot peak at all</b>. Yet the real third-order \(H_\text{ref}/N\) <em>does</em> peak <b>1.70 dB</b> at 0.70 MHz <span class="tag t-derive">model</span>. The peaking is not from an underdamped pole pair (there isn't one &mdash; &sect;2 shows three real poles); it is supplied entirely by the <b>zero</b> \(\omega_z\). That is exactly the gap &sect;2.2 explains.</p>
 <p style="font-size:0.9em;color:#666"><b>Sanity check:</b> the deck's design value \(\zeta\approx0.97\) and the node-validated \(\zeta=0.966\) agree to two digits, and \(\omega_n/2\pi = 0.78\) MHz reproduces the KPI strip. <span class="tag t-derive">derived</span></p>
 </div>
-. The same $\zeta$ controls the <b>closed-loop gain peaking</b> $M_p$ of the magnitude response <span class="tag t-std">textbook (2nd-order)</span>:
-</p>
-$$ M_p = \frac{1}{2\,\zeta\,\sqrt{1-\zeta^2}}\qquad (\text{valid for } \zeta < 1/\sqrt{2}\approx 0.707). $$
 
 <div class="derive">
 <b>The two faces of $\zeta$.</b> $\omega_n=\sqrt{K_\text{loop}}$ comes from writing the second-order closed-loop denominator $s^2 + 2\zeta\omega_n s + \omega_n^2$ and matching it to $s^2 + (K_\text{loop}/\omega_z)\,s + K_\text{loop}$ (the type-II numerator zero supplies the damping term). Hence $\omega_n^2=K_\text{loop}$ and $2\zeta\omega_n = K_\text{loop}/\omega_z \Rightarrow \zeta=\sqrt{K_\text{loop}}/(2\omega_z)$. Two cautions: (1) at $\zeta\approx 0.97$ the closed magnitude does <em>not</em> actually peak — $M_p$ from the second-order formula is only real for $\zeta<0.707$ — yet the full third-order loop <em>does</em> show <b>1.70 dB</b> of peaking <span class="tag t-derive">model</span>. That gap is the whole point of §2: the peaking is driven by the <b>zero</b>, not by an underdamped pole pair. (2) The $\zeta$ here is a 2nd-order surrogate; for the true overshoot, trust the step response in §4.

@@ -283,7 +283,7 @@ $$e[k]=\operatorname{sign}\!\big(\text{PHE}+V_{\rm os,rad}-\tfrac{\texttt{Vref\_
 <h3>(4) Convergence analysis</h3>
 <ul>
   <li><b>Coarse DAC → residual.</b> The ΔV-DAC is a coarse 1-bit element <span class="tag t-slide">slide p28</span>, so the servo settles to within a few-% residual (model uses a tol of 0.08, not 0.01). It is slower than B/C because the only "signal" is the small DC mean of a noisy 1-bit stream.</li>
-  <li><b>Offset → bias coupling (the emphasis).</b> If you skip this servo, the gain loop's converged \(\hat K\) is biased. The model quantifies it: an injected offset (80 LSB) drives the gain loop to <b>+22.6% error</b> <span class="tag t-derive">derived</span> (<code>calibrations.json: offset_bias_pct = 22.6</code>). That is why <code>cal_dtc_gain.png</code> shows the "+uncal offset (BIAS!)" trace landing far above \(K_{\rm true}\).</li>
+  <li><b>Offset → bias coupling (the emphasis).</b> If you skip this servo, the gain loop's converged \(\hat K\) is biased. The model quantifies it: an injected offset (80 LSB — the slide-40 32 mV input offset expressed in the gain model's code units, \(b=80/1000=0.08\)) drives the gain loop to <b>+22.6% error</b> <span class="tag t-derive">derived</span> (<code>calibrations.json: offset_bias_pct = 22.6</code>). That is why <code>cal_dtc_gain.png</code> shows the "+uncal offset (BIAS!)" trace landing far above \(K_{\rm true}\).</li>
   <li><b>Background.</b> Runs continuously; tracks offset drift over temperature.</li>
 </ul>
 <div class="warn">

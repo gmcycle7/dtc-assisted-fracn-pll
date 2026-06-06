@@ -35,7 +35,7 @@ $$\sigma_\varphi^2 \;=\; S_\varphi \cdot \frac{f_{ref}}{2}, \qquad S_\varphi = 2
   <div class="card">
     <h4>DTC (QN + thermal)</h4>
     <p><b>Type:</b> two white sources. <b>PSD units:</b> rad²/Hz.</p>
-    <p><b>Generated:</b> two <code>gen_white_phase</code> draws summed. <b>Levels:</b> quantization $-163$ dBc/Hz <span class="tag t-slide">slide p15</span>, thermal $-171$ dBc/Hz <span class="tag t-slide">slide p16</span>. The QN floor follows $\Phi_{DTC,QN}=\frac{(2\pi T_{res})^2}{12}f_{ref}$ with $T_{res}=400$ fs <span class="tag t-derive">derived</span> (§3). <b>Node:</b> reference path → same low-pass NTF as CKREF.</p>
+    <p><b>Generated:</b> two <code>gen_white_phase</code> draws summed. <b>Levels:</b> quantization $-163$ dBc/Hz <span class="tag t-slide">slide p15</span>, thermal $-171$ dBc/Hz <span class="tag t-slide">slide p16</span>. The QN floor follows $\Phi_{DTC,QN}=\frac{(2\pi T_{res})^2}{12}f_{ref}$ with $T_{res}=400$ fs, which evaluates to $-162.6$ dBc/Hz, rounded to the slide's $-163$ <span class="tag t-derive">derived</span> (§3). <b>Node:</b> reference path → same low-pass NTF as CKREF.</p>
   </div>
   <div class="card">
     <h4>SPD + GM</h4>
@@ -115,7 +115,7 @@ jitter_fs = U.rms_jitter_from_sigma_phi(sigma_phi, f_out) * 1e15   # /(2*pi*f_ou
 <tr><td>SPD + GM</td><td class="num">18.3</td><td>low-pass (white)</td></tr>
 </tbody>
 </table>
-<p class="">These per-source RMS values do not sum linearly to 88 fs — uncorrelated sources add in <b>quadrature</b>: $\sqrt{67.5^2+44.8^2+31.1^2+23.0^2+18.3^2}\approx 90$ fs, consistent with the 88.2 fs full-system run
+<p class="">These per-source RMS values do not sum linearly to 88 fs — uncorrelated sources add in <b>quadrature</b>: $\sqrt{67.5^2+44.8^2+31.1^2+23.0^2+18.3^2}\approx 91.6$ fs, consistent with the 88.2 fs full-system run
 
 <div class="derive">
 <b>Worked example — from one VCO data point to its jitter.</b> The VCO card (§A) anchors the free-running VCO at \(\mathcal{L}=-116.5\) dBc/Hz @ 1 MHz with a \(-20\) dB/dec (white-FM) slope <span class="tag t-assume">assumption</span>[A13]. White-FM means \(S_\varphi(f)=S_0\,(f_0/f)^2\), a spectrum whose integral has a closed form — so we can get the free-running jitter with pen and paper, then watch the loop kill it.
