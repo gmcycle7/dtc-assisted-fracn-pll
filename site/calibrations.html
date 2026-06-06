@@ -294,7 +294,7 @@ $$e[k]=\operatorname{sign}\!\big(\text{PHE}+V_{\rm os,rad}-\tfrac{\texttt{Vref\_
 <p><b>GIVEN.</b> ½-range regressor \(\Phi_e\sim\mathcal U[0,0.5]\) <span class="tag t-slide">slide p34</span>; true gain \(K_{\rm true}=1000\) codes/cycle <span class="tag t-assume">assumption [A18]</span>; uncalibrated offset adds a constant \(b=\text{offset}/K_{\rm true}=80/1000=0.08\) to the sliced phase error <span class="tag t-slide">slide p27</span>. The residual seen by the comparator is \(\text{PHE}=-\varepsilon\,\Phi_e\) with \(\varepsilon=(\hat K-K_{\rm true})/K_{\rm true}\).</p>
 <p><b>FORMULA.</b> Sign-error LMS stops moving (in the mean) when the update correlation vanishes:</p>
 $$E\{e\cdot\Phi_e\}=0,\qquad e=\operatorname{sign}\!\big(b-\varepsilon\,\Phi_e\big).$$
-<p>\(e=+1\) while \(\Phi_e<x_c\) and \(-1\) beyond, where the crossover is \(x_c=b/\varepsilon\). The zero-correlation condition over \([0,0.5]\) is</p>
+<p>\(e=+1\) while \(\Phi_e \lt x_c\) and \(-1\) beyond, where the crossover is \(x_c=b/\varepsilon\). The zero-correlation condition over \([0,0.5]\) is</p>
 $$\int_0^{x_c}\!\!x\,dx=\int_{x_c}^{0.5}\!\!x\,dx\;\Longrightarrow\;2x_c^2=(0.5)^2\;\Longrightarrow\;x_c=\sqrt{0.125}=0.3536.$$
 <p><b>SUBSTITUTE.</b> Solve \(x_c=b/\varepsilon^\star\) for the biased fixed point:</p>
 $$\varepsilon^\star=\frac{b}{\sqrt{0.125}}=b\sqrt{8}=0.08\times2.8284=0.2263.$$
