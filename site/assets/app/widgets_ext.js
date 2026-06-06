@@ -149,19 +149,38 @@
 
   // ============ ⑤ DSM / MASH explorer ============
   function dsmExplorer(root){
-    var s=scaffold(root); var o={order:2, frac:0.123};
+    var s=scaffold(root); s.plot.style.height="540px"; var o={order:2, frac:0.123};
+    // moving-average in LINEAR power -> a "shaped floor" trend that exposes the NTF slope
+    // while leaving the raw periodogram (with its discrete lines) visible underneath.
+    function smooth(db){
+      var lin=db.map(function(v){return Math.pow(10,v/10);}), w=11, half=(w-1)/2, out=[];
+      for(var i=0;i<lin.length;i++){
+        var a=Math.max(0,i-half), b=Math.min(lin.length-1,i+half), sum=0;
+        for(var j=a;j<=b;j++) sum+=lin[j];
+        out.push(10*Math.log10(sum/(b-a+1)+1e-300));
+      }
+      return out;
+    }
     function draw(){
       var r=P.simMASH(o.frac,o.order,8192);
       var nshow=400;
-      var t1={x:Array.from({length:nshow},function(_,i){return i;}),y:r.qe.slice(0,nshow),mode:"lines",line:{color:"#c8442b",width:1},name:"Φ_QE[n] (cycles)"};
-      Plotly.react(s.plot,[t1],Object.assign({margin:{t:10,r:10,b:45,l:55},
-        xaxis:{title:"reference cycle n",gridcolor:"#eee"},
-        yaxis:{title:"accumulated QE [T_vco]",gridcolor:"#eee"}},BG),{displayModeBar:false,responsive:true});
+      var t1={x:Array.from({length:nshow},function(_,i){return i;}),y:r.qe.slice(0,nshow),
+        mode:"lines",line:{color:"#c8442b",width:1},name:"Φ_QE[n]",xaxis:"x",yaxis:"y"};
+      var praw={x:r.psd.f,y:r.psd.db,mode:"lines",line:{color:"#b8c6d6",width:0.8},
+        name:"PSD (raw)",xaxis:"x2",yaxis:"y2",hoverinfo:"skip"};
+      var ptr={x:r.psd.f,y:smooth(r.psd.db),mode:"lines",line:{color:"#1f6feb",width:2},
+        name:"shaped floor",xaxis:"x2",yaxis:"y2"};
+      Plotly.react(s.plot,[t1,praw,ptr],Object.assign({margin:{t:10,r:10,b:44,l:58},
+        xaxis:{domain:[0,1],anchor:"y",title:"reference cycle n",gridcolor:"#eee"},
+        yaxis:{domain:[0.6,1.0],title:"accum. QE [T_vco]",gridcolor:"#eee"},
+        xaxis2:{domain:[0,1],anchor:"y2",type:"log",title:"normalized frequency  f / f_ref  (Nyquist = 0.5)",gridcolor:"#eee"},
+        yaxis2:{domain:[0,0.42],title:"modulus PSD [dB]",gridcolor:"#eee"},
+        showlegend:false},BG),{displayModeBar:false,responsive:true});
       var ideal=o.order===1?1:o.order===2?2:4;
       s.read.innerHTML = box("MASH order",o.order)+
         box("QE range (p-p)",r.range_pp.toFixed(2)+" T_vco")+
         box("ideal (slide 6)","±"+(ideal/2)+" → "+ideal+" T_vco")+
-        box("DTC must span","this range");
+        box("NTF slope","≈ "+(20*o.order)+" dB/dec (∝ f^"+o.order+")");
     }
     seg(s.seg,[{t:"MASH-1",v:1},{t:"MASH-1-1",v:2},{t:"MASH-1-1-1",v:3}],2,function(v){o.order=v;draw();});
     slider(s.ctl,"Fractional FCW",0.01,0.99,0.01,o.frac,"",function(v){return (+v).toFixed(2);},function(v){o.frac=v;draw();});

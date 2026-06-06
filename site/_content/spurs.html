@@ -36,12 +36,14 @@ $$\Delta t[n] \;=\; \frac{1}{K_{\rm DTC}}\,\Phi_{\rm QE}[n],\qquad K_{\rm DTC}=\
 
 <figure><img src="assets/figures/dsm_mash.png" alt="Accumulated MASH quantization error for orders 1, 2, 3"><figcaption>Accumulated ΔΣ quantization error \(\Phi_{\rm QE}[n]\) (in \(T_{\rm vco}\)) for MASH-1, 1-1, 1-1-1 at fractional input 0.123. The peak-to-peak span (≈1 / 2 / 4 \(T_{\rm vco}\)) is exactly what the DTC must cancel <span class="tag t-slide">slide p6</span>. — model <code>mash_qe()</code> in <code>models/extras.py</code>.</figcaption></figure>
 
-<h3>Interactive: watch the residue and its range</h3>
-<p>Change the fractional setting and the DSM order; the widget runs the same MASH simulator as the Python model (<code>simMASH</code> in <code>assets/app/pll_ext.js</code>, mirroring <code>extras.py:mash_qe</code>) and shows both the time-domain residue and its peak-to-peak range in \(T_{\rm vco}\) <span class="tag t-derive">model</span>.</p>
+<h3>Interactive: watch the residue, its range, and its PSD</h3>
+<p>Change the fractional setting and the DSM order; the widget runs the same MASH simulator as the Python model (<code>simMASH</code> in <code>assets/app/pll_ext.js</code>, mirroring <code>extras.py:mash_qe</code>). The <b>top panel</b> is the time-domain residue \(\Phi_{\rm QE}[n]\) and its peak-to-peak range in \(T_{\rm vco}\); the <b>bottom panel</b> is the <b>PSD of the divide-ratio dither</b> (the modulus sequence), which is what the loop actually shapes <span class="tag t-derive">model</span>. The blue "shaped floor" is a smoothed trend over the raw periodogram.</p>
 <div id="dsm-explorer"></div>
 
 <div class="note">
-<b>Sanity feel.</b> Set a near-rational fraction (e.g. 0.1 = 1/10) and the residue is a short, obviously <b>periodic</b> sawtooth — the spectral lines will be few and tall. Set an "ugly" irrational-looking fraction and the residue looks noise-like — energy spreads into many small lines. Spurs are worst exactly when the residue is most periodic. <span class="tag t-derive">model</span>
+<b>Two things to read off the PSD <span class="tag t-derive">model</span>.</b>
+(1) <b>Noise shaping.</b> The floor rises toward Nyquist with a slope of <b>≈ \(20m\) dB/decade</b> for a MASH-\(1^m\) — \(\propto f^{m}\) in amplitude, the \((1-z^{-1})^m\) high-pass NTF of §2. Toggle MASH-1 → 1-1 → 1-1-1 and watch the low-frequency floor drop (steeper shaping pushes quantization energy out of band, where the loop filters it) while the time-domain range <i>doubles</i> — the central trade of the whole architecture.
+(2) <b>Spurs vs. noise.</b> Set a near-rational FCW (e.g. 0.10 = 1/10) and the residue becomes a short, obviously <b>periodic</b> sawtooth — the PSD collapses into a few <b>tall discrete lines</b> (these are the fractional spurs of §2). Set an "ugly" irrational-looking FCW and the lines smear into a continuous shaped floor. Spurs are worst exactly when the residue is most periodic.
 </div>
 
 <hr>
