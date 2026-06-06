@@ -16,6 +16,8 @@ CONTENT = os.path.join(HERE, "_content")
 PAGES = [
     ("home",          "index.html",         "",   "Home",                  True,  True,
      "Interactive study companion for W. Wu's DTC-assisted high-performance fractional-N PLL (slides 1-42): architecture, calibrations, and noise models."),
+    ("lab",           "lab.html",           "",   "Interactive Lab",       True,  True,
+     "A guided hands-on tour of all 24 interactive widgets: missions across architecture, loop dynamics, calibrations, fractional spurs, and system impact, plus a full widget index."),
     ("slides",        "slides.html",        "2",  "Slide-by-slide Map",    False, False,
      "Per-slide analysis table (p.1-42) mapping each slide to its formulas, calibrations, models, and parameters."),
     ("architecture",  "architecture.html",  "3",  "Architecture",          False, False,
@@ -125,9 +127,9 @@ def nav_html(active_key):
     items = ['<nav class="side" aria-label="Site sections">',
              '<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>',
              '<div class="sub">Interactive study of slides 1–42</div>']
-    for key, fn, num, title, _np, _ext, _d in PAGES:
+    for i, (key, fn, num, title, _np, _ext, _d) in enumerate(PAGES):
         cls = "active" if key == active_key else ""
-        n = f'<span class="n">{num or "1"}</span>'
+        n = f'<span class="n">{i + 1}</span>'
         items.append(f'<a class="{cls}" href="{fn}">{n}{title}</a>')
     items.append("</nav>")
     return "\n".join(items)

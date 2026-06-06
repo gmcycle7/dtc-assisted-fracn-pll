@@ -1,0 +1,178 @@
+<h1>Interactive Lab — learn by doing</h1>
+<p class="lead">The rest of the site explains the DTC-assisted fractional-N PLL; this page is where you <i>poke</i> it. Below is a guided path of short <b>missions</b> — each poses a question, points you at the right interactive widget, and folds the answer you should observe. Five hero widgets are embedded right here; the rest are one click away on their home pages. Work top-to-bottom the first time, then use the <a href="#index">widget index</a> at the bottom as a launchpad.</p>
+
+<div class="note">
+<b>How to use a mission.</b> Read the <b>Question</b>, form a guess, then do the <b>Try</b> step in the widget. Only then open <b>What you should see</b> and argue with it. Every number quoted is reproduced live by the same models the widgets run <span class="tag t-derive">model</span>; the deck's own values (87.5&nbsp;fs / −51.7&nbsp;dBc, slide&nbsp;42) are kept distinct from our model's (87.6&nbsp;fs / −51.6&nbsp;dBc).
+</div>
+
+<hr>
+
+<h2 id="t1">Theme 1 — The architecture &amp; the budget</h2>
+<p>Start with the punchline: a clean sub-100&nbsp;fs budget that exists <i>only</i> because the DTC cancels the ΔΣ quantization noise. Toggle that cancellation off and watch the whole thing fall apart.</p>
+<div id="budget-pie"></div>
+
+<div class="card">
+<h4>Mission 1 — Why does this architecture exist at all?</h4>
+<p><b>Question:</b> The total is 87.6&nbsp;fs. How much of that is the ΔΣ quantization noise — and what happens to it without the DTC?</p>
+<p><b>Try:</b> in the pie above, untick <b>DTC cancels DSM-QN</b>.</p>
+<details><summary>What you should see</summary><div class="ans">With cancellation on, the ΔΣ slice is a rounding-error <b>0.26%</b> of the budget. Untick it and the DSM slice <b>explodes</b> and the total leaps to <b>thousands of fs</b> — the loop is unusable. That one toggle <i>is</i> the reason the DTC-assist architecture exists: it turns a fractional-N loop back into an integer-N-clean one. <span class="tag t-derive">model</span></div></details>
+</div>
+
+<div class="card">
+<h4>Mission 2 — Is the loop bandwidth optimal?</h4>
+<p><b>Question:</b> The deck runs at \(f_c=1.5\)&nbsp;MHz. Is that the lowest-jitter choice?</p>
+<p><b>Try:</b> open the <a href="system.html#budget-optimizer">budget optimizer →</a> and drag the loop-bandwidth slider to find the U-curve minimum.</p>
+<details><summary>What you should see</summary><div class="ans">The minimum is at \(f_c^\star\approx2.1\)&nbsp;MHz giving ≈85.6&nbsp;fs — the design sits slightly <i>left</i> of optimum (1.5&nbsp;MHz / 87.6&nbsp;fs), trading ~2&nbsp;fs of jitter for extra phase margin and spur suppression. Below the optimum the VCO term dominates; above it the REF+DTC term (×\(N^2\)) takes over. <span class="tag t-derive">model</span></div></details>
+</div>
+
+<hr>
+
+<h2 id="t2">Theme 2 — Loop dynamics &amp; lock</h2>
+<p>How a phase margin you <i>dial</i> becomes an overshoot you <i>feel</i> — and where the continuous-time picture stops being trustworthy.</p>
+<div id="pm-bridge"></div>
+
+<div class="card">
+<h4>Mission 3 — Phase margin ↔ overshoot</h4>
+<p><b>Question:</b> Set PM to 45° and then 70°. Which is "twitchy" and which is "sluggish"?</p>
+<p><b>Try:</b> drag the <b>phase margin</b> slider in the widget above.</p>
+<details><summary>What you should see</summary><div class="ans">PM&nbsp;45° → ζ≈0.71, gain peaking ~3&nbsp;dB, ~33% overshoot (lightly damped, rings). PM&nbsp;70° → ζ≈1.4, ~0.9&nbsp;dB peaking, ~17% overshoot (well damped, flat). The design's 60° (ζ=0.97, 1.70&nbsp;dB, ~25%, 1.13&nbsp;µs settle) is the deliberate middle. <span class="tag t-derive">model</span></div></details>
+</div>
+
+<div class="card">
+<h4>Mission 4 — Can you just "crank \(f_c\)" to kill VCO noise?</h4>
+<p><b>Question:</b> A reviewer says "push \(f_c\) to \(f_\text{ref}/8\approx13\)&nbsp;MHz." What breaks?</p>
+<p><b>Try:</b> open <a href="loopdyn.html#zoh-erosion">ZOH erosion →</a> and slide \(f_c\) toward 13&nbsp;MHz.</p>
+<details><summary>What you should see</summary><div class="ans">The sampled-loop ZOH lag \(-\pi f/f_\text{ref}\) is a harmless −2.6° at 1.5&nbsp;MHz but eats <b>−22.5°</b> at \(f_\text{ref}/8\), collapsing PM from 60° toward ~37°. And (Mission&nbsp;2) you'd be past the jitter optimum anyway. Conclusion: keep \(f_c\) low-single-digit MHz; beat the VCO with cores, not bandwidth. <span class="tag t-derive">model</span></div></details>
+</div>
+
+<div class="card">
+<h4>Mission 5 — Why two integrators and a zero?</h4>
+<p><b>Try:</b> open <a href="frequency.html#type-compare">type-I vs type-II →</a> and compare the closed-loop \(|H_\text{ref}/N|\).</p>
+<details><summary>What you should see</summary><div class="ans">Type-II (2 integrators + zero) peaks <b>1.70&nbsp;dB</b> — the zero is what stabilizes it but also what makes it peak. Type-I (1 integrator) is flat (no peaking) and has a luxurious ~83° PM, but it can't null a frequency error. Fractional-N needs type-II's zero-error tracking, so you accept the peaking. <span class="tag t-derive">model</span></div></details>
+</div>
+
+<hr>
+
+<h2 id="t3">Theme 3 — Calibrations (the heart of the design)</h2>
+<p>Four background sign-LMS loops keep the DTC cancellation honest over PVT. This is the deepest part of the site; the embedded widget is the keystone coupling.</p>
+<div id="cal-offset-race"></div>
+
+<div class="card">
+<h4>Mission 6 — Why must the offset cal converge <i>first</i>?</h4>
+<p><b>Try:</b> in the widget above, switch between <b>offset cal OFF</b>, <b>concurrent</b>, and <b>offset FIRST</b>.</p>
+<details><summary>What you should see</summary><div class="ans">With offset never corrected, the K_DTC gain loop locks to the <b>wrong +22.6%</b> (an 80-LSB offset under ½-range leaks via \(E\{\Phi_e\}=0.25\)). Run them concurrently and the gain is yanked toward that bad value then slowly recovers. Converge offset first → the gain marches straight to target. That's why the offset DC-servo is the keystone. <span class="tag t-derive">model</span></div></details>
+</div>
+
+<div class="card">
+<h4>Mission 7 — Fast lock AND a quiet floor?</h4>
+<p><b>Try:</b> open <a href="calibrations.html#gear-shift">gear-shift µ →</a>; compare "single µ" vs "gear-shift µ".</p>
+<details><summary>What you should see</summary><div class="ans">A single µ sits <i>on</i> the speed-vs-ripple frontier (\(\tau\cdot\mathcal{M}\approx\)const): big µ = fast but noisy, small µ = quiet but slow. Gear-shift (big µ to acquire, drop to small µ to track) jumps the green ★ <i>below</i> the frontier — fast lock <b>and</b> a quiet steady state, because the two specs are needed at different times. <span class="tag t-derive">model</span></div></details>
+</div>
+
+<div class="card">
+<h4>Mission 8 — What is cal accuracy worth in femtoseconds?</h4>
+<p><b>Try:</b> open <a href="calibrations.html#cal-residual-floor">residual ε → jitter →</a>; drag ε from \(10^{-4}\) up toward the 0.226 offset-bias value.</p>
+<details><summary>What you should see</summary><div class="ans">The added jitter is <b>linear in ε</b>: 4.5&nbsp;fs at \(10^{-4}\), 45&nbsp;fs at \(10^{-3}\), 449&nbsp;fs at \(10^{-2}\) — each decade of accuracy buys a decade of floor. Push ε to the uncalibrated-offset value 0.226 and the floor blows ~100× past the 87.6&nbsp;fs budget. This is <i>why</i> the cals must reach ε≲\(2\times10^{-4}\). <span class="tag t-derive">model</span></div></details>
+</div>
+
+<div class="card">
+<h4>Mission 9 — Do the four loops fit in 30&nbsp;µs?</h4>
+<p><b>Try:</b> open the <a href="calibrations.html#cal-dashboard">4-loop dashboard →</a>.</p>
+<details><summary>What you should see</summary><div class="ans">The time-constant spread tracks how <i>structured</i> each regressor is: the ±1-keyed VCO/CKREF duty loops settle in &lt;1&nbsp;µs, K_DTC gain in ~4&nbsp;µs, and the offset DC-servo — whose only signal is the tiny DC mean of a 1-bit stream — is the slow keystone at ~15&nbsp;µs. All clear the 30&nbsp;µs budget. <span class="tag t-derive">model</span></div></details>
+</div>
+
+<div class="card">
+<h4>Mission 10 — Same cubic, which basis converges?</h4>
+<p><b>Try:</b> open <a href="calibrations.html#legendre-mono">monomial vs Legendre →</a>.</p>
+<details><summary>What you should see</summary><div class="ans">Both bases span the same cubic predistortion, but the monomials \([D,D^2,D^3]\) are correlated (\(E\{D\cdot D^3\}=1/5\)) so their \(R\) is ill-conditioned and the residual plateaus; orthogonal Legendre \(P_1,P_2,P_3\) give a diagonal \(R\) and converge to ~<b>11× lower</b> residual. Same orthogonality lesson as the four-loop argument, now inside one loop. <span class="tag t-std">textbook</span></div></details>
+</div>
+
+<p style="margin-top:.6em">Also on the calibrations page: the original <a href="calibrations.html#interactive-playground">4-tab playground →</a> (DTC-gain / VCO-duty / CKREF-duty / offset convergence) and the <a href="calibrations.html#nlc-inl">INL↔spur NLC widget →</a>.</p>
+
+<hr>
+
+<h2 id="t4">Theme 4 — Fractional spurs &amp; the ΔΣ residue</h2>
+<p>Where a fractional channel's periodic residue becomes discrete tones — and the three levers that crush them to the measured −70…−85&nbsp;dBc.</p>
+<div id="spur-explorer"></div>
+
+<div class="card">
+<h4>Mission 11 — Drive the spur into the noise</h4>
+<p><b>Try:</b> in the widget above step the range from <b>full → ½ → ⅛</b>, then tick <b>DTC NLC</b>.</p>
+<details><summary>What you should see</summary><div class="ans">Worst spur −56&nbsp;dBc (full) → −68 (½) → −92 (⅛) — ≈12&nbsp;dB per halving, because the dominant INL term is quadratic (\(40\log_{10}r\)). Add NLC and it drops below the −135&nbsp;dBc plot floor ("cancelled"). That ladder is exactly how the silicon reaches −70…−85&nbsp;dBc. <span class="tag t-derive">model</span></div></details>
+</div>
+
+<div class="card">
+<h4>Mission 12 — When are spurs worst?</h4>
+<p><b>Try:</b> open <a href="spurs.html#dsm-explorer">the DSM residue + PSD explorer →</a>; set the MASH order and a near-rational FCW like 0.10.</p>
+<details><summary>What you should see</summary><div class="ans">The PSD floor rises toward Nyquist with slope ≈\(20m\)&nbsp;dB/dec for MASH-\(1^m\) (the \((1-z^{-1})^m\) shaping); raising the order drops the in-band floor but doubles the time-domain range. A near-rational FCW (0.10) makes the residue periodic, collapsing the PSD into <b>tall discrete lines</b> — spurs are worst exactly when the residue is most periodic. <span class="tag t-derive">model</span></div></details>
+</div>
+
+<p style="margin-top:.6em">Related: <a href="dtctopologies.html#range-ledger">the range-reduction ledger →</a> (one DR lever moves spur −12&nbsp;dB, QN −6&nbsp;dB, power ÷4 per halving).</p>
+
+<hr>
+
+<h2 id="t5">Theme 5 — System impact</h2>
+<p>What the femtoseconds actually buy at the antenna: constellation EVM, blocker rejection, and the jitter–power figure of merit.</p>
+<div id="evm-demo"></div>
+
+<div class="card">
+<h4>Mission 13 — Does 87.6&nbsp;fs close a 1024-QAM link?</h4>
+<p><b>Try:</b> in the widget above set the jitter to 87.6&nbsp;fs and read the EVM.</p>
+<details><summary>What you should see</summary><div class="ans">87.6&nbsp;fs at 6.72&nbsp;GHz → \(\sigma_\phi=3.70\)&nbsp;mrad → <b>0.37% EVM</b> / 48.6&nbsp;dB phase-SNR. 1024-QAM needs −44&nbsp;dBc (44&nbsp;dB), so you have ~4.6&nbsp;dB of margin and even clear the 4096-QAM −47&nbsp;dBc line. <span class="tag t-derive">model</span></div></details>
+</div>
+
+<div class="card">
+<h4>Mission 14 — Why won't retuning the loop fix reciprocal mixing?</h4>
+<p><b>Try:</b> open <a href="system.html#recip-mix">reciprocal mixing →</a>, put the blocker far out, then drag the loop bandwidth.</p>
+<details><summary>What you should see</summary><div class="ans">Reciprocal mixing is set by \(\mathcal{L}(\Delta f)\) at the <i>blocker</i> offset (tens of MHz), where \(H_\text{vco}\to1\) — the far-out VCO thermal floor. Retuning \(f_c\) reshapes the in-band skirt but barely moves \(\mathcal{L}(\Delta f)\), so the C/I hardly changes. It's an orthogonal spec to EVM. <span class="tag t-derive">model</span></div></details>
+</div>
+
+<div class="card">
+<h4>Mission 15 — Does a dual-core VCO improve the FoM?</h4>
+<p><b>Try:</b> open <a href="system.html#fom-scatter">the FoM scatter →</a> and toggle the dual-core VCO.</p>
+<details><summary>What you should see</summary><div class="ans">A dual core drops VCO PN 3&nbsp;dB (≈62&nbsp;fs) but at ~2× power, so the star slides <i>along</i> the same iso-FoM diagonal — lower absolute jitter, <b>unchanged FoM</b> (−249.6&nbsp;dB). Real efficiency means moving to a <i>lower</i> diagonal — exactly what the DTC-assist (better jitter at the same power) achieves. <span class="tag t-derive">model</span></div></details>
+</div>
+
+<div class="card">
+<h4>Mission 16 — A second, independent path to 88&nbsp;fs</h4>
+<p><b>Try:</b> open the <a href="timedomain.html#td-lab">time-domain noise lab →</a> and toggle sources on/off.</p>
+<details><summary>What you should see</summary><div class="ans">This runs the actual discrete loop sample-by-sample in your browser; with all sources on it lands near <b>88&nbsp;fs</b>, independently confirming the frequency-domain budget by a completely different method. Toggle the VCO off and watch the in-band floor drop and the spectrum change shape (the loop high-passes the VCO, low-passes the rest). <span class="tag t-derive">model</span></div></details>
+</div>
+
+<hr>
+
+<h2 id="index">Full widget index</h2>
+<p>All 24 interactive widgets, grouped by page. Each link jumps straight to the widget.</p>
+<table>
+<thead><tr><th>Widget</th><th>Page</th><th>What it lets you do</th></tr></thead>
+<tbody>
+<tr><td><a href="index.html#budget-pie">Budget pie</a></td><td>Home</td><td>Toggle DTC/cal cancellation; watch the slide-42 split</td></tr>
+<tr><td><a href="blocks.html#rc-ramp">DTC RC ramp</a></td><td>Blocks</td><td>Where \(T_\text{res}=\ln2\,RC\) comes from</td></tr>
+<tr><td><a href="calibrations.html#interactive-playground">Cal playground (4 tabs)</a></td><td>Calibrations</td><td>DTC-gain / VCO-duty / CKREF-duty / offset convergence</td></tr>
+<tr><td><a href="calibrations.html#cal-offset-race">Offset-first race</a></td><td>Calibrations</td><td>Why offset must converge before the gain loop</td></tr>
+<tr><td><a href="calibrations.html#gear-shift">Gear-shift µ</a></td><td>Calibrations</td><td>Beat the speed-vs-ripple trade</td></tr>
+<tr><td><a href="calibrations.html#cal-residual-floor">Residual ε → jitter</a></td><td>Calibrations</td><td>Cal accuracy in femtoseconds vs the budget</td></tr>
+<tr><td><a href="calibrations.html#cal-dashboard">4-loop dashboard</a></td><td>Calibrations</td><td>All four loops on one 30-µs axis</td></tr>
+<tr><td><a href="calibrations.html#nlc-inl">INL ↔ spur (NLC)</a></td><td>Calibrations</td><td>Straighten the INL, watch the spur drop</td></tr>
+<tr><td><a href="calibrations.html#legendre-mono">Monomial vs Legendre</a></td><td>Calibrations</td><td>Orthogonal basis converges cleaner</td></tr>
+<tr><td><a href="frequency.html#freq-explorer">Phase-noise / Bode explorer</a></td><td>Frequency</td><td>NTFs, Bode, the per-source budget</td></tr>
+<tr><td><a href="frequency.html#type-compare">Type-I vs type-II</a></td><td>Frequency</td><td>Why two integrators and a zero</td></tr>
+<tr><td><a href="loopdyn.html#pole-zero">Pole-zero / root locus</a></td><td>Loop dynamics</td><td>The three closed-loop poles vs gain</td></tr>
+<tr><td><a href="loopdyn.html#lock-transient">Lock transient</a></td><td>Loop dynamics</td><td>Step / acquisition response</td></tr>
+<tr><td><a href="loopdyn.html#pm-bridge">PM → ζ → overshoot</a></td><td>Loop dynamics</td><td>Frequency-domain margin ↔ time-domain ringing</td></tr>
+<tr><td><a href="loopdyn.html#zoh-erosion">Sampled-loop ZOH erosion</a></td><td>Loop dynamics</td><td>How much PM the sampling really eats</td></tr>
+<tr><td><a href="timedomain.html#td-lab">Time-domain noise lab</a></td><td>Time domain</td><td>Sample-by-sample sim with per-source toggles</td></tr>
+<tr><td><a href="spurs.html#dsm-explorer">DSM residue + PSD</a></td><td>Spurs</td><td>Noise shaping &amp; when spurs appear</td></tr>
+<tr><td><a href="spurs.html#spur-explorer">Spur explorer</a></td><td>Spurs</td><td>Range reduction + NLC + duty cal</td></tr>
+<tr><td><a href="system.html#evm-demo">EVM constellation</a></td><td>System</td><td>Jitter → QAM EVM</td></tr>
+<tr><td><a href="system.html#jitter-hist">Jitter histogram</a></td><td>System</td><td>Absolute / period / cycle-to-cycle</td></tr>
+<tr><td><a href="system.html#recip-mix">Reciprocal mixing</a></td><td>System</td><td>Blocker × LO skirt → C/I</td></tr>
+<tr><td><a href="system.html#fom-scatter">FoM vs SoTA</a></td><td>System</td><td>Place this design on the iso-FoM map</td></tr>
+<tr><td><a href="system.html#budget-optimizer">Bandwidth optimizer</a></td><td>System / Design</td><td>The REF-vs-VCO U-curve</td></tr>
+<tr><td><a href="dtctopologies.html#range-ledger">Range-reduction ledger</a></td><td>DTC topologies</td><td>One DR lever → spur / QN / power</td></tr>
+</tbody>
+</table>
+
+<div class="note">
+<b>Where to go next.</b> If a widget raised a question the answer didn't settle, follow it to its home page — every widget sits next to the derivation and the worked numerical example that produced its numbers. The <a href="problems.html">Design Problems</a> page then asks you to use these tools on "the spec just changed" scenarios.
+</div>
