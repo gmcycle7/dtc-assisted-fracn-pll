@@ -113,7 +113,7 @@ $$D_{DCW} = g_1\,D_{AQ} + g_2\,D_{AQ}^{2} + g_3\,D_{AQ}^{3}$$
 <p>where <span class="katex-inline">$g_1$</span> is effectively <code>K_DTC</code> and <span class="katex-inline">$g_2,g_3$</span> capture the curvature. <span class="tag t-slide">slide p31</span></p>
 <p><strong>Pro.</strong> Cancels static INL down to a max of ≈50 fs after NLC, purely with background digital adaptation — no analog redesign. <span class="tag t-slide">slide p31</span></p>
 <p><strong>Con.</strong> Only corrects the <em>static</em>, polynomially-modeled part; dynamic/memory effects (slide 18) are not captured by a memoryless polynomial. Needs three adaptive coefficients to converge.</p>
-<p class="cite">Survey technique — [Park'21] (polynomial DTC NLC). The model concept is reproduced in code; see <a href="codewalk.html#simulate_polynomial_nlc">simulate_polynomial_nlc</a>.</p>
+<p class="cite">Survey technique — [Park'21] (polynomial DTC NLC). The model concept is reproduced in code; see <a href="codewalk.html">simulate_polynomial_nlc</a> (<code>models/calibration_models.py</code>).</p>
 <figure class="slide">
   <img src="assets/slides/slide_31.png" alt="slide 31">
   <figcaption>PDF p.31 / slide p.31 — DTC NLC polynomial calibration via LMS on g1, g2, g3: D_DCW = g1·D + g2·D² + g3·D³.</figcaption>
@@ -162,4 +162,212 @@ $$D_{DCW} = g_1\,D_{AQ} + g_2\,D_{AQ}^{2} + g_3\,D_{AQ}^{3}$$
 
 <div class="assume">
 <strong>Scope note [A].</strong> Per the slide inventory, the survey techniques on this page (ICS, pseudo-differential, polynomial NLC, reverse-concavity, POC-DTC, 8-phase RO reduction, constant-slope) are described conceptually from the slides; the quantitative models and code in this project target the proposed Wu architecture and its four calibrations, not these survey variants.
+</div>
+
+<h2>Why constant-/inverse-constant-slope linearize — the integrals</h2>
+<p class="lead">The three slope-based DTCs (variable, constant, inverse-constant) all turn a code into a delay by charging a node until a comparator trips. What separates them is <em>where the code enters the trip-time integral</em>. Doing the integral once for each makes the linearity argument concrete: the variable-slope DTC puts the code in the denominator (so a threshold error becomes a code-dependent, parabolic INL), the constant-slope DTC moves the code out of the slope (so the threshold error becomes a harmless constant delay), and the inverse-constant-slope DTC arranges the integrand so the two voltage-dependent factors divide out entirely.</p>
+
+<h3>The universal trip-time integral</h3>
+<p>A comparator fires when the ramp <span class="katex-inline">$V(t)$</span> crosses a threshold <span class="katex-inline">$V_{th}$</span>. The delay from the start of the ramp to the trip is, in general,</p>
+$$\Delta t \;=\; \int_{V_{start}}^{V_{th}} \frac{dV}{\,\dot V(V)\,}, \qquad \dot V \equiv \frac{dV}{dt}.$$
+<p>Everything below is a special case of this one integral. The INL story is entirely about how <span class="katex-inline">$\dot V$</span> and <span class="katex-inline">$V_{th}$</span> depend on the digital code. <span class="tag t-derive">derived/model</span></p>
+
+<h3>Variable-slope (RC baseline): code in the slope → parabolic INL</h3>
+<p>In the RC variable-slope DTC <span class="tag t-slide">slide p14</span> the code programs the cap array, hence the slope at threshold. Linearize the ramp near the crossing with a local slope <span class="katex-inline">$\left.\dot V\right|_{th}$</span> that is set by the code. The trip time measured from a fixed nominal crossing is</p>
+$$t_{trip} \;=\; -\,\frac{\Delta V_{th}}{\;\left.\dfrac{dV}{dt}\right|_{th}\;},$$
+<p>where <span class="katex-inline">$\Delta V_{th}$</span> is any fixed threshold/offset error (comparator offset, finite-gain crossing error). The key observation: <strong>the slope in the denominator changes with code</strong>, so the <em>same</em> fixed <span class="katex-inline">$\Delta V_{th}$</span> produces a <em>different</em> time error at every code. A constant numerator over a code-varying denominator is exactly a reciprocal/curved map — to leading order it bends the transfer curve into the <strong>parabolic INL</strong> the deck reports for this DTC (&lt;2 LSB fixed-cap, plus ±0.6 LSB dynamic). <span class="tag t-slide">slide p17</span> <span class="tag t-slide">slide p18</span></p>
+
+<details class="deriv">
+<summary>Show the algebra</summary>
+<p>Let the ideal crossing be at time <span class="katex-inline">$t_0$</span> and voltage <span class="katex-inline">$V_{th}$</span>, with code-dependent slope <span class="katex-inline">$m(\text{code})=\left.\dot V\right|_{th}$</span>. A threshold perturbation <span class="katex-inline">$\Delta V_{th}$</span> shifts the crossing time by</p>
+$$t_{trip}=-\frac{\Delta V_{th}}{m(\text{code})}.$$
+<p>For an RC ramp <span class="katex-inline">$V(t)=V_{DD}\big(1-e^{-t/RC}\big)$</span> the mid-rail slope is <span class="katex-inline">$m=\tfrac{V_{DD}}{2RC}\ln 2$</span>; the code sets <span class="katex-inline">$C=C_{LSB}\cdot \text{code}$</span>, so <span class="katex-inline">$m\propto 1/\text{code}$</span> and</p>
+$$t_{trip}\;\propto\;-\,\Delta V_{th}\cdot \text{code}.$$
+<p>Meanwhile the <em>intended</em> delay is <span class="katex-inline">$\Delta t = \ln 2\cdot R\,C_{LSB}\cdot\text{code}=T_{res}\cdot\text{code}$</span> <span class="tag t-slide">slide p15</span>. The error term <span class="katex-inline">$t_{trip}$</span> grows with code in the same direction the delay does, and once you carry the next order of the exponential (the crossing is not exactly at mid-rail across codes) the residual is quadratic in code — a <strong>parabolic INL</strong>. <span class="tag t-derive">derived/model</span></p>
+</details>
+
+<h3>Constant-slope (I/C): code out of the slope → threshold error becomes a constant delay</h3>
+<p>The constant-slope DTC <span class="tag t-slide">slide p21</span> [Ru'15] charges <span class="katex-inline">$C_L$</span> with a fixed current <span class="katex-inline">$I$</span>, so the slope is</p>
+$$\dot V = \frac{I}{C_L} = \text{const (independent of code)},$$
+<p>and the code instead moves the <em>start point / threshold</em>. Put a fixed threshold error <span class="katex-inline">$\Delta V_{th}$</span> into the universal integral with a constant slope:</p>
+$$\delta t \;=\; \frac{\Delta V_{th}}{\dot V} \;=\; \frac{\Delta V_{th}\,C_L}{I} \;=\; \text{const, independent of code}.$$
+<p>Now the same imperfection that bent the variable-slope curve is just a <strong>code-independent delay</strong> — a constant offset that shifts every code equally and therefore <em>cancels out of the INL</em> (INL is deviation from a straight line; a constant adds to the intercept, not the curvature). The deck writes the conversion as <span class="katex-inline">$\Delta t_{DTC}=\int dV\,C_L(V)/(K\,I)$</span>. <span class="tag t-slide">slide p21</span> The residual nonlinearity that remains is only what is <em>inside</em> that integral: the voltage dependence of the <span class="katex-inline">$C_L(V)$</span>/<span class="katex-inline">$I$</span> product, which is why this DTC still needs ≈1.5 V headroom to keep <span class="katex-inline">$I$</span> and <span class="katex-inline">$C_L(V)$</span> well-behaved. <span class="tag t-slide">slide p21</span></p>
+
+<div class="derive">
+<strong>One-line contrast.</strong> Variable-slope: <span class="katex-inline">$\delta t=\Delta V_{th}/\dot V(\text{code})$</span> — error <em>varies</em> with code (parabolic INL). Constant-slope: <span class="katex-inline">$\delta t=\Delta V_{th}\,C_L/I$</span> — error is the <em>same</em> at every code (a removable constant). Moving the code out of the slope is what converts a curvature into an offset. <span class="tag t-derive">derived/model</span>
+</div>
+
+<h3>Inverse-constant-slope (ICS): make the integrand self-cancel</h3>
+<p>Constant-slope still leaves <span class="katex-inline">$C_L(V)$</span> nonlinearity in the integrand. ICS <span class="tag t-slide">slide p22</span> [Dartizio'23] goes one step further: it makes the charging current itself proportional to the instantaneous capacitance, <span class="katex-inline">$I_G(V)\propto C_L(V)$</span>. Substitute into the universal integral:</p>
+$$\Delta t_{DTC}=\int \frac{C_L(V)\,dV}{K\,I_G(V)} \;=\; \int \frac{C_L(V)\,dV}{K\cdot \big[\kappa\,C_L(V)\big]} \;=\; \frac{1}{K\kappa}\int dV \;=\; \frac{\Delta V}{K\kappa}.$$
+<p>The voltage-dependent factor <span class="katex-inline">$C_L(V)$</span> appears in <em>both</em> numerator and denominator and <strong>divides out</strong>, so the delay depends only on the integration limits <span class="katex-inline">$\Delta V$</span> and a constant — <strong>immune to both <span class="katex-inline">$I_G(V)$</span> and <span class="katex-inline">$C(V)$</span></strong> to first order, with no polynomial pre-distortion. <span class="tag t-slide">slide p22</span> That self-cancellation is the whole point of "inverse-constant-slope": the slope is deliberately made the inverse of the cap so the product is flat.</p>
+
+<div class="note">
+<strong>Reading the three integrals together.</strong> All three share <span class="katex-inline">$\Delta t=\int dV/\dot V$</span>. The design choice is purely <em>where you let the code and the nonidealities live</em>: in the slope (variable → parabolic INL), out of the slope (constant → INL becomes a removable offset), or matched into both halves of the integrand (ICS → the nonideality cancels itself). The proposed Wu design keeps the cheap variable-slope DTC and instead attacks the INL with range reduction + background calibration, the topic of the next two sections.
+</div>
+
+<h2>Range-reduction ledger (dB &amp; ×power)</h2>
+<p class="lead">Section "Why DTC range is the master tradeoff" above gave the four slide-33 scaling laws. Here is the bookkeeping: take the full-range DTC as the 0 dB / 1× reference, then read off what ½-range (two VCO phases, slide 34) and 1/8-range (eight RO phases, slide 38) buy you. The single lever is the dynamic range DR; everything else follows from <span class="katex-inline">$\mathrm{DR}=2^{n}t_{res}$</span>, <span class="katex-inline">$\mathrm{QN}\propto t_{res}^{2}$</span>, <span class="katex-inline">$\mathcal{L}\propto \mathrm{DR}$</span>, <span class="katex-inline">$P\propto \mathrm{DR}^{2}$</span>. <span class="tag t-slide">slide p33</span></p>
+
+<div class="note">
+<strong>Convention for the ledger.</strong> Hold the bit count <span class="katex-inline">$n$</span> fixed and shrink the range, so the unit step scales with the range: <span class="katex-inline">$t_{res}\propto \mathrm{DR}$</span>. Then quantization noise <span class="katex-inline">$\mathrm{QN}\propto t_{res}^{2}\propto \mathrm{DR}^{2}$</span>, thermal noise <span class="katex-inline">$\mathcal{L}\propto \mathrm{DR}$</span>, and power <span class="katex-inline">$P\propto \mathrm{DR}^{2}$</span>. (Equivalently you could keep <span class="katex-inline">$t_{res}$</span> fixed and drop bits — same DR, same DTC-noise contribution to the loop, but you lose codes instead of step size.) The dB columns below use the first convention. <span class="tag t-derive">derived from slide 33</span></p>
+</div>
+
+<table class="num">
+<thead>
+<tr>
+  <th>Scheme</th>
+  <th>DR factor</th>
+  <th>DTC QN Δ <br><span class="katex-inline">$(\propto t_{res}^2)$</span></th>
+  <th>Thermal ℒ Δ <br><span class="katex-inline">$(\propto \mathrm{DR})$</span></th>
+  <th>Power <br><span class="katex-inline">$(\propto \mathrm{DR}^2)$</span></th>
+  <th>Linearity / INL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>Full range (1 phase) — baseline</td>
+  <td>1</td>
+  <td>0 dB</td>
+  <td>0 dB</td>
+  <td>1×</td>
+  <td>Full INL swept (parabolic, &lt;2 LSB + dynamic)</td>
+</tr>
+<tr>
+  <td>½ range (2 VCO phases) <span class="tag t-slide">p34</span></td>
+  <td>½</td>
+  <td>−6 dB</td>
+  <td>−3 dB</td>
+  <td>¼×</td>
+  <td>Only half the curve swept → less INL, fewer spurs</td>
+</tr>
+<tr>
+  <td>1/8 range (8 RO phases) <span class="tag t-slide">p38</span></td>
+  <td>⅛</td>
+  <td>−18 dB</td>
+  <td>−9 dB</td>
+  <td>1/64×</td>
+  <td>Only 1/8 of the curve swept → smallest INL excursion</td>
+</tr>
+</tbody>
+</table>
+
+<div class="kpi">
+  <div class="box"><div class="v">−6 dB</div><div class="l">½-range DTC QN</div></div>
+  <div class="box"><div class="v">−3 dB</div><div class="l">½-range thermal ℒ</div></div>
+  <div class="box"><div class="v">¼×</div><div class="l">½-range power</div></div>
+  <div class="box"><div class="v">−18 dB</div><div class="l">1/8-range DTC QN</div></div>
+  <div class="box"><div class="v">−9 dB</div><div class="l">1/8-range thermal ℒ</div></div>
+  <div class="box"><div class="v">1/64×</div><div class="l">1/8-range power</div></div>
+</div>
+
+<details class="deriv">
+<summary>Show the dB arithmetic</summary>
+<p>With <span class="katex-inline">$t_{res}\propto\mathrm{DR}$</span> at fixed bit count:</p>
+<ul>
+  <li><strong>QN.</strong> <span class="katex-inline">$\mathrm{QN}\propto t_{res}^2$</span>. Halving DR: <span class="katex-inline">$10\log_{10}(\tfrac12)^2=20\log_{10}\tfrac12=-6.02$</span> dB. Eighth: <span class="katex-inline">$20\log_{10}\tfrac18=-18.06$</span> dB.</li>
+  <li><strong>Thermal ℒ.</strong> <span class="katex-inline">$\mathcal{L}\propto\mathrm{DR}$</span>. Halving: <span class="katex-inline">$10\log_{10}\tfrac12=-3.01$</span> dB. Eighth: <span class="katex-inline">$10\log_{10}\tfrac18=-9.03$</span> dB.</li>
+  <li><strong>Power.</strong> <span class="katex-inline">$P\propto\mathrm{DR}^2$</span>. Halving: <span class="katex-inline">$(\tfrac12)^2=\tfrac14$</span>. Eighth: <span class="katex-inline">$(\tfrac18)^2=\tfrac1{64}$</span>.</li>
+</ul>
+<p>Note the two noise mechanisms scale <em>differently</em> with the same range cut: QN (a quantization variance) goes as DR² but thermal ℒ (an integrated-noise/range product, slide 16/33) goes only as DR. So range reduction is a stronger lever on the quantization floor than on the thermal floor — useful when the DTC QN, not its thermal noise, is the limiter. <span class="tag t-derive">derived from slide 33</span></p>
+</details>
+
+<div class="warn">
+<strong>What the ledger does <em>not</em> charge for.</strong> The dB wins above are the DTC's own contribution. They ignore the <em>new</em> error each scheme introduces: ½-range needs two VCO phases exactly <span class="katex-inline">$T_{VCO}/2$</span> apart (a non-50% duty cycle injects a <code>SEL_CKFB</code>-correlated spur → the VCO duty-cycle calibration, slide 35-37), and 1/8-range needs eight matched RO phases (inter-phase mismatch → a dedicated RO phase-error LMS, slide 38). The structural win is real but it is <em>paid for</em> with an extra background calibration. <span class="tag t-slide">slide p35</span> <span class="tag t-slide">slide p38</span></div>
+
+<h2>Decision matrix</h2>
+<p class="lead">Pulling the whole survey together: each DTC variant trades quantization floor, linearity mechanism, power-vs-range scaling, and area differently. The proposed Wu design does <em>not</em> pick the most linear circuit — it picks the cheapest circuit (RC variable-slope) and buys the linearity back structurally (½-range) and digitally (background cal). The highlighted row is that choice.</p>
+
+<table class="num">
+<thead>
+<tr>
+  <th>DTC variant</th>
+  <th>QN floor</th>
+  <th>Linearity mechanism</th>
+  <th>Power vs DR</th>
+  <th>Area</th>
+  <th>Chosen here?</th>
+</tr>
+</thead>
+<tbody>
+<tr style="background:rgba(80,200,120,0.18);font-weight:600;">
+  <td>RC variable-slope + ½-range + background cal <span class="tag t-slide">p14/34</span></td>
+  <td>Low (−163 dBc/Hz @ <span class="katex-inline">$T_{res}$</span>=400 fs; −6 dB more from ½-range)</td>
+  <td>Parabolic INL <em>removed digitally</em> (K_DTC + NLC) &amp; <em>structurally</em> (half the curve swept)</td>
+  <td><span class="katex-inline">$\propto\mathrm{DR}^2$</span>, and DR already halved → ¼× the full-range power</td>
+  <td>Smallest (cap array only; no extra analog DAC/TDC)</td>
+  <td><strong>YES — proposed</strong></td>
+</tr>
+<tr>
+  <td>RC variable-slope (raw baseline) <span class="tag t-slide">p14</span></td>
+  <td>Low (−163 dBc/Hz @ 400 fs)</td>
+  <td>None intrinsic — parabolic INL &lt;2 LSB + ±0.6 LSB dynamic</td>
+  <td><span class="katex-inline">$\propto\mathrm{DR}^2$</span></td>
+  <td>Smallest</td>
+  <td>No (needs the assists above)</td>
+</tr>
+<tr>
+  <td>Constant-slope I/C <span class="tag t-slide">p21</span> [Ru'15]</td>
+  <td>Set by <span class="katex-inline">$I$</span>/ <span class="katex-inline">$C_L$</span> ramp noise</td>
+  <td>Threshold error → constant delay; residual = <span class="katex-inline">$C_L(V)$</span>/I curvature</td>
+  <td>Higher (needs ≈1.5 V headroom, static IDAC current)</td>
+  <td>Medium (IDAC + RDAC + <span class="katex-inline">$C_L$</span>)</td>
+  <td>No (high-VDD analog cost)</td>
+</tr>
+<tr>
+  <td>Inverse-constant-slope (ICS) <span class="tag t-slide">p22</span> [Dartizio'23]</td>
+  <td>Set by fine-DTC + current-gen noise</td>
+  <td><span class="katex-inline">$C_L(V)$</span> cancels in the integral → immune to <span class="katex-inline">$I_G(V),C(V)$</span></td>
+  <td>Higher (coarse-fine + tracking current gen)</td>
+  <td>Larger (precise fine DTC + <span class="katex-inline">$I_G(V)$</span> generator)</td>
+  <td>No (analog complexity)</td>
+</tr>
+<tr>
+  <td>Pseudo-differential <span class="tag t-slide">p23</span> [Xu'24]</td>
+  <td>Two half-range paths (range-reduction benefit)</td>
+  <td>Even-symmetric INL subtracts out; limited by half-to-half mismatch</td>
+  <td><span class="katex-inline">$\propto\mathrm{DR}^2$</span> per path, but two paths</td>
+  <td>Larger (two matched DTCs)</td>
+  <td>No (matching burden)</td>
+</tr>
+<tr>
+  <td>Polynomial NLC on RC DTC <span class="tag t-slide">p31</span> [Park'21]</td>
+  <td>Same as RC baseline</td>
+  <td>Static INL pre-distorted by <span class="katex-inline">$g_1,g_2,g_3$</span> LMS → ≈50 fs; misses dynamic/memory</td>
+  <td><span class="katex-inline">$\propto\mathrm{DR}^2$</span> (digital overhead only)</td>
+  <td>Small (digital block)</td>
+  <td>Partly — the proposed design reuses this <em>concept</em> for NLC</td>
+</tr>
+<tr>
+  <td>Reverse-concavity RC DTC <span class="tag t-slide">p32</span> [Rossoni'24]</td>
+  <td>Same as RC baseline</td>
+  <td>Analog <span class="katex-inline">$R_U$</span> DAC bends curve to cancel native parabola; must track PVT</td>
+  <td><span class="katex-inline">$\propto\mathrm{DR}^2$</span></td>
+  <td>Small-medium (adds <span class="katex-inline">$R_U$</span> DAC + adaptation)</td>
+  <td>No (analog tuning tracks PVT)</td>
+</tr>
+<tr>
+  <td>POC-DTC zero-mean PHE <span class="tag t-slide">p29</span> [Renukaswamy'23]</td>
+  <td>Set by coarse-fine DTC</td>
+  <td>Tracks <span class="katex-inline">$\Delta T_{of}$</span> to keep error zero-mean (cal-enabling, not INL per se)</td>
+  <td>—</td>
+  <td>Larger (coarse+fine DTC + 1-bit TDC)</td>
+  <td>No (extra TDC hardware)</td>
+</tr>
+<tr>
+  <td>8-phase RO 1/8-range <span class="tag t-slide">p38</span> [Hwang'22]</td>
+  <td>Lowest (−18 dB vs full range from DR=1/8)</td>
+  <td>Smallest INL excursion (1/8 curve) + RO phase-error LMS</td>
+  <td><span class="katex-inline">$\propto\mathrm{DR}^2$</span> → 1/64× DTC power, but 8 RO phases to generate</td>
+  <td>Largest (8 RO phases + QTM-PS + DRPEC)</td>
+  <td>No (8-phase matching + extra cal)</td>
+</tr>
+</tbody>
+</table>
+
+<div class="derive">
+<strong>Why the highlighted row wins (2 sentences).</strong> The RC variable-slope core is the smallest, lowest-power, and lowest-QN starting point (−163 dBc/Hz at <span class="katex-inline">$T_{res}$</span>=400 fs), and its one weakness — parabolic INL — is precisely the kind of low-order, slowly-drifting error that a <em>background sign-LMS</em> calibration plus the cheap ½-range structural trick can remove without any extra analog DAC, TDC, or matched-phase burden. Every more-linear circuit on the list pays for that linearity in headroom (I/C), analog complexity (ICS), matching (pseudo-diff, 8-phase RO), or PVT-tracking analog tuning (reverse-concavity), whereas the proposed combination shifts the cost into low-area digital adaptation — exactly the trade a scaled FinFET process favors. <span class="tag t-derive">derived/model</span></div>
+
+<div class="cite">
+<strong>Full proposed story.</strong> The ½-range mechanism and the VCO duty-cycle calibration it requires are detailed on <a href="calibrations.html">Calibrations</a>; the assembled signal chain is on <a href="architecture.html">Architecture</a>. <span class="tag t-slide">slide p34</span> <span class="tag t-slide">slide p39</span>
 </div>

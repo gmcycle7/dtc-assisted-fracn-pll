@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Impact · DTC-Assisted Frac-N PLL</title>
+<meta name="description" content="Why sub-100 fs: jitter->EVM->QAM SNR, reciprocal mixing, the jitter FoM and SoTA, jitter taxonomy, and an EVM constellation demo.">
+<meta property="og:title" content="System Impact · DTC-Assisted Fractional-N PLL">
+<meta property="og:description" content="Why sub-100 fs: jitter->EVM->QAM SNR, reciprocal mixing, the jitter FoM and SoTA, jitter taxonomy, and an EVM constellation demo.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism-tomorrow.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar"><button class="ham" aria-label="Open menu">&#9776;</button><span class="ttl">System Impact</span></div>
+<div class="scrim"></div>
+<div class="wrap">
+<nav class="side" aria-label="Site sections">
+<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>
+<div class="sub">Interactive study of slides 1–42</div>
+<a class="" href="index.html"><span class="n">1</span>Home</a>
+<a class="" href="slides.html"><span class="n">2</span>Slide-by-slide Map</a>
+<a class="" href="architecture.html"><span class="n">3</span>Architecture</a>
+<a class="" href="blocks.html"><span class="n">4</span>Block Models</a>
+<a class="" href="calibrations.html"><span class="n">5</span>Calibrations</a>
+<a class="" href="frequency.html"><span class="n">6</span>Frequency-Domain</a>
+<a class="" href="loopdyn.html"><span class="n">7</span>Loop Dynamics & Lock</a>
+<a class="" href="timedomain.html"><span class="n">8</span>Time-Domain Noise</a>
+<a class="" href="spurs.html"><span class="n">9</span>Fractional Spurs</a>
+<a class="active" href="system.html"><span class="n">10</span>System Impact</a>
+<a class="" href="codewalk.html"><span class="n">11</span>Code Walkthrough</a>
+<a class="" href="examples.html"><span class="n">12</span>Numerical Examples</a>
+<a class="" href="designex.html"><span class="n">13</span>Design Walkthrough</a>
+<a class="" href="problems.html"><span class="n">14</span>Design Problems</a>
+<a class="" href="dtctopologies.html"><span class="n">15</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">16</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">17</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">18</span>References</a>
+</nav>
+<main>
+<div class="article">
+<h1>System Impact — Why Sub-100 fs?</h1>
+<p class="lead">A PLL designer can stare at dBc/Hz curves forever, but the only thing the system architect cares about is: <em>does this clock let me close my link?</em> This page walks the chain from integrated phase jitter to the four places it actually hurts — constellation EVM, receiver blocker rejection, the jitter–power figure of merit, and the subtle distinction between absolute, period, and cycle-to-cycle jitter — and ends with the bandwidth U-curve that the designer trades against. The recurring punchline: the sub-100 fs budget — <strong>87.6 fs / −51.6 dBc</strong> in our model, ≈ slide-42's 87.5 fs / −51.7 dBc <span class="tag t-slide">slide p42</span> — is not arbitrary; it is the number that simultaneously satisfies a 1024-QAM transmitter and a far-out reciprocal-mixing mask.</p>
+
+<div class="kpi">
+  <div class="box"><div class="v">87.6 fs</div><div class="l">integrated jitter (model)</div></div>
+  <div class="box"><div class="v">−51.6 dBc</div><div class="l">IPN (SSB convention)</div></div>
+  <div class="box"><div class="v">−249.6 dB</div><div class="l">jitter FoM @ 14.2 mW</div></div>
+  <div class="box"><div class="v">&lt;100 fs</div><div class="l">slide-3 target</div></div>
+</div>
+
+<div class="note">
+<strong>The one identity that ties this whole page together.</strong> Integrate the output phase-noise PSD over the band to get a variance $\sigma_\phi^2$ (rad²); divide its root by the carrier $2\pi f_\text{out}$ to get RMS jitter $\sigma_t$ (s). Everything below is a different <em>view</em> of that single $\sigma_\phi$. <span class="tag t-std">textbook</span>
+$$\sigma_\phi^2=\int S_\phi(f)\,df,\qquad \sigma_t=\frac{\sigma_\phi}{2\pi f_\text{out}}$$
+</div>
+
+<h2>1. Jitter → EVM → QAM SNR</h2>
+<p class="lead">A modulator with random phase wander smears each constellation point. For small angles the smear is just the phase itself, so the RMS error-vector magnitude equals the RMS phase in radians.</p>
+
+<h3>Intuition</h3>
+<p>Picture a 1024-QAM constellation: 1024 dots packed into a square. A symbol at unit radius, rotated by a small random angle $\phi$, lands a distance $\approx \phi$ (rad) away from its ideal spot — that displacement <em>is</em> the error vector. The fraction of symbols that cross into a neighbor's decision region is set by how big $\phi$ is relative to the dot spacing. Denser constellations (more bits/symbol) have tighter spacing, so they demand a smaller $\sigma_\phi$ — equivalently a more negative IPN.</p>
+
+<h3>Math</h3>
+<div class="derive">
+For small phase error, the error vector on a unit-power symbol is $\approx \sin\phi \approx \phi$, so
+$$\boxed{\;\text{EVM}_\text{rms}\approx \sigma_\phi\ (\text{rad})\;}$$
+and the phase-noise-limited SNR is the inverse of that error power:
+$$\text{SNR}_\text{phase}=-20\log_{10}(\sigma_\phi)=-\text{IPN}\quad(\text{dB}).$$
+<span class="tag t-derive">derived/model</span> The last equality uses the deck's convention $\text{IPN}=20\log_{10}\sigma_\phi$ (the same one-sideband $\tfrac12$ factor that defines $\mathcal{L}(f)$) so that an IPN of $X$ dBc costs you exactly $|X|$ dB of constellation SNR. <span class="tag t-slide">slide p42 convention</span>
+</div>
+
+<h3>Numbers — reproducing slide 3 row by row</h3>
+<p>Slide 3's table maps each QAM order to a required <strong>DSB integrated phase noise</strong>: 64-QAM −30 dBc, 256-QAM −33, 1024-QAM −44, 4096-QAM −47 dBc <span class="tag t-slide">slide p3</span>. Read directly as $\sigma_\phi=10^{\text{IPN}/20}$:</p>
+
+<table class="num">
+<thead><tr><th>Modulation</th><th>Required IPN (dBc)</th><th>$\sigma_\phi$ (mrad)</th><th>EVM<sub>rms</sub> (%)</th><th>SNR<sub>phase</sub> (dB)</th></tr></thead>
+<tbody>
+<tr><td>64-QAM</td><td>−30</td><td>31.6</td><td>3.16</td><td>30</td></tr>
+<tr><td>256-QAM</td><td>−33</td><td>22.4</td><td>2.24</td><td>33</td></tr>
+<tr><td>1024-QAM</td><td>−44</td><td>6.31</td><td>0.63</td><td>44</td></tr>
+<tr><td>4096-QAM</td><td>−47</td><td>4.47</td><td>0.45</td><td>47</td></tr>
+</tbody>
+</table>
+<p><span class="tag t-derive">derived/model</span> Each $\sigma_\phi$, EVM and SNR is a direct read of the slide-3 IPN through the boxed identity (e.g. $10^{-44/20}=6.31\times10^{-3}$ rad $\Rightarrow$ 0.63% EVM, 44 dB SNR). The SNR column is literally the negated IPN — that is the whole point of the convention.</p>
+
+<h4>Converting to femtoseconds at each carrier</h4>
+<p>The same phase error costs <em>fewer</em> femtoseconds at a higher carrier, because $\sigma_t=\sigma_\phi/(2\pi f_\text{out})$. Slide 3 lists carriers 29.5 / 40 / 43 / 47 / 7.125 GHz alongside the QAM rows <span class="tag t-slide">slide p3</span>. Pairing the four mmWave carriers with the four QAM rows in listed order:</p>
+
+<table class="num">
+<thead><tr><th>Modulation</th><th>IPN (dBc)</th><th>$\sigma_\phi$ (mrad)</th><th>Carrier (GHz)</th><th>$\sigma_t$ (fs)</th></tr></thead>
+<tbody>
+<tr><td>64-QAM</td><td>−30</td><td>31.6</td><td>29.5</td><td>171</td></tr>
+<tr><td>256-QAM</td><td>−33</td><td>22.4</td><td>40</td><td>89</td></tr>
+<tr><td>1024-QAM</td><td>−44</td><td>6.31</td><td>43</td><td>23</td></tr>
+<tr><td>4096-QAM</td><td>−47</td><td>4.47</td><td>47</td><td>15</td></tr>
+</tbody>
+</table>
+<div class="assume">
+<strong>[A3] Carrier↔QAM pairing.</strong> Slide 3 lists <em>five</em> carriers (29.5/40/43/47/7.125 GHz) but only four QAM IPN rows. The slide does not explicitly pin each QAM order to one carrier, so the fs column above assumes the four mmWave carriers map to the four QAM rows <em>in the order printed</em>. The IPN→$\sigma_\phi$→EVM→SNR columns are slide-exact and pairing-independent; only the final fs values depend on [A3]. <span class="tag t-assume">assumption [A3]</span>
+</div>
+<p><span class="tag t-derive">derived/model</span> The headline: the tougher the constellation, the smaller the phase budget — and at mmWave even a "loose" 15–171 fs translates the dense-QAM specs into the sub-100 fs regime that motivates the whole DTC architecture. The deck's design carrier is much lower (6.72 GHz <span class="tag t-slide">slide p42</span>), where 87.6 fs corresponds to the −51.6 dBc we report — comfortably tighter than every row above, which is exactly why this PLL can serve dense-QAM mmWave LOs after frequency multiplication.</p>
+
+<h3>Interactive — EVM scatter explorer</h3>
+<p>Drag the phase-noise slider and watch the constellation blur and the EVM/SNR readout track the table above.</p>
+<div id="evm-demo"></div>
+
+<div class="quiz">
+<div class="q"><strong>Self-check 1.</strong> Your synthesizer hits $\sigma_t=87.6$ fs at $f_\text{out}=6.72$ GHz. Without re-integrating any PSD, what EVM does that imply, and is it good enough for 1024-QAM?</div>
+<details><summary>Show answer</summary><div class="ans">$\sigma_\phi = 2\pi(6.72\times10^9)(87.6\times10^{-15}) = 3.70\times10^{-3}$ rad $\Rightarrow$ EVM $\approx$ 0.37%, i.e. SNR$_\text{phase}=-20\log_{10}(3.70\times10^{-3})=48.6$ dB. The IPN in the deck's SSB convention is $10\log_{10}(\tfrac12\sigma_\phi^2)=-51.6$ dBc <span class="tag t-derive">model ≈ −51.7 dBc (slide p42)</span>. 1024-QAM needs −44 dBc / 44 dB; we have 48.6 dB of phase SNR (or −51.6 dBc), so yes — about 4.6 dB of margin over the 1024-QAM line, and we even clear the 4096-QAM −47 dBc line. <span class="tag t-derive">derived/model</span></div></details>
+</div>
+
+<h2>2. Reciprocal Mixing (the receiver's view)</h2>
+<p class="lead">EVM is the transmitter's complaint. The receiver has a different, often stricter, complaint that lives at <em>far</em> offsets where the EVM integral has long since died: a strong adjacent blocker mixes with the LO's skirt and dumps noise right on top of your wanted signal.</p>
+
+<h3>Intuition</h3>
+<p>The LO is not a clean tone; it has phase-noise skirts. When a big out-of-band blocker hits the mixer, it convolves with that skirt and produces a noise floor inside your channel — as if the blocker had been "painted" with the LO's phase noise and slid down to baseband. This is <strong>reciprocal mixing</strong>. Crucially it is set by $\mathcal{L}(\Delta f)$ at the <em>blocker offset</em>, which can be tens of MHz away — a region governed by the VCO's far-out (thermal) floor, not by the in-loop jitter that dominates EVM. So this spec is frequently <em>independent of, and orthogonal to,</em> the integrated-jitter EVM spec.</p>
+
+<h3>Math</h3>
+<div class="derive">
+The blocker's contribution to in-channel power is its power, lowered by the LO phase noise at the blocker offset, integrated over the channel bandwidth:
+$$\boxed{\;\frac{C}{I}=P_\text{wanted}-\big[P_\text{blocker}+\mathcal{L}(\Delta f)+10\log_{10}\!\text{BW}\big]\;}\quad(\text{dB})$$
+<span class="tag t-std">textbook</span> with $\mathcal{L}(\Delta f)$ in dBc/Hz and BW in Hz. The $10\log_{10}\text{BW}$ converts the per-Hz skirt into the total noise power folded into the channel.
+</div>
+
+<h3>Numbers — worked example with the far-out Leeson skirt</h3>
+<p>Use the project's Leeson VCO model (it reproduces the −116.5 dBc/Hz @ 1 MHz budget point) <span class="tag t-derive">derived/model</span>:</p>
+<div class="cite">
+$$\mathcal{L}(f_m)=10\log_{10}\!\Big\{\frac{2FkT}{P_\text{sig}}\Big[1+\Big(\frac{f_0}{2Qf_m}\Big)^2\Big]\Big(1+\frac{f_c}{f_m}\Big)\Big\},\ \ F=4,\,Q=10,\,P_\text{sig}=1.67\,\text{mW}$$
+<span class="tag t-std">Leeson form (textbook)</span><span class="tag t-derive">parameters back-solved to −116.5 dBc/Hz @ 1 MHz [A13]</span>
+</div>
+<p>At a far blocker offset $\Delta f = 80$ MHz the skirt has flattened toward its thermal floor: $\mathcal{L}(80\,\text{MHz}) = -154.3$ dBc/Hz (the far-out floor of this model is $10\log_{10}(2FkT/P_\text{sig})=-167$ dBc/Hz). Take a wanted signal at $-90$ dBm, a blocker 60 dB stronger at $-30$ dBm, and a 20 MHz channel:</p>
+<div class="derive">
+$$\frac{C}{I}=-90-\big[-30 + (-154.3) + 10\log_{10}(20\times10^6)\big]=-90-\big[-30-154.3+73.0\big]=+21.3\ \text{dB}$$
+<span class="tag t-derive">derived/model</span> 21.3 dB of carrier-to-interference survives the blocker — set <em>entirely</em> by the LO's −154 dBc/Hz at 80 MHz, a region the EVM integral (1 kHz→100 MHz, but weighted toward the in-band hump) barely notices.
+</div>
+<div class="note">
+<strong>Why this matters for the architecture.</strong> Reciprocal mixing pushes you to lower the VCO's <em>far-out thermal floor</em> — i.e. more VCO power / higher tank-$Q$ / multiple cores — which is a different knob than the in-band loop optimization that minimizes integrated jitter. A PLL can pass EVM and still fail a blocker mask, or vice-versa. This is why the deck spends real silicon on a dual-core VCO (Section 3 lever) even after the in-band budget is met. <span class="tag t-slide">slide p39 dual-core VCO</span>
+</div>
+
+<div class="quiz">
+<div class="q"><strong>Self-check 2.</strong> Your blocker mask fails by 6 dB. Tightening the loop bandwidth to cut integrated jitter by 1 dB — does it help?</div>
+<details><summary>Show answer</summary><div class="ans">No. The blocker sits at an 80 MHz offset, far above the ~1.5 MHz loop bandwidth, so it lives in the VCO's <em>free-running</em> region where the loop has no authority ($H_\text{vco}\to1$). Reciprocal mixing here is fixed by $\mathcal{L}(\Delta f)$, dominated by VCO thermal noise. You must lower the VCO far-out floor (more power, higher $Q$, or a dual-core combine for −3 dB) — re-tuning the loop bandwidth just shuffles the <em>in-band</em> noise that EVM cares about. The two specs are decoupled. <span class="tag t-derive">derived/model</span></div></details>
+</div>
+
+<h2>3. Jitter Figure of Merit</h2>
+<p class="lead">How do you compare a 60 fs / 50 mW synthesizer against a 90 fs / 14 mW one? You can't with jitter alone — you need a metric that prices in power. The jitter FoM does exactly that, and it encodes a hard thermal law: jitter² × power is a constant.</p>
+
+<h3>Intuition</h3>
+<p>Every fundamental noise source (kT/C sampling, VCO tank thermal noise) scales as $1/\text{power}$: spend 2× the current and you cut the noise <em>power</em> in half, i.e. jitter by $\sqrt2$. So the product $\sigma_t^2 \cdot P$ is roughly invariant for a given technology and topology — it is the "exchange rate" between jitter and watts. The FoM just takes its log in dB.</p>
+
+<h3>Math</h3>
+<div class="derive">
+$$\boxed{\;\text{FoM}_\text{jitter}=10\log_{10}\!\Big[\big(\sigma_t\big)^2\cdot\frac{P}{1\,\text{mW}}\Big]\;}\quad(\text{dB, more negative = better})$$
+<span class="tag t-std">textbook (Gao/Staszewski FoM)</span> For this design, $\sigma_t=87.6$ fs and $P=14.2$ mW (VCO 12 + DTC 1.2 + MMD 0.5 + rest 0.5) <span class="tag t-slide">slide p39</span>:
+$$\text{FoM}=10\log_{10}\!\big[(87.6\times10^{-15})^2\cdot 14.2\big]=-249.6\ \text{dB}.$$
+<span class="tag t-derive">derived/model</span>
+</div>
+
+<h3>Numbers — the iso-FoM diagonals</h3>
+<figure><img src="assets/figures/fom_scatter.png" alt="Jitter vs power scatter with iso-FoM diagonal lines; this work marked at 87.6 fs, 14.2 mW on the −249.6 dB line"><figcaption>Jitter–power plane. Each grey diagonal is a constant FoM ($\sigma_t^2 P=$ const, slope −½ on log–log). Moving <em>along</em> a diagonal trades power for jitter at fixed FoM; moving to a <em>lower</em> diagonal is genuine improvement. This work (red star) sits on the −249.6 dB line. <span class="tag t-derive">derived/model</span></figcaption></figure>
+
+<div class="note">
+<strong>The dual-core VCO lever.</strong> Combine $N_\text{core}$ identical VCO cores: the correlated signal adds coherently while uncorrelated phase noise averages, dropping $\mathcal{L}$ by $10\log_{10}(N_\text{core})$ — <strong>−3 dB for a dual core</strong> — but at $N_\text{core}\times$ power. <span class="tag t-derive">derived/model</span> Plug into the FoM: jitter power drops 2×, power rises 2×, so $\sigma_t^2 P$ — and hence the FoM — is <em>unchanged</em>. The dual core does not improve the FoM; it buys you lower absolute jitter (for EVM and reciprocal mixing) at constant efficiency. That is the right tool when you are jitter-limited, not power-limited. <span class="tag t-slide">slide p39 dual-core VCO</span>
+</div>
+
+<div class="quiz">
+<div class="q"><strong>Self-check 3.</strong> A reviewer claims "we halved the power AND kept the same jitter — same FoM, so no big deal." True?</div>
+<details><summary>Show answer</summary><div class="ans">False — that would be a huge deal. Same jitter at half the power means $\sigma_t^2 P$ <em>halved</em>, i.e. FoM improved by $10\log_{10}(0.5)=-3$ dB. The FoM is invariant only when you trade <em>along</em> the thermal law (jitter up $\sqrt2$ as power halves). Breaking that trade — same jitter, less power — is exactly what a better topology (like DTC-assisted high-gain PD) achieves. Conversely, the dual-core VCO trick (−3 dB noise at 2× power) leaves FoM unchanged. <span class="tag t-derive">derived/model</span></div></details>
+</div>
+
+<h2>4. Jitter Taxonomy: Absolute vs Period vs Cycle-to-Cycle</h2>
+<p class="lead">"Jitter" is three different numbers depending on what you difference. They all come from the <em>same</em> phase-noise PSD — period and cycle-to-cycle jitter are just high-pass-weighted versions of the absolute spectrum.</p>
+
+<h3>Intuition</h3>
+<ul>
+<li><strong>Absolute (long-term) jitter</strong> — how far each edge has wandered from an ideal grid. This integrates the <em>full</em> PSD including the low-frequency hump, so it is the largest. This is what EVM and IPN use.</li>
+<li><strong>Period jitter</strong> — the variation of one cycle's length: difference adjacent edges, $\Delta t_n = t_{n+1}-t_n$. Differencing is a $(1-z^{-1})$ operation, which <em>high-pass weights</em> the PSD, killing the slow wander. Smaller number.</li>
+<li><strong>Cycle-to-cycle jitter</strong> — the variation between <em>consecutive periods</em>, a second difference $(1-z^{-1})^2$. Even more aggressively high-pass; matters for things like SerDes timing recovery and digital setup/hold.</li>
+</ul>
+
+<h3>Math</h3>
+<div class="derive">
+Period jitter applies a first-difference weighting to the absolute phase PSD:
+$$S_\text{period}(f)=\big|1-e^{-j2\pi f T_0}\big|^2\,S_\phi(f),\qquad T_0=1/f_\text{out}.$$
+The factor $|1-e^{-j2\pi f T_0}|^2 = 4\sin^2(\pi f T_0)$ rolls off as $f^2$ at low offset — that is the high-pass weighting that suppresses the close-in hump. Cycle-to-cycle squares the weighting again. <span class="tag t-derive">derived/model</span> <span class="tag t-std">textbook (period/c2c jitter)</span>
+</div>
+
+<h3>Numbers</h3>
+<div class="kpi">
+  <div class="box"><div class="v">86.6 fs</div><div class="l">absolute jitter</div></div>
+  <div class="box"><div class="v">~21 fs</div><div class="l">period jitter</div></div>
+  <div class="box"><div class="v">~25 fs</div><div class="l">cycle-to-cycle</div></div>
+</div>
+<p><span class="tag t-derive">derived/model</span> The same PSD that integrates to ~86.6 fs absolute gives only ~21 fs period and ~25 fs c2c, because the high-pass weighting discards the dominant low-frequency contribution. <strong>Always state which jitter you mean</strong> — quoting period jitter when the spec is absolute (or vice-versa) is a classic 4× error.</p>
+
+<figure><img src="assets/figures/jitter_taxonomy.png" alt="Phase-noise PSD and its period-jitter-weighted version showing the high-pass weighting suppressing low-frequency content"><figcaption>The absolute PSD $S_\phi$ (black) and its period-jitter weighting $\times|1-z^{-1}|^2$ (orange). The weighting crushes the close-in noise where the absolute integral lives, so period jitter ends up dominated by mid-band content. <span class="tag t-derive">derived/model</span></figcaption></figure>
+
+<h3>Interactive — jitter histogram</h3>
+<p>Switch between absolute / period / cycle-to-cycle and watch the histogram width collapse as the high-pass weighting kicks in.</p>
+<div id="jitter-hist"></div>
+
+<h2>5. The Design Tradeoff: REF-vs-VCO Bandwidth U-curve</h2>
+<p class="lead">Every PLL designer fights the same battle. Open the loop bandwidth and you suppress more VCO noise but pass more reference/DTC noise; close it and you do the reverse. The total integrated jitter is a U-shaped function of bandwidth, with a single optimum.</p>
+
+<h3>Intuition</h3>
+<p>The loop is a low-pass for everything entering at the reference (REF phase noise, DTC quantization + thermal, the divider/DSM path) and a high-pass for VCO noise (Section 1's NTFs). Widening the bandwidth $f_c$:</p>
+<ul>
+<li>lets the loop track and <em>suppress</em> more VCO noise (good — VCO is 51% of the budget <span class="tag t-slide">slide p42</span>),</li>
+<li>but admits more of the REF + DTC noise into the output band (bad — REF+DTC is ~39% <span class="tag t-slide">slide p42</span>).</li>
+</ul>
+<p>The crossover of these two trends is the U-curve minimum. Slide 42 explicitly notes the bandwidth "is chosen to trade off REF vs VCO — common to all PLLs." <span class="tag t-slide">slide p42</span></p>
+
+<h3>Numbers</h3>
+<div class="kpi">
+  <div class="box"><div class="v">1.5 MHz</div><div class="l">design $f_c$ [A1]</div></div>
+  <div class="box"><div class="v">87.6 fs</div><div class="l">jitter at design BW</div></div>
+  <div class="box"><div class="v">~2.1 MHz</div><div class="l">U-curve optimum $f_c^*$</div></div>
+  <div class="box"><div class="v">~85.6 fs</div><div class="l">jitter at optimum</div></div>
+</div>
+<p><span class="tag t-derive">derived/model</span> Sweeping the loop bandwidth in the project's frequency-domain model places the U-curve minimum at $f_c^*\approx 2.1$ MHz giving ~85.6 fs. The deck's chosen 1.5 MHz / 87.6 fs is therefore <em>slightly conservative</em> — only ~2 fs (≈0.2 dB) off optimum. That margin is deliberate: a slightly narrower loop improves phase-margin robustness and reduces gain-peaking (1.70 dB at the design point) and reference-spur feedthrough, at a negligible jitter cost. As a quick rule of thumb the lock time scales as $\sim 1/f_c$ (~1.13 µs to 1% at the design BW). <span class="tag t-slide">slide p42</span></p>
+
+<h3>Interactive — budget optimizer</h3>
+<p>Drag the bandwidth slider; watch the REF/DTC contribution fall, the VCO contribution rise, and the total trace out the U-curve with its minimum near 2.1 MHz.</p>
+<div id="budget-optimizer"></div>
+
+<div class="assume">
+<strong>Modeling assumptions used on this page.</strong>
+<ul>
+<li><span class="tag t-assume">[A1]</span> Loop bandwidth $f_c=1.5$ MHz (deck states a REF-vs-VCO tradeoff bandwidth but does not print the value).</li>
+<li><span class="tag t-assume">[A2]</span> Phase margin 60° (typical type-II design choice; sets the U-curve and gain-peaking).</li>
+<li><span class="tag t-assume">[A3]</span> Slide-3 carrier↔QAM pairing for the fs-at-carrier table (Section 1).</li>
+</ul>
+The reciprocal-mixing blocker scenario ($-90$/$-30$ dBm, 20 MHz, 80 MHz offset) is an illustrative system case to exercise the formula, not a deck number. All IPN/EVM/SNR, FoM, and jitter-taxonomy values are slide-anchored or model-derived as tagged.
+</div>
+
+<h2>Putting it together</h2>
+<p>Sub-100 fs is not a vanity number. It is the intersection of four independent pressures: dense-QAM EVM (Section 1) pulls the in-band IPN down to −44…−47 dBc; reciprocal mixing (Section 2) pulls the far-out VCO floor down toward −154 dBc/Hz at the blocker; the jitter FoM (Section 3) prices every one of those dB in milliwatts, with the dual-core VCO as the one lever that buys jitter without buying efficiency; the taxonomy (Section 4) reminds you which "jitter" the spec actually means; and the U-curve (Section 5) is where the designer finally lands — 1.5 MHz / 87.6 fs, two femtoseconds shy of optimum, by choice. The DTC-assisted architecture exists precisely to make that 87.6 fs reachable at 14.2 mW instead of paying the brute-force thermal tax.</p>
+
+</div>
+<aside class="toc-rail" aria-label="On this page"></aside>
+<div class="btnrow"><div><a href="spurs.html">← Fractional Spurs</a></div><div><a href="codewalk.html">Code Walkthrough →</a></div></div>
+<div class="footer">
+  Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
+  (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
+  Provenance tags: <span class="tag t-slide">slide pX</span>
+  <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
+  <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
+</div>
+</main>
+</div>
+<button id="toTop" aria-label="Back to top">&#8593;</button>
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/prism/prism-core.min.js"></script>
+<script src="assets/vendor/prism/prism-clike.min.js"></script>
+<script src="assets/vendor/prism/prism-python.min.js"></script>
+<script src="assets/vendor/plotly/plotly.min.js"></script>
+<script src="assets/app/pll.js"></script>
+<script src="assets/app/pll_ext.js"></script>
+<script src="assets/app/widgets.js"></script>
+<script src="assets/app/widgets_ext.js"></script>
+<script src="assets/app/site.js"></script>
+</body>
+</html>

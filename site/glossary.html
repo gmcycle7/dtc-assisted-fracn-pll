@@ -27,13 +27,18 @@
 <a class="" href="blocks.html"><span class="n">4</span>Block Models</a>
 <a class="" href="calibrations.html"><span class="n">5</span>Calibrations</a>
 <a class="" href="frequency.html"><span class="n">6</span>Frequency-Domain</a>
-<a class="" href="timedomain.html"><span class="n">7</span>Time-Domain Noise</a>
-<a class="" href="codewalk.html"><span class="n">8</span>Code Walkthrough</a>
-<a class="" href="examples.html"><span class="n">9</span>Numerical Examples</a>
-<a class="" href="dtctopologies.html"><span class="n">10</span>DTC Topologies</a>
-<a class="active" href="glossary.html"><span class="n">11</span>Notation & Glossary</a>
-<a class="" href="validation.html"><span class="n">12</span>Validation & Limits</a>
-<a class="" href="references.html"><span class="n">13</span>References</a>
+<a class="" href="loopdyn.html"><span class="n">7</span>Loop Dynamics & Lock</a>
+<a class="" href="timedomain.html"><span class="n">8</span>Time-Domain Noise</a>
+<a class="" href="spurs.html"><span class="n">9</span>Fractional Spurs</a>
+<a class="" href="system.html"><span class="n">10</span>System Impact</a>
+<a class="" href="codewalk.html"><span class="n">11</span>Code Walkthrough</a>
+<a class="" href="examples.html"><span class="n">12</span>Numerical Examples</a>
+<a class="" href="designex.html"><span class="n">13</span>Design Walkthrough</a>
+<a class="" href="problems.html"><span class="n">14</span>Design Problems</a>
+<a class="" href="dtctopologies.html"><span class="n">15</span>DTC Topologies</a>
+<a class="active" href="glossary.html"><span class="n">16</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">17</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">18</span>References</a>
 </nav>
 <main>
 <div class="article">
@@ -127,7 +132,7 @@ Anchors you can trust everywhere: $f_\text{out}=6.72$ GHz, $f_\text{ref}=104$ MH
   <tr><th>Symbol</th><th>Name</th><th>Units</th><th class="num">Typical value</th><th>Where used / source</th></tr>
 </thead>
 <tbody>
-  <tr><td>$K_\text{SPD}$</td><td>Sampling-PD gain $=K_\text{slope}/(2\pi f_\text{ref})$</td><td>V/rad</td><td class="num">9.19 V/rad</td><td>$K_\text{PD}$ of the SPD path <span class="tag t-slide">slide p20</span> <span class="tag t-assume">[A9]</span></td></tr>
+  <tr><td>$K_\text{SPD}$</td><td>Sampling-PD gain $=K_\text{slope}/(2\pi f_\text{ref})$</td><td>V/rad</td><td class="num">9.18 V/rad</td><td>$K_\text{PD}$ of the SPD path <span class="tag t-slide">slide p20</span> <span class="tag t-assume">[A9]</span></td></tr>
   <tr><td>$K_\text{slope}$</td><td>SPD slope-generator ramp rate</td><td>V/s</td><td class="num">6 GV/s</td><td>Sets $K_\text{SPD}$ <span class="tag t-slide">slide p20</span></td></tr>
   <tr><td>$K_\text{VCO}$</td><td>VCO tuning gain (phase: $2\pi K_\text{VCO}/s$)</td><td>Hz/V (rad/s/V)</td><td class="num">100 MHz/V</td><td>Forward path $K_\text{VCO}/s$ <span class="tag t-slide">slide p5</span> <span class="tag t-assume">[A4]</span></td></tr>
   <tr><td>$G_\text{ol}(s)$</td><td>Open-loop gain $=K_\text{PD}H_\text{LF}(s)\dfrac{K_\text{VCO}}{s}\dfrac{1}{N}$</td><td>&mdash;</td><td class="num">$|G_\text{ol}(j\omega_c)|=1$</td><td>Sets $f_c$, PM <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span></td></tr>
@@ -146,7 +151,7 @@ Anchors you can trust everywhere: $f_\text{out}=6.72$ GHz, $f_\text{ref}=104$ MH
   <div class="box"><div class="v">60&deg;</div><div class="l">phase margin [A2]</div></div>
   <div class="box"><div class="v">402 kHz</div><div class="l">f_z = &omega;_z/2&pi;</div></div>
   <div class="box"><div class="v">5.60 MHz</div><div class="l">f_p = &omega;_p/2&pi;</div></div>
-  <div class="box"><div class="v">9.19 V/rad</div><div class="l">K_SPD</div></div>
+  <div class="box"><div class="v">9.18 V/rad</div><div class="l">K_SPD</div></div>
 </div>
 
 <h2>Calibration</h2>

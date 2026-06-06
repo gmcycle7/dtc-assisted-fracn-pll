@@ -27,13 +27,18 @@
 <a class="" href="blocks.html"><span class="n">4</span>Block Models</a>
 <a class="" href="calibrations.html"><span class="n">5</span>Calibrations</a>
 <a class="" href="frequency.html"><span class="n">6</span>Frequency-Domain</a>
-<a class="" href="timedomain.html"><span class="n">7</span>Time-Domain Noise</a>
-<a class="active" href="codewalk.html"><span class="n">8</span>Code Walkthrough</a>
-<a class="" href="examples.html"><span class="n">9</span>Numerical Examples</a>
-<a class="" href="dtctopologies.html"><span class="n">10</span>DTC Topologies</a>
-<a class="" href="glossary.html"><span class="n">11</span>Notation & Glossary</a>
-<a class="" href="validation.html"><span class="n">12</span>Validation & Limits</a>
-<a class="" href="references.html"><span class="n">13</span>References</a>
+<a class="" href="loopdyn.html"><span class="n">7</span>Loop Dynamics & Lock</a>
+<a class="" href="timedomain.html"><span class="n">8</span>Time-Domain Noise</a>
+<a class="" href="spurs.html"><span class="n">9</span>Fractional Spurs</a>
+<a class="" href="system.html"><span class="n">10</span>System Impact</a>
+<a class="active" href="codewalk.html"><span class="n">11</span>Code Walkthrough</a>
+<a class="" href="examples.html"><span class="n">12</span>Numerical Examples</a>
+<a class="" href="designex.html"><span class="n">13</span>Design Walkthrough</a>
+<a class="" href="problems.html"><span class="n">14</span>Design Problems</a>
+<a class="" href="dtctopologies.html"><span class="n">15</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">16</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">17</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">18</span>References</a>
 </nav>
 <main>
 <div class="article">
@@ -222,7 +227,7 @@ where $e[k]$ is a <b>1-bit comparator</b> output and $x[k]$ is the regressor. Th
   <div class="ex"><b>Sign-error LMS update.</b> $\hat K\!\leftarrow\!\hat K+\mu\,e\,\Phi_e$ — the shared law with $w=\hat K$, regressor $x=\Phi_e$. Step size $\mu=0.5$ <span class="tag t-assume">assumption [A17]</span>. Because $e$ correlates with the sign of the gain error, the update statistically moves $\hat K$ uphill toward $K_\text{true}$.</div>
 </div>
 <div class="note">
-<b>Convergence (all &lt; 30 µs)</b> <span class="tag t-slide">slide p.40</span>: DTC gain <b>6.7 µs</b>, VCO DCC <b>1 µs</b> (target 10 ps for a 20 ps duty error), CKREF DCC <b>1 µs</b> (target 0.337 ns), offset <b>14.6 µs</b> (target 32 mV). The offset cal converts its error to phase via $K_\text{SPD}=K_\text{slope}/(2\pi f_\text{ref})=9.19$ V/rad <span class="tag t-slide">slide p.20</span>.
+<b>Convergence (all &lt; 30 µs)</b> <span class="tag t-slide">slide p.40</span>: DTC gain <b>6.7 µs</b>, VCO DCC <b>1 µs</b> (target 10 ps for a 20 ps duty error), CKREF DCC <b>1 µs</b> (target 0.337 ns), offset <b>14.6 µs</b> (target 32 mV). The offset cal converts its error to phase via $K_\text{SPD}=K_\text{slope}/(2\pi f_\text{ref})=9.18$ V/rad <span class="tag t-slide">slide p.20</span>.
 </div>
 <div class="assume">
 The sibling cals (<code>simulate_vco_dcc</code>, <code>simulate_ckref_dcc</code>) reuse the same body with a deterministic ±1 regressor instead of $\Phi_e$: VCO DCC correlates $e[k]$ with <code>SEL_CKFB</code> (toggles each cycle) to estimate $\Delta t_\text{err}/2$; CKREF DCC correlates with <code>even_cycle</code>. The offset cal is a DC servo on the leaky mean of $e[k]$ rather than a regressor product. These are behavioral assumptions from <code>docs/assumptions.md</code> chosen to reproduce the slide-40 settling, not measured silicon traces <span class="tag t-need">needs citation</span>.
@@ -242,7 +247,7 @@ The sibling cals (<code>simulate_vco_dcc</code>, <code>simulate_ckref_dcc</code>
 
 </div>
 <aside class="toc-rail" aria-label="On this page"></aside>
-<div class="btnrow"><div><a href="timedomain.html">← Time-Domain Noise</a></div><div><a href="examples.html">Numerical Examples →</a></div></div>
+<div class="btnrow"><div><a href="system.html">← System Impact</a></div><div><a href="examples.html">Numerical Examples →</a></div></div>
 <div class="footer">
   Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
   (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.

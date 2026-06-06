@@ -318,3 +318,209 @@ Sources: <code>docs/open_questions.md</code> (all nine items), <code>docs/deriva
 &sect;1&#8211;&sect;9, the exported <code>site/assets/data/*.json</code>, and the deck
 (W. Wu, Samsung, slides 1&#8211;42).
 </div>
+
+<h2 id="challenge">9. Assumptions to challenge</h2>
+<p class="lead">
+Section 8 lists what we chose not to guess. This section is the active version: the five
+most <b>load-bearing</b> assumptions, reframed as experiments <i>you</i> should run on the model.
+A good engineer doesn't trust a number because it matched a slide &mdash; they push on the number
+until it either breaks or earns its place. Each box below has the same three parts: <b>state it</b>
+(what we assumed), <b>consequence if wrong</b> (what moves if the assumption is false), and
+<b>how to test</b> (the concrete experiment to run in the code). None of these are settled; they
+are the seams where a curious student can do real work.
+</p>
+
+<div class="note">
+Why these five and not the other four (#5 modified-DSM internals, #6 doubler rate, #3 cal LSB,
+#4 regressor toggling)? Those change <i>local</i> behavior &mdash; a cal waveform, a converged value
+&mdash; but not the headline 87.6-fs budget or the loop design. The five below each touch a
+<b>load-bearing</b> result: the per-source split, the cancelled residual, the loop order, the
+reported dBc number itself, and the chosen bandwidth. Break one of these and a KPI moves.
+</div>
+
+<div class="warn">
+<h4>Challenge 1 &mdash; The noise floors are back-solved, not measured [A12&#8211;A15]</h4>
+<p><b>State it.</b> Slide 42 gives only <i>percentages</i> of the 87.5-fs total (VCO 51 %, REF 39 %,
+MMD 6 %, SPD+GM 4 %) <span class="tag t-slide">slide p42</span>, not absolute dBc/Hz per source. So
+we <i>back-solved</i> each floor to reproduce those percentages
+<span class="tag t-assume">assumption [A12&#8211;A15]</span>: VCO &minus;116.5 dBc/Hz @ 1 MHz, REF
+&minus;168 dBc/Hz white + &minus;143.5 @ 10 kHz flicker, MMD &minus;165 dBc/Hz, SPD+GM &minus;167
+dBc/Hz <span class="tag t-derive">derived from [A12&#8211;A15]</span>. A back-solved set is
+<i>plausible but not unique</i> &mdash; many floor combinations integrate to the same percentages.</p>
+<p><b>Consequence if wrong.</b> The 87.5-fs <i>total</i> is anchored to the slide and won't move much,
+but the <b>per-source attribution</b> is only as good as the floors. If the real VCO is quieter than
+our fitted &minus;116.5 dBc/Hz, its 51 % share shrinks and the REF/DTC share must grow to keep the
+total &mdash; which changes <i>which block you'd redesign first</i>. The whole point of a budget is to
+tell you where to spend effort; a mis-attributed budget sends you optimizing the wrong block.</p>
+<p><b>How to test.</b> The slides themselves give you a check: slide 50 (out of our scope) measures
+the VCO at <b>&minus;120 dBc/Hz @ 1 MHz</b> single-core / <b>&minus;122.5</b> dual-core @ 6 GHz
+<span class="tag t-slide">slide p50</span> &mdash; that is ~3.5&#8211;6 dB <i>quieter</i> than our
+fitted &minus;116.5. Re-solve the budget with the real curve:</p>
+<pre><code class="language-python"># In models/frequency_domain_model.py, PLLParams:
+#   change vco_pn_1MHz from -116.5 to the slide-50 value, scaled to 6.72 GHz.
+#   6.72 vs 6.00 GHz adds 20*log10(6.72/6.00) = +0.98 dB to L(f):
+p.vco_pn_1MHz = -120.0 + 0.98   # single-core slide-50, freq-scaled  -> -119.0
+# re-run and read the new budget split:
+python models/run_all.py        # regenerates freq_domain.json budget[]
+</code></pre>
+<p>Then ask: does the VCO still carry 51 %? With ~2.5 dB less VCO noise its variance drops by
+~10<sup>0.25</sup> &asymp; 1.8&times;, so its share falls toward the high-30s % and the REF/DTC
+bucket rises &mdash; meaning the design becomes <b>reference-limited</b>, and the lever to pull is the
+DTC/REF path, not the oscillator. If the percentages no longer match slide 42 after the swap, that is
+the <i>information</i>: the slide's VCO must have been noisier than slide 50's, or the band/convention
+differs. Either way you've learned something the fitted model was hiding.</p>
+</div>
+
+<div class="warn">
+<h4>Challenge 2 &mdash; The DSM-noise magnitude is illustrative; only the cancelled residual is load-bearing</h4>
+<p><b>State it.</b> Our model carries a raw &Sigma;&Delta;M quantization noise and then shows the DTC
+cancelling it down to a <b>residual 4.5 fs (~0.3 %)</b> <span class="tag t-derive">derived</span>,
+while slide 42 reports the post-cancellation DSM share as <b>&asymp;0 %</b>
+<span class="tag t-slide">slide p42</span>. The <i>raw</i> DSM magnitude we inject is illustrative
+&mdash; it depends on the modified-DSM internals that slide 34 only sketches
+<span class="tag t-slide">slide p34</span> <span class="tag t-assume">assumption [A5] m=2 MASH1-1</span>.
+The number that actually matters to the budget is not the raw DSM noise but the <b>residual that
+survives cancellation</b>, because that is what adds to the total.</p>
+<p><b>Consequence if wrong.</b> The raw DSM level is a red herring &mdash; making it 6 dB bigger or
+smaller barely moves the 87.6-fs total <i>as long as cancellation tracks it</i>. What is load-bearing
+is the <b>cancellation accuracy</b>. The residual scales as the squared DTC-gain error: from the CAL
+analysis, a gain error &epsilon; leaves an in-band floor $S=\varepsilon^2(2\pi)^2 S_{Q,\text{dsm}}|H_\text{ref}|^2$,
+i.e. $\varepsilon=10^{-4}\to4.5$ fs, $10^{-3}\to45$ fs, $10^{-2}\to449$ fs
+<span class="tag t-derive">derived (CAL)</span>. So a 1 % residual gain error alone (449 fs) would
+<i>dominate</i> the entire 87.6-fs budget. The "&asymp;0 %" on slide 42 is a statement about the
+calibration, not about the DSM.</p>
+<p><b>How to test.</b> Don't tune the raw DSM &mdash; sweep the <b>residual gain error</b> &epsilon;
+and watch the budget, confirming the model reproduces 4.5 / 45 / 449 fs at &epsilon; = 1e-4 / 1e-3 /
+1e-2:</p>
+<pre><code class="language-python">import numpy as np
+# residual DSM contribution vs DTC-gain cancellation error eps
+for eps in (1e-4, 1e-3, 1e-2):
+    # sigma_t scales linearly with eps; 1e-4 -> 4.5 fs (verified anchor)
+    sigma_fs = 4.5e-15 * (eps / 1e-4) * 1e15
+    print(f"eps={eps:.0e}  residual ~ {sigma_fs:6.1f} fs")
+# -> need eps < ~2e-4 to keep the residual under 10 fs
+</code></pre>
+<p>Then separately, in the time-domain model, scale the <i>raw</i> DSM injection up by 6 dB with
+&epsilon; held fixed: the total should barely budge, proving the raw magnitude is illustrative. The
+takeaway: when someone says "DSM noise is 0 % after cancellation," the engineering content is in the
+<b>&epsilon; &lt; 2e-4</b> requirement on the calibration, not in the DSM number itself.</p>
+</div>
+
+<div class="warn">
+<h4>Challenge 3 &mdash; Type-I vs type-II is assumed, and it changes the loop's character</h4>
+<p><b>State it.</b> We model a <b>type-II</b> loop (two poles at the origin: proportional + integral
+path into the VCO, the slide-39 signature) and expose a type-I switch
+<span class="tag t-slide">slide p39, p20</span> <span class="tag t-assume">assumption [A1/A2 loop]</span>.
+The budget and all KPIs use type-II. But slide 20's SPD reads as a first-order IIR, which is more
+type-I-like &mdash; the deck is genuinely ambiguous (open-q #1), and the measured chip's topology is
+<span class="tag t-need">needs citation</span>.</p>
+<p><b>Consequence if wrong.</b> This is not a cosmetic switch. Type-II gives <b>zero static phase
+error</b> but can <b>peak</b> near $f_c$ (we model 1.70 dB gain-peaking, ~25 % phase-step overshoot,
+from a closed-loop zero at $w_z=2\pi\cdot402$ kHz) <span class="tag t-derive">derived (LOOP)</span> and
+suppresses low-frequency reference content <i>less</i> aggressively (the second integrator keeps loop
+gain high at low offset). Type-I is first-order, peaking-free, but leaves a static error against a
+frequency ramp <span class="tag t-std">textbook (Gardner)</span>. The peaking directly raises the
+in-band reference/DTC contribution near $f_c$; if the real chip were type-I, our ~1.7-dB peaking is
+fictitious and the REF+DTC share is slightly overstated.</p>
+<p><b>How to test.</b> Flip the switch and re-integrate &mdash; the comparison is already wired
+(&sect;5):</p>
+<pre><code class="language-python"># models/frequency_domain_model.py exposes a loop-type switch:
+p.loop_type = "type1"   # vs the default "type2"
+python models/run_all.py
+# compare three things between the two runs:
+#   1) gain-peaking (type-II ~1.70 dB  ->  type-I ~0 dB)
+#   2) the REF+DTC budget share (peaking pulls it up under type-II)
+#   3) closed-loop poles: type-II has the wz=2pi*402 kHz zero that drives overshoot
+</code></pre>
+<p>Decision rule: if you can confirm the silicon's topology from the paper, pick it and delete the
+switch. If you can't, the honest move is exactly what &sect;5 does &mdash; carry both and report which
+KPIs are topology-sensitive (peaking, overshoot, low-offset reference rejection) versus which are not
+(the far-out VCO tail, the total to first order).</p>
+</div>
+
+<div class="warn">
+<h4>Challenge 4 &mdash; The &plusmn;3 dB SSB/DSB IPN convention is a choice, and it's a factor of two</h4>
+<p><b>State it.</b> We report single-sided phase noise with
+$\mathcal{L}(f)=10\log_{10}(\tfrac12 S_\phi)$ <span class="tag t-assume">assumption [A19]</span>, but
+slide 42's IPN is double-sided <span class="tag t-slide">slide p42</span>. Relatedly, the printed DTC
+quantization-noise formula $\Phi_\text{DTC,QN}=(2\pi T_\text{res})^2/12\cdot f_\text{ref}$ reproduces
+&minus;163 dBc/Hz only with the <b>/12</b> reading; the textbook single-sided result uses <b>/6</b>
+<span class="tag t-slide">slide p15</span> (open-q #2). Each of these is a factor-of-two &mdash;
+<b>exactly 3 dB</b> &mdash; hiding in a convention, not in physics.</p>
+<p><b>Consequence if wrong.</b> A 3-dB convention error doesn't change the silicon, but it changes
+<i>every dBc number you quote</i>, and worse, it can move silently. If one source PSD is entered SSB
+and another DSB, their quadrature sum is wrong by an amount between 0 and 3 dB depending on the mix
+&mdash; and an IPN of &minus;51.6 dBc reported under the wrong convention is off by 3 dB, which in
+jitter is a factor of $10^{3/20}=1.41$&times; (87.6 fs would read as 62 or 124 fs). Comparisons across
+papers (FoM tables, slide 4) become apples-to-oranges. This is the single most common way published
+PLL numbers fail to reproduce.</p>
+<p><b>How to test.</b> Force the model to be self-consistent and verify both endpoints:</p>
+<pre><code class="language-python"># 1) The Parseval check is the convention's truth-teller:
+#    integral of S_phi(f) over the band MUST equal var(phi).
+#    time_domain.json: parseval_var_time 1.498e-5 vs parseval_var_psd 1.428e-5  (<0.5 dB) -> OK
+# 2) Toggle the SSB/DSB flag and confirm the IPN moves by exactly 3.01 dB:
+import numpy as np
+print(10*np.log10(2))           # 3.01 dB  -- the whole ambiguity, in one line
+# 3) Check the DTC-QN anchor:  /12 -> -163 dBc/Hz (slide),  /6 -> -160 dBc/Hz
+#    if your number lands on -160, you've silently switched to the single-sided /6 form.
+</code></pre>
+<p>The discipline: pick one convention, write it at the top of the model, and let the Parseval
+identity ($\int S_\phi\,df=\operatorname{var}\phi$) police it. If Parseval holds, your factor-of-two
+is consistent end-to-end even if it disagrees with a given slide &mdash; and then a known 3-dB offset
+to the slide is a <i>label</i>, not a bug.</p>
+</div>
+
+<div class="warn">
+<h4>Challenge 5 &mdash; f_c = 1.5 MHz is NOT the jitter optimum (the optimizer finds ~2.1 MHz)</h4>
+<p><b>State it.</b> We use a loop bandwidth $f_c=1.5$ MHz <span class="tag t-assume">assumption [A1]</span>
+(the slide says "BW trades REF vs VCO" but gives no number; 1.5 MHz &asymp; $f_\text{ref}/70$ is the
+standard choice). But when we let the model <i>optimize</i> bandwidth for minimum jitter, it finds
+$f_c^*\approx2.1$ MHz giving ~<b>85.6 fs</b> &mdash; so the design's 1.5 MHz / 87.6 fs is slightly
+<b>conservative</b>, ~2 fs above the achievable floor <span class="tag t-derive">derived (BW sweep)</span>.</p>
+<p><b>Consequence if wrong.</b> Quantitatively small (87.6 vs 85.6 fs is 0.2 dB). But conceptually it
+matters: the model's headline number is <i>not</i> the minimum the loop can hit, so anyone reading
+"87.6 fs" as "the best this loop does" is mistaken. More importantly, the gap tells you the design
+trades raw jitter for something the single-number optimizer doesn't see.</p>
+<p><b>How to test &mdash; and the real lesson: why would a designer still pick 1.5 MHz?</b> Sweep
+$f_c$ and plot total jitter, then plot the things the jitter-only optimum ignores:</p>
+<pre><code class="language-python">import numpy as np
+# sweep loop bandwidth, record total jitter + the trade-offs the optimizer can't see
+for fc in np.linspace(1.0e6, 3.0e6, 11):
+    # set p.f_c = fc, re-integrate budget -> total_fs
+    # ALSO record: gain_peaking_dB, ref_spur_dBc, settling_us, PM_erosion
+    pass
+# the jitter curve is *flat* near the bottom: 1.5 MHz (87.6) vs 2.1 MHz (85.6) is only 0.2 dB
+</code></pre>
+<p>Now the engineering reasons a sane designer picks 1.5 over the 2.1-MHz optimum, each checkable:</p>
+<ul>
+  <li><b>The optimum is flat.</b> 0.2 dB of jitter is below measurement repeatability &mdash; you are
+      buying nothing real by chasing it. <span class="tag t-derive">derived</span></li>
+  <li><b>Higher $f_c$ = more peaking and more reference/spur feed-through.</b> A wider loop passes
+      more of the reference-path content (REF+DTC, fractional spurs) to the output; with the type-II
+      zero already giving 1.70 dB peaking at 1.5 MHz, widening to 2.1 MHz worsens both peaking and the
+      &minus;56&#8230;&minus;70 dBc DTC/INL spurs that sit inside the loop band
+      <span class="tag t-derive">derived (SPURS)</span>. The jitter optimizer integrates these away;
+      a spec sheet with a spur mask does not.</li>
+  <li><b>Sampled-loop stability margin.</b> At 1.5 MHz, $f_c/f_\text{ref}\approx1/70$, so the
+      ZOH half-sample lag ($\approx-\pi f/f_\text{ref}$) erodes phase margin only slightly. Push
+      $f_c$ up and that erosion grows linearly &mdash; you start spending the 60&deg; PM margin
+      <span class="tag t-derive">derived (LOOP)</span> <span class="tag t-assume">[A2]</span>.</li>
+  <li><b>Robustness to PVT.</b> $K_\text{VCO}$, $K_\text{SPD}$ and the loop-filter values drift with
+      process/temperature; sitting <i>below</i> the optimum leaves headroom so that when the loop
+      widens under PVT it moves <i>toward</i> the optimum rather than past it into peaking/instability.</li>
+</ul>
+<p>So the test isn't just "find the minimum-jitter $f_c$" &mdash; it's "plot jitter, peaking, worst
+spur, and PM-erosion on the same $f_c$ axis and find the bandwidth that satisfies <i>all</i> the
+masks." That is almost always a bit below the jitter-only optimum, which is exactly why 1.5 MHz is a
+defensible choice even though 2.1 MHz wins the single number. Lock time scales as ~$1/f_c$
+<span class="tag t-derive">derived</span>, so 1.5 MHz also costs only ~40 % more settling
+(~1.13 &micro;s) &mdash; a price most receivers gladly pay for margin.</p>
+</div>
+
+<div class="note">
+<b>The meta-lesson.</b> Every one of these five is a place where a single quoted number ($f_c$, an IPN
+in dBc, a 51 % VCO share) compresses an engineering <i>decision</i> into a scalar. The job of
+validation isn't to defend the scalar &mdash; it's to re-expand it into the decision and check the
+decision still holds. Run the five experiments above and you'll understand this PLL better than the
+budget table alone could ever teach you.
+</div>

@@ -27,13 +27,18 @@
 <a class="" href="blocks.html"><span class="n">4</span>Block Models</a>
 <a class="" href="calibrations.html"><span class="n">5</span>Calibrations</a>
 <a class="" href="frequency.html"><span class="n">6</span>Frequency-Domain</a>
-<a class="" href="timedomain.html"><span class="n">7</span>Time-Domain Noise</a>
-<a class="" href="codewalk.html"><span class="n">8</span>Code Walkthrough</a>
-<a class="" href="examples.html"><span class="n">9</span>Numerical Examples</a>
-<a class="" href="dtctopologies.html"><span class="n">10</span>DTC Topologies</a>
-<a class="" href="glossary.html"><span class="n">11</span>Notation & Glossary</a>
-<a class="" href="validation.html"><span class="n">12</span>Validation & Limits</a>
-<a class="" href="references.html"><span class="n">13</span>References</a>
+<a class="" href="loopdyn.html"><span class="n">7</span>Loop Dynamics & Lock</a>
+<a class="" href="timedomain.html"><span class="n">8</span>Time-Domain Noise</a>
+<a class="" href="spurs.html"><span class="n">9</span>Fractional Spurs</a>
+<a class="" href="system.html"><span class="n">10</span>System Impact</a>
+<a class="" href="codewalk.html"><span class="n">11</span>Code Walkthrough</a>
+<a class="" href="examples.html"><span class="n">12</span>Numerical Examples</a>
+<a class="" href="designex.html"><span class="n">13</span>Design Walkthrough</a>
+<a class="" href="problems.html"><span class="n">14</span>Design Problems</a>
+<a class="" href="dtctopologies.html"><span class="n">15</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">16</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">17</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">18</span>References</a>
 </nav>
 <main>
 <div class="article">
@@ -123,7 +128,7 @@ $$K_\text{SPD} = \frac{K_\text{slope}}{2\pi f_\text{ref}}, \qquad K_\text{slope}
 $$\sigma_{\phi,\text{tot}} = \sqrt{\textstyle\sum_i \sigma_{\phi,i}^2} \quad\text{\small(textbook: uncorrelated noise sources add in power)} \quad \text{\tiny t-std}$$
 
 <div class="note">
-  <b>Why the budget shapes the design.</b> Once the loop has killed the PD/DSM/divider terms, the only knob left is loop bandwidth: a wider bandwidth tracks (suppresses) more VCO noise but lets in more reference noise, and vice-versa. The 1.5 MHz / 60° design is the chosen REF-vs-VCO trade-off — see the <a href="frequency-domain.html">Frequency-domain</a> page. <span class="tag t-slide">slide p.42</span>
+  <b>Why the budget shapes the design.</b> Once the loop has killed the PD/DSM/divider terms, the only knob left is loop bandwidth: a wider bandwidth tracks (suppresses) more VCO noise but lets in more reference noise, and vice-versa. The 1.5 MHz / 60° design is the chosen REF-vs-VCO trade-off — see the <a href="frequency.html">Frequency-domain</a> page. <span class="tag t-slide">slide p.42</span>
 </div>
 
 <figure><img src="assets/figures/fd_jitter_pie.png" alt="jitter contribution pie chart"><figcaption>Modeled jitter-contribution breakdown reproducing slide 42 — cite slide p.42 and <code>freq_domain.json</code>.</figcaption></figure>
@@ -133,13 +138,13 @@ $$\sigma_{\phi,\text{tot}} = \sqrt{\textstyle\sum_i \sigma_{\phi,i}^2} \quad\tex
 <p>The site is organized as a guided path. Read it top to bottom the first time; jump around once you know the layout.</p>
 
 <ol class="roadmap">
-  <li><b><a href="slide-map.html">Slide map</a></b> — a one-row-per-slide index of all 42 slides: what each covers, which are background vs. the proposed Wu architecture vs. survey techniques, and where each equation lives.</li>
+  <li><b><a href="slides.html">Slide map</a></b> — a one-row-per-slide index of all 42 slides: what each covers, which are background vs. the proposed Wu architecture vs. survey techniques, and where each equation lives.</li>
   <li><b><a href="architecture.html">Architecture</a></b> — how the full DTC-assisted sampling PLL is wired together (CKREF → DTC → SPD → GM → VCO → MMD → modified DSM), why the DTC goes in the reference path, and the integer-N-like phase-error cancellation.</li>
   <li><b><a href="blocks.html">Blocks</a></b> — block-by-block deep dives: the RC variable-slope DTC and its quantization/thermal noise and nonlinearity, the sampling PD gain and IIR dynamics, the modified MMD + DSM, and the half-range / 8-phase range-reduction tricks.</li>
-  <li><b><a href="calibrations.html">Calibrations</a></b> — the four background sign-sign-LMS loops: DTC gain ($K_\text{DTC}$), VCO duty-cycle (vco_dcc), reference duty-cycle (ckref_dcc), and comparator/GM offset, plus why each is needed and how fast each converges.</li>
-  <li><b><a href="frequency-domain.html">Frequency-domain</a></b> — the linear type-II phase model, loop transfer functions and noise-transfer functions, the Bode plot / phase margin, and how the per-source phase-noise budget is built.</li>
-  <li><b><a href="time-domain.html">Time-domain</a></b> — a sample-by-sample behavioral simulation, the time-series of the loop, per-source jitter accumulation, and the Parseval cross-check against the frequency-domain result.</li>
-  <li><b><a href="code-walkthrough.html">Code walkthrough</a></b> — a line-by-line tour of the Python models that produce every figure on this site, mapping each line back to a slide formula.</li>
+  <li><b><a href="calibrations.html">Calibrations</a></b> — the four background sign-LMS loops: DTC gain ($K_\text{DTC}$, a <b>sign-error LMS</b> — 1-bit error × full-precision $\Phi_e$), VCO duty-cycle (vco_dcc) and reference duty-cycle (ckref_dcc) (both <b>sign-sign LMS</b> with a ±1 regressor), and comparator/GM offset, plus why each is needed and how fast each converges.</li>
+  <li><b><a href="frequency.html">Frequency-domain</a></b> — the linear type-II phase model, loop transfer functions and noise-transfer functions, the Bode plot / phase margin, and how the per-source phase-noise budget is built.</li>
+  <li><b><a href="timedomain.html">Time-domain</a></b> — a sample-by-sample behavioral simulation, the time-series of the loop, per-source jitter accumulation, and the Parseval cross-check against the frequency-domain result.</li>
+  <li><b><a href="codewalk.html">Code walkthrough</a></b> — a line-by-line tour of the Python models that produce every figure on this site, mapping each line back to a slide formula.</li>
   <li><b><a href="examples.html">Examples</a></b> — worked numerical examples: computing $K_\text{DTC}$, the DTC noise floors, $K_\text{SPD}$, and the jitter budget by hand, with the model as a check.</li>
   <li><b><a href="references.html">References</a></b> — the source deck, the author's own papers (Wu JSSC'19 / ISSCC'21 / RFIC'23), the survey works cited per slide, and the full provenance-tag legend.</li>
 </ol>
@@ -173,6 +178,30 @@ $$\sigma_{\phi,\text{tot}} = \sqrt{\textstyle\sum_i \sigma_{\phi,i}^2} \quad\tex
 
 <div class="assume">
   <b>Scope note (assumption).</b> This study models slides 1–42 (the architecture / DTC / calibration / noise material). Slides 43–57 (the 5G-NR LO chain example, detailed VCO design, and the bibliography) are out of scope and are not modeled here. The "proposed" architecture throughout the site is the author's DTC-assisted analog sampling PLL with four background calibrations; survey-only DTC techniques from other groups are described conceptually but not coded. See <code>docs/slide_inventory.md</code>.
+</div>
+
+<h2>New in-depth modules</h2>
+
+<p class="lead">Beyond the guided roadmap above, the following five pages take the same numbers further — into closed-loop dynamics, spur arithmetic, system-level meaning, a full worked design, and ungraded problems you can solve by hand.</p>
+
+<p>The roadmap teaches you <i>what</i> the architecture is and <i>why</i> each block exists. These modules push on the parts a first-year MS student usually finds slippery: <b>how the loop actually settles in time</b>, <b>where a fractional spur's dBc number comes from</b>, <b>what 87.6 fs means to a radio</b>, <b>how to size every component end-to-end</b>, and <b>how to test yourself</b>.</p>
+
+<ol class="roadmap">
+  <li><b><a href="loopdyn.html">Loop Dynamics &amp; Lock</a></b> — the closed-loop story behind the 1.5 MHz / 60° design: the real third-order pole–zero map (poles ≈ −4.1, −9.4, −21.7 Mrad/s, plus a zero at $f_z\approx 402$ kHz), the second-order approximation ($\zeta\approx0.97$, $f_n\approx0.78$ MHz), why the zero gives ~25 % phase-step overshoot and 1.70 dB gain-peaking, the ~1.13 µs settling, and why sampled-loop phase-margin erosion is tiny ($f_c/f_\text{ref}\approx1/70$). <span class="tag t-derive">derived/model</span></li>
+  <li><b><a href="spurs.html">Fractional Spurs</a></b> — how DTC INL turns into discrete tones: the spur arithmetic $\phi = 2\pi f_\text{out}\,\delta t$, $\text{dBc}=20\log_{10}(\phi_\text{pk}/2)$, the range-reduction ladder (−56 → −68 → −92 dBc as you go full / ½ / ⅛ range), nonlinear cancellation (NLC), VCO-duty spurs (~−64 dBc cal-off), and the measured −70…−85 dBc. <span class="tag t-derive">derived/model</span><span class="tag t-slide">slide p.41</span></li>
+  <li><b><a href="system.html">System Impact</a></b> — what the jitter buys you up at the antenna: $\text{EVM}_\text{rms}\approx\sigma_\phi$, phase-noise SNR $=-20\log_{10}\sigma_\phi=-\text{IPN}$, the QAM requirement ladder from slide 3, the jitter FoM ($-249.6$ dB for 87.6 fs / 14.2 mW), and the absolute / period / cycle-to-cycle jitter taxonomy. <span class="tag t-derive">derived/model</span><span class="tag t-slide">slide p.3</span></li>
+  <li><b><a href="designex.html">Design Walkthrough</a></b> — a single end-to-end sizing pass: pick $N$ from $f_\text{out}/f_\text{ref}$, set $K_\text{DTC}$, choose the loop bandwidth (the $f_c^\star\approx2.1$ MHz optimum vs. the conservative 1.5 MHz / 87.6 fs choice), allocate the noise budget, and check the result against slide 42. <span class="tag t-derive">derived/model</span></li>
+  <li><b><a href="problems.html">Design Problems</a></b> — a graded set of pencil-and-paper exercises (divide ratio, $K_\text{DTC}$, spur dBc, residual-gain-error floor $\epsilon$, FoM), each with a worked solution that reuses the verified site numbers. <span class="tag t-derive">derived/model</span></li>
+</ol>
+
+<h2>Concept map</h2>
+
+<p>The topics on this site are not a flat list — they depend on each other. The map below shows the dependency graph. The single most important ordering constraint is in the calibration stack: the <b>offset calibration must converge before the gain ($K_\text{DTC}$) and duty-cycle loops</b>, because under half-range operation the residual phase error $\Phi_e$ has a nonzero mean that couples the offset term into the gain estimate — so if offset has not yet settled, the gain loop adapts toward the wrong value.</p>
+
+<figure class="diagram"><img src="assets/diagrams/concept_map.svg" alt="concept dependency map"><figcaption>How the topics depend on each other; the offset calibration must converge before the gain/duty loops. <span class="tag t-derive">derived</span></figcaption></figure>
+
+<div class="note">
+  <b>How to read it.</b> An arrow A → B means "understand A before B." The architecture and blocks feed everything; the four calibrations share a single ordering rule (offset first), which is why the time-domain and spur pages depend on calibration having converged. <span class="tag t-derive">derived</span>
 </div>
 
 </div>

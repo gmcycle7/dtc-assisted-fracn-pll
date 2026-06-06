@@ -85,12 +85,12 @@ $$K_{SPD} = \frac{K_{slope}}{2\pi f_{ref}}.$$
 <p>
 With $K_{slope}=6$ GV/s and $f_{ref}=104$ MHz <span class="tag t-slide">slide p20</span>:</p>
 <div class="derive">
-$$K_{SPD} = \frac{6\times10^{9}\ \text{V/s}}{2\pi \cdot 104\times10^{6}\ \text{Hz}} = \frac{57.7}{2\pi} \approx 9.19\ \text{V/rad}$$ <span class="tag t-derive">derived</span> (derivations §6)
+$$K_{SPD} = \frac{6\times10^{9}\ \text{V/s}}{2\pi \cdot 104\times10^{6}\ \text{Hz}} = \frac{57.7}{2\pi} \approx 9.18\ \text{V/rad}$$ <span class="tag t-derive">derived</span> (derivations §6)
 <p style="margin-bottom:0">Reading: a phase error $\varphi$ (rad) at the reference is a time error $\varphi/(2\pi f_{ref})$, which the slope $K_{slope}$ turns into a sampled voltage $K_{SPD}\cdot\varphi$.</p>
 </div>
 
 <div class="kpi">
-  <div class="box"><div class="v">9.19 V/rad</div><div class="l">K_SPD (sampling PD)</div></div>
+  <div class="box"><div class="v">9.18 V/rad</div><div class="l">K_SPD (sampling PD)</div></div>
   <div class="box"><div class="v">6 GV/s</div><div class="l">slope K_slope</div></div>
   <div class="box"><div class="v">≫ K_PD</div><div class="l">vs. PFD–charge-pump</div></div>
   <div class="box"><div class="v">&lt; −170 dBc/Hz</div><div class="l">SPD+GM noise (C_I,2 ≈ 200 fF)</div></div>
@@ -229,7 +229,7 @@ The reason this gain matters: because $K_{SPD}$ is so large, the noise of everyt
     <tr><td>Divide ratio $N$</td><td class="num">64.62</td><td><span class="tag t-derive">derived</span> [A3] (= 6720/104)</td></tr>
     <tr><td>Loop bandwidth $f_c$</td><td class="num">1.5 MHz</td><td><span class="tag t-assume">assumption</span> [A1] (measured 1.501 MHz in model)</td></tr>
     <tr><td>Phase margin PM</td><td class="num">60°</td><td><span class="tag t-assume">assumption</span> [A2]</td></tr>
-    <tr><td>SPD gain $K_{SPD}$</td><td class="num">9.19 V/rad</td><td><span class="tag t-derive">derived</span> from slide p20</td></tr>
+    <tr><td>SPD gain $K_{SPD}$</td><td class="num">9.18 V/rad</td><td><span class="tag t-derive">derived</span> from slide p20</td></tr>
     <tr><td>DTC LSB $T_{res}$ / range</td><td class="num">400 fs / 400 ps (10-bit)</td><td><span class="tag t-slide">slide p15</span></td></tr>
     <tr><td>DTC QN floor</td><td class="num">−163 dBc/Hz</td><td><span class="tag t-slide">slide p15</span> (reproduced <span class="tag t-derive">derived</span>)</td></tr>
     <tr><td>DTC thermal floor</td><td class="num">−171 dBc/Hz</td><td><span class="tag t-slide">slide p16</span> [A14]</td></tr>
@@ -243,6 +243,75 @@ The reason this gain matters: because $K_{SPD}$ is so large, the noise of everyt
 
 <h2 id="self-check">Self-check</h2>
 <div class="quiz"><div class="q">Q1. The DSM dithers the divide ratio so it averages to a fraction, which makes the feedback edge wander in time. In the DTC-assisted architecture, how is the resulting ΔΣ quantization error (QE) prevented from reaching the phase detector, and what value does the DTC command $\Delta t[n]$ track? Give the defining gain relation too.</div><details><summary>Show answer</summary><div class="ans">The DSM knows the QE exactly each cycle (it is the accumulator residue $\Phi_{QE}[n]$), so instead of letting it hit the PD we delay the reference clock by the same amount with the DTC. The delay command tracks the accumulated QE: $\Delta t[n] = \Phi_{QE}[n]/K_{DTC}$ (DTC code $= K_{DTC}\cdot\Phi_e[n]$), with the gain defined as $K_{DTC} = T_{vco}/\Delta t_{DTC}$ (codes per VCO period). When $K_{DTC}$ is calibrated, CKDTC and CKFB line up and the PD sees $\approx 0$ — "just like the integer-N case." This is why the DSM-QE bucket in the budget is driven to $\approx 0.3\%$ (slide quotes $\approx 0\%$). <span class="tag t-slide">slide p9</span> <span class="tag t-slide">slide p42</span></div></details></div>
-<div class="quiz"><div class="q">Q2. The sampling phase detector (SPD) ramps a voltage and samples it on the feedback edge. With slope $K_{slope}=6$ GV/s and $f_{ref}=104$ MHz, what is the SPD gain $K_{SPD}$, and why does such a high gain let the downstream transconductor GM be tiny and low-power?</div><details><summary>Show answer</summary><div class="ans">$K_{SPD} = \dfrac{K_{slope}}{2\pi f_{ref}} = \dfrac{6\times10^{9}}{2\pi\cdot104\times10^{6}} \approx 9.19$ V/rad. Because $K_{SPD}$ is large, the noise of everything after it (the µA-level GM, the comparator offset) is divided down by $K_{SPD}$ when referred back to the input, so GM can be small and low-power yet stay below the floor (SPD+GM noise $<-170$ dBc/Hz, only $\approx 3.9\%$ of the jitter budget). <span class="tag t-derive">derived</span> from <span class="tag t-slide">slide p20</span></div></details></div>
+<div class="quiz"><div class="q">Q2. The sampling phase detector (SPD) ramps a voltage and samples it on the feedback edge. With slope $K_{slope}=6$ GV/s and $f_{ref}=104$ MHz, what is the SPD gain $K_{SPD}$, and why does such a high gain let the downstream transconductor GM be tiny and low-power?</div><details><summary>Show answer</summary><div class="ans">$K_{SPD} = \dfrac{K_{slope}}{2\pi f_{ref}} = \dfrac{6\times10^{9}}{2\pi\cdot104\times10^{6}} \approx 9.18$ V/rad. Because $K_{SPD}$ is large, the noise of everything after it (the µA-level GM, the comparator offset) is divided down by $K_{SPD}$ when referred back to the input, so GM can be small and low-power yet stay below the floor (SPD+GM noise $<-170$ dBc/Hz, only $\approx 3.9\%$ of the jitter budget). <span class="tag t-derive">derived</span> from <span class="tag t-slide">slide p20</span></div></details></div>
 <div class="quiz"><div class="q">Q3. Slide 39 draws two control paths into the VCO — a proportional $V_{ctrl,P}$ and an integral $V_{ctrl,I}$. What loop "type" does the integral path make this, how many poles at the origin does it create, and what would degrade if you removed the integral path?</div><details><summary>Show answer</summary><div class="ans">The integral path adds a second pole at the origin (one from the VCO, one from the integrator), making the loop <b>Type-II</b>, which tracks frequency offsets with zero steady-state phase error. Remove the integral path and the loop becomes Type-I, leaving a static phase error and worse reference-spur suppression. (We model Type-II with $f_c\approx1.5$ MHz <span class="tag t-assume">assumption [A1]</span> and PM $\approx60^\circ$ <span class="tag t-assume">assumption [A2]</span>; exact chip topology not stated on slides 1–42.) <span class="tag t-slide">slide p39</span> <span class="tag t-std">textbook (Gardner)</span></div></details></div>
+
+<h2 id="ckrefx2">On the reference doubler (CKREFX2)</h2>
+<p class="lead">The very first block in the signal chain — <code>CKREF → ×2 → CKREFX2</code> on slide 39 — looks like a throwaway frequency multiply, but it is a deliberate design lever: doubling the reference halves the time the DTC must span every update <i>and</i> improves the in-band reference-path SNR. The price is a new error term — an alternating-cycle duty imperfection — which is exactly what the third calibration (<code>ckref_dcc</code>) exists to remove.</p>
+
+<h3>Why a designer doubles the reference</h3>
+<p>
+On slide 39 the input clock passes through a $\times 2$ doubler before the DTC, producing <b>CKREFX2</b> <span class="tag t-slide">slide p39</span>. Three things happen when the update rate goes from $f_{ref}$ to $2f_{ref}$, and the first two are why you would <i>want</i> to do it.
+</p>
+
+<div class="grid">
+  <div class="card">
+    <h4>1 · Smaller per-update QE wander → smaller DTC range</h4>
+    <p>The DTC must absorb the divider's per-update timing wander, whose span is set by the DSM order: $\pm(\text{order})\cdot T_{vco}/2$ in <i>VCO periods</i> <span class="tag t-slide">slide p6</span>. But the time the DTC has to <i>resolve</i> that wander against is one reference period $T_{ref}=1/f_{ref}$. Run the loop at $2f_{ref}$ and each update spans a shorter window: less accumulated phase slips between adjacent edges, so the staircase command $\Delta t[n]=\Phi_{QE}[n]/K_{DTC}$ has to traverse a smaller dynamic range per step <span class="tag t-derive">derived/model</span>. A smaller required DTC range is the single best thing that can happen to a DTC: range $\propto$ QN, range$^2 \propto$ power, and INL grows with range — the whole slide-33 tradeoff chain ($\text{DR}=2^n t_{res}$, $\text{QN}\propto t_{res}^2$, power $\propto \text{DR}^2$) improves at once <span class="tag t-slide">slide p33</span>.</p>
+  </div>
+  <div class="card">
+    <h4>2 · Better in-band reference-path SNR</h4>
+    <p>Two effects push the in-band floor down. First, doubling $f_{ref}$ halves the divide ratio $N=f_{out}/f_{ref}$, and every reference-path source is multiplied to the output by $N$ (gain $20\log_{10}N$ in PN), so halving $N$ buys $\approx 6$ dB of in-band headroom on the REF/SPD/MMD bucket <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>. Second, you take <b>twice as many phase samples per second</b>; for the same target loop bandwidth the per-update noise is averaged over more samples, lowering the contribution of the discrete-time detector path <span class="tag t-derive">derived</span>. Since the REF$+$DTC bucket is $\sim$37.8% of the budget (slide quotes 39%) <span class="tag t-slide">slide p42</span>, shaving it is worth real femtoseconds.</p>
+  </div>
+  <div class="card">
+    <h4>3 · The catch — DTC QN scales <i>with</i> $f_{ref}$</h4>
+    <p>The one term that moves the wrong way is the DTC's own quantization noise. From slide 15 the input-referred DTC-QN PSD is
+    $$\Phi_{DTC,QN}=\frac{(2\pi\,T_{res})^2}{12}\,f_{ref},$$
+    so $\Phi_{DTC,QN}\propto f_{ref}$ <span class="tag t-slide">slide p15</span>. Doubling the effective reference rate raises this floor by $10\log_{10}2\approx 3$ dB <span class="tag t-derive">derived</span> for a fixed $T_{res}$. The reason the doubler still wins is that the <i>finer required range</i> (effect 1) lets you use fewer bits / a smaller $T_{res}$, and the $N$-reduction (effect 2) lowers everything else — so the net REF$+$DTC bucket drops even though this one sub-term rises.</p>
+  </div>
+</div>
+
+<div class="derive">
+<b>Reading the $f_{ref}$ dependence both ways.</b> Notice that $\Phi_{DTC,QN}\propto f_{ref}$ is a <i>per-cycle quantization variance times rate</i>: each comparison snaps the edge to the nearest $T_{res}$ grid (variance $T_{res}^2/12$ in time), and you make $f_{ref}$ such comparisons per second, so the white timing-noise PSD scales linearly with rate <span class="tag t-std">textbook (quantization)</span>. The factor $(2\pi)^2$ converts a time error to a phase error at the carrier; the resulting $-163$ dBc/Hz uses $T_{res}=400$ fs, $f_{ref}=104$ MHz with the $/12$ (double-sided) convention <span class="tag t-slide">slide p15</span>. If the cal/DTC actually runs at $2f_{ref}=208$ MHz, plug that in and the floor rises $\approx 3$ dB — which is why the doubler is only a net win when paired with range reduction.
+</div>
+
+<h3>The duty-cycle problem a doubler creates</h3>
+<p>
+A clock doubler is usually built by XOR-ing the reference with a delayed copy of itself (one output edge per input edge, i.e. doubled rate). Any error in that internal delay — or any deviation from a 50% duty cycle on CKREFX2 — makes the <b>even and odd half-periods unequal</b>. The doubled clock then has two interleaved edge spacings, $T_{ref}/2+\delta$ and $T_{ref}/2-\delta$, that <b>alternate every cycle</b> <span class="tag t-derive">derived/model</span> <span class="tag t-assume">assumption [A-dbl]</span>. From the loop's point of view that is a deterministic timing error that flips sign on alternating reference cycles — an <b>alternating-cycle (period) error</b>, exactly the impairment slide 40 injects as "1 ns (57%) CKREF duty error" <span class="tag t-slide">slide p40</span>.
+</p>
+
+<div class="assume">
+<b>[A-dbl] — how the doubler is built.</b> Slides 1–42 show the $\times 2$ block but not its internals. The XOR-of-delayed-copy implementation (and therefore the "duty error $\to$ alternating-cycle error" mechanism) is the standard textbook doubler and is consistent with slide 40 calling the impairment a <i>CKREF duty-cycle</i> error and correcting it with an <i>even/odd-cycle</i> regressor. We treat the exact circuit as an assumption. <span class="tag t-assume">assumption</span> <span class="tag t-std">textbook</span>
+</div>
+
+<p>
+This is why the calibration that fixes it correlates the 1-bit error with an <b>even_cycle($\pm 1$)</b> regressor that toggles every reference cycle: the alternating-cycle error is, by construction, the component of $e[k]$ that is in lock-step with even_cycle. The <code>ckref_dcc</code> loop is a sign-sign LMS — $(1-z^{-1})e[k]$ correlated with even_cycle($\pm1$), integrated, then injected into the <b>FCW path before the modified DSM</b> ($\text{FCW}'=\text{FCW}+\text{ckref\_dcc}$) so the divider pre-compensates the period imbalance <span class="tag t-slide">slide p40</span>. It converges in $\approx 1\,\mu$s, pulling the injected 1 ns down to $\approx 0.337$ ns residual (see the calibration table above) <span class="tag t-slide">slide p40</span> <span class="tag t-derive">derived</span>.
+</p>
+
+<div class="note">
+<b>Contrast with vco_dcc.</b> The reference doubler's even/odd imbalance is the <i>reference-side</i> twin of the VCO duty error: <code>vco_dcc</code> uses a <b>SEL_CKFB($\pm1$)</b> regressor (toggling with the phase-select pattern) and adds its correction <i>into the DTC code</i>; <code>ckref_dcc</code> uses an <b>even_cycle($\pm1$)</b> regressor (toggling per reference cycle) and adds its correction <i>into the FCW</i>. These two regressors are mutually orthogonal under expectation, so the two loops co-adapt without fighting <span class="tag t-derive">derived</span> <span class="tag t-slide">slide p40</span>.
+</div>
+
+<h3>Resolving open question #6 — what rate is the budget at?</h3>
+<p>
+The natural confusion: if the DTC and PD run on CKREFX2, is the "reference" 104 MHz or 208 MHz? Here is the teaching resolution <span class="tag t-derive">derived</span> (this resolves <i>open_questions #6</i>):
+</p>
+<ul>
+  <li><b>Effective update rate (where the doubler is shown):</b> the DTC, the sampling PD, and the calibration loops operate at the <b>doubled</b> rate, $2f_{ref}=208$ MHz <span class="tag t-assume">assumption [A6]</span>. That is the rate that sets the DTC's required range (smaller) and the rate that appears inside $\Phi_{DTC,QN}\propto f_{ref}$.</li>
+  <li><b>Reported budget rate:</b> every headline number in this study — total jitter, IPN, the percentage pie — is quoted at the <b>base $f_{ref}=104$ MHz</b>, because that is the condition slide 42 states ("LO 6720 MHz, REF 104.0 MHz") <span class="tag t-slide">slide p42</span>. The walkthrough above also flags this: "We report all budget numbers at the base $f_{ref}=104$ MHz."</li>
+</ul>
+
+<div class="kpi">
+  <div class="box"><div class="v">104 MHz</div><div class="l">reported $f_{ref}$ (budget, slide 42)</div></div>
+  <div class="box"><div class="v">208 MHz</div><div class="l">effective DTC/PD rate (×2, [A6])</div></div>
+  <div class="box"><div class="v">∝ $f_{ref}$</div><div class="l">DTC-QN scaling (+3 dB if doubled)</div></div>
+  <div class="box"><div class="v">even_cycle ±1</div><div class="l">ckref_dcc regressor</div></div>
+</div>
+
+<div class="warn">
+<b>If you drop the doubler:</b> the DTC must span the full per-update wander against a $T_{ref}$ that is twice as long, forcing a larger DTC range — worse QN, worse INL (spurs), more power — and the in-band floor rises $\approx 6$ dB because $N$ doubles. <b>If you keep the doubler but skip <code>ckref_dcc</code>:</b> the doubler's unavoidable duty imperfection injects an alternating-cycle tone that lands as a fractional spur, undoing the SNR gain you bought. The doubler and its duty-cycle calibration are a matched pair — neither is useful without the other <span class="tag t-slide">slide p40</span> <span class="tag t-derive">derived</span>.
+</div>
+
+<div class="quiz"><div class="q">Q4. Doubling the reference improves two things and worsens one. Name all three, and explain — using the slide-15 formula — why the DTC's own quantization noise is the term that gets worse.</div><details><summary>Show answer</summary><div class="ans"><b>Improves:</b> (1) the DTC's required dynamic range shrinks because each update spans a shorter window $T_{ref}/2$, and smaller range means lower QN, lower power ($\propto\text{DR}^2$), and better linearity; (2) in-band reference-path SNR improves because $N=f_{out}/f_{ref}$ halves ($\approx 6$ dB less in-band gain) and there are twice as many phase samples to average. <b>Worsens:</b> (3) the DTC quantization-noise floor, because $\Phi_{DTC,QN}=\frac{(2\pi T_{res})^2}{12}f_{ref}\propto f_{ref}$ — each comparison adds $T_{res}^2/12$ of timing variance and you do $f_{ref}$ of them per second, so doubling the rate adds $10\log_{10}2\approx 3$ dB for fixed $T_{res}$. The net is still a win because the range reduction lets you shrink $T_{res}$ and the $N$-reduction lowers everything else. <span class="tag t-slide">slide p15</span> <span class="tag t-slide">slide p33</span> <span class="tag t-derive">derived</span></div></details></div>
+<div class="quiz"><div class="q">Q5. A reference doubler with imperfect 50% duty creates a specific kind of timing error. What is it called, which calibration corrects it, what regressor does that calibration use, and where is the correction injected? Contrast the regressor and injection point with the VCO duty-cycle cal.</div><details><summary>Show answer</summary><div class="ans">An imperfect-duty doubler produces an <b>alternating-cycle (period) error</b>: the even and odd half-periods differ, so the timing error flips sign every reference cycle (slide 40 injects this as a 1 ns / 57% CKREF duty error). It is corrected by <b>ckref_dcc</b>, a sign-sign LMS that correlates $(1-z^{-1})e[k]$ with an <b>even_cycle($\pm1$)</b> regressor (toggles every reference cycle) and injects the correction into the <b>FCW path before the modified DSM</b> ($\text{FCW}'=\text{FCW}+\text{ckref\_dcc}$). Contrast: <b>vco_dcc</b> uses a <b>SEL_CKFB($\pm1$)</b> regressor (toggles with the phase-select pattern) and adds its correction <b>into the DTC code</b>. The two regressors are orthogonal under expectation, so the loops co-adapt without interfering. <span class="tag t-slide">slide p40</span> <span class="tag t-derive">derived</span></div></details></div>
 

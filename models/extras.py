@@ -96,6 +96,12 @@ def spur_spectrum(p: PLLParams, alpha=0.02, g2=0.6, g3=0.1, redux=1.0, nlc=False
     X = np.fft.rfft(w)
     freq = np.fft.rfftfreq(N, d=1.0 / p.f_ref)
     amp = 2 * np.abs(X) / N / 0.5
+    # single-sided convention: DC (bin 0) and the Nyquist bin (N/2, present when
+    # N is even) are NOT doubled — they have no negative-frequency twin. Doubling
+    # the f_ref/2 bin would overstate an alternating-cycle (duty) spur by 6 dB.
+    amp[0] /= 2.0
+    if N % 2 == 0:
+        amp[-1] /= 2.0
     hr = np.array([abs(H_ref(p, f)) / p.N if f > 0 else 1.0 for f in freq])
     amp = amp * hr
     dbc = 20 * np.log10(amp / 2 + 1e-300)
