@@ -22,7 +22,23 @@ A designer thinks in <b>phase margin</b> (a frequency-domain robustness number) 
 </p>
 $$ \omega_n = \sqrt{K_\text{loop}}, \qquad \zeta = \frac{\sqrt{K_\text{loop}}}{2\,\omega_z} = \frac{\omega_n}{2\,\omega_z}. $$
 <p>
-With $K_\text{loop}=2.38\times10^{13}$ and $\omega_z = 2\pi\cdot 402$ kHz, this gives $\omega_n/2\pi \approx 0.78$ MHz and $\zeta \approx 0.97$ <span class="tag t-derive">derived (extras.py::zeta_wn)</span> — a nearly critically damped loop. The same $\zeta$ controls the <b>closed-loop gain peaking</b> $M_p$ of the magnitude response <span class="tag t-std">textbook (2nd-order)</span>:
+With $K_\text{loop}=2.38\times10^{13}$ and $\omega_z = 2\pi\cdot 402$ kHz, this gives $\omega_n/2\pi \approx 0.78$ MHz and $\zeta \approx 0.97$ <span class="tag t-derive">derived (extras.py::zeta_wn)</span> — a nearly critically damped loop
+
+<div class="derive">
+<b>Worked example — turn PM = 60&deg; into &zeta; = 0.97, one substitution at a time.</b>
+<p><b>GIVEN:</b> \(f_c = 1.5\) MHz <span class="tag t-assume">[A1]</span>, PM \(=60^\circ\) <span class="tag t-assume">[A2]</span>. The symmetric type-II recipe places the zero and pole geometrically about the crossover.</p>
+<p><b>Step 1 — crossover in rad/s.</b> \(\omega_c = 2\pi f_c = 2\pi(1.5\times10^6) = 9.425\times10^6\) rad/s <span class="tag t-derive">derived</span>.</p>
+<p><b>Step 2 — the spacing factor.</b> A symmetric loop gets all its phase boost from a zero/pole pair placed by the single factor \(k\): \(\text{PM} = 2\arctan k - 90^\circ \Rightarrow k = \tan\!\frac{\text{PM}+90^\circ}{2}\).</p>
+$$ k = \tan\!\left(\frac{60^\circ + 90^\circ}{2}\right) = \tan 75^\circ = 2+\sqrt{3} = 3.732. $$
+<p><b>Step 3 — place the zero and far pole</b> symmetrically about \(\omega_c\) (geometric mean \(=\omega_c\)):</p>
+$$ \omega_z = \frac{\omega_c}{k} = \frac{9.425\times10^6}{3.732} = 2.525\times10^6\ \text{rad/s}\ (402\ \text{kHz}),\qquad \omega_p = \omega_c\,k = 3.517\times10^7\ \text{rad/s}\ (5.60\ \text{MHz}). $$
+<p><b>Step 4 — gain constant from \(|G(j\omega_c)| = 1\).</b> Solving \(K_\text{loop}\,\bigl|(1+j\omega_c/\omega_z)/(\,(j\omega_c)^2(1+j\omega_c/\omega_p)\,)\bigr| = 1\) gives \(K_\text{loop} = 2.38\times10^{13}\) <span class="tag t-derive">derived (PLLParams._design_type2_loop)</span>.</p>
+<p><b>Step 5 — collapse to the 2nd-order picture:</b></p>
+$$ \frac{\omega_n}{2\pi} = \frac{\sqrt{K_\text{loop}}}{2\pi} = \frac{4.879\times10^6}{2\pi} = 0.776\ \text{MHz},\qquad \zeta = \frac{\sqrt{K_\text{loop}}}{2\,\omega_z} = \frac{4.879\times10^6}{2(2.525\times10^6)} = 0.966. $$
+<p><b>The peaking paradox (the point of this box).</b> Drop \(\zeta=0.966\) into the textbook \(M_p = 1/(2\zeta\sqrt{1-\zeta^2})\): the denominator is \(2(0.966)\sqrt{1-0.966^2} = 0.500\), so the formula returns \(M_p = 2.0\) (\(+6\) dB) &mdash; which is <em>nonsense</em>, because the formula is only valid for \(\zeta<1/\sqrt2\). It is telling you a 2nd-order pole pair this damped <b>cannot peak at all</b>. Yet the real third-order \(H_\text{ref}/N\) <em>does</em> peak <b>1.70 dB</b> at 0.70 MHz <span class="tag t-derive">model</span>. The peaking is not from an underdamped pole pair (there isn't one &mdash; &sect;2 shows three real poles); it is supplied entirely by the <b>zero</b> \(\omega_z\). That is exactly the gap &sect;2.2 explains.</p>
+<p style="font-size:0.9em;color:#666"><b>Sanity check:</b> the deck's design value \(\zeta\approx0.97\) and the node-validated \(\zeta=0.966\) agree to two digits, and \(\omega_n/2\pi = 0.78\) MHz reproduces the KPI strip. <span class="tag t-derive">derived</span></p>
+</div>
+. The same $\zeta$ controls the <b>closed-loop gain peaking</b> $M_p$ of the magnitude response <span class="tag t-std">textbook (2nd-order)</span>:
 </p>
 $$ M_p = \frac{1}{2\,\zeta\,\sqrt{1-\zeta^2}}\qquad (\text{valid for } \zeta < 1/\sqrt{2}\approx 0.707). $$
 
@@ -74,7 +90,21 @@ At nominal gain (1&times;) the three roots are all <b>real</b> <span class="tag 
 <details class="deriv"><summary>Show the algebra (cubic from $1+G_\text{ol}=0$)</summary>
 <p>Start from $1 + K_\text{loop}\dfrac{1+s/\omega_z}{s^2(1+s/\omega_p)} = 0$. Multiply through by $s^2(1+s/\omega_p)$:</p>
 $$ s^2\Bigl(1+\tfrac{s}{\omega_p}\Bigr) + K_\text{loop}\Bigl(1+\tfrac{s}{\omega_z}\Bigr) = 0 \;\Longrightarrow\; \frac{s^3}{\omega_p} + s^2 + \frac{K_\text{loop}}{\omega_z}\,s + K_\text{loop} = 0. $$
-<p>Multiply by $\omega_p$ to get the monic cubic $s^3 + \omega_p s^2 + (K_\text{loop}\omega_p/\omega_z)s + K_\text{loop}\omega_p = 0$ — exactly the coefficient list <code>[1, wp, K*wp/wz, K*wp]</code> handed to <code>np.roots</code> in <code>closed_loop_poles</code>. All three roots come out negative-real at nominal gain because $\zeta\approx 0.97$ (no underdamped pair); the dominant pair $-4.1, -9.4$ Mrad/s sets the envelope and the far pole $-21.7$ Mrad/s (near $\omega_p$) is the fast HF-cleanup mode.</p>
+<p>Multiply by $\omega_p$ to get the monic cubic $s^3 + \omega_p s^2 + (K_\text{loop}\omega_p/\omega_z)s + K_\text{loop}\omega_p = 0$ — exactly the coefficient list
+
+<div class="derive">
+<b>Worked example — solve the cubic with the real numbers, then check it with Vieta.</b>
+<p><b>GIVEN</b> (from the box above): \(K_\text{loop}=2.380\times10^{13}\), \(\omega_z=2.525\times10^6\) rad/s, \(\omega_p=3.517\times10^7\) rad/s <span class="tag t-derive">derived</span>. Substitute into the three non-leading coefficients of \(s^3+\omega_p s^2+(K_\text{loop}\omega_p/\omega_z)s+K_\text{loop}\omega_p=0\):</p>
+$$ \omega_p = 3.517\times10^{7},\quad \frac{K_\text{loop}\,\omega_p}{\omega_z}=3.315\times10^{14},\quad K_\text{loop}\,\omega_p=8.372\times10^{20}. $$
+<p>Hand <code>[1,&nbsp;3.517e7,&nbsp;3.315e14,&nbsp;8.372e20]</code> to <code>np.roots</code> <span class="tag t-derive">model (extras.py::closed_loop_poles)</span>:</p>
+$$ s_1 = -4.104,\qquad s_2 = -9.425,\qquad s_3 = -21.645\quad[\text{Mrad/s}], $$
+<p>all three on the negative real axis &mdash; no complex pair, consistent with \(\zeta\approx0.97\). Note \(s_2 = -9.425\) Mrad/s is exactly \(-\omega_c\) (the dominant mode sits at crossover) and \(s_3 = -21.6\) Mrad/s is the fast HF-cleanup pole near \(\omega_p\).</p>
+<p><b>Sanity check (Vieta).</b> For a monic cubic the sum of roots equals minus the \(s^2\) coefficient and the product equals minus the constant term:</p>
+$$ s_1+s_2+s_3 = -(4.104{+}9.425{+}21.645)\times10^6 = -3.517\times10^7 = -\omega_p\ \checkmark $$
+$$ s_1 s_2 s_3 = -8.372\times10^{20} = -K_\text{loop}\,\omega_p\ \checkmark $$
+<p style="font-size:0.9em;color:#666">Both identities hold to full precision, so the three roots really are the cubic's roots &mdash; and they reproduce the &minus;4.1 / &minus;9.4 / &minus;21.7 Mrad/s KPI strip. <span class="tag t-derive">model</span></p>
+</div>
+ <code>[1, wp, K*wp/wz, K*wp]</code> handed to <code>np.roots</code> in <code>closed_loop_poles</code>. All three roots come out negative-real at nominal gain because $\zeta\approx 0.97$ (no underdamped pair); the dominant pair $-4.1, -9.4$ Mrad/s sets the envelope and the far pole $-21.7$ Mrad/s (near $\omega_p$) is the fast HF-cleanup mode.</p>
 </details>
 
 <figure>
@@ -147,7 +177,19 @@ Switch between a <b>phase step</b> and a <b>frequency step</b> (VCO yanked off-f
 <p class="small">Try this: lower the phase margin toward 45&deg; and the overshoot grows and the ringing lasts longer; widen f_c and the loop settles faster (settling $\propto 1/f_c$) but you already know from the frequency page that this lets more reference/DTC noise in. That is the same gear-shifting trade-off discussed in §5.</p>
 
 <div class="derive">
-<b>Lock time scales as $1/f_c$.</b> The dominant closed-loop pole sits near $\omega_c$, so the envelope time constant is $\tau\approx 1/\omega_c = 1/(2\pi f_c)$. A 1% settle needs roughly $\ln(100)\approx 4.6$ time constants, i.e. $t_\text{settle}\approx 4.6/(2\pi f_c)$. With $f_c=1.5$ MHz that is ~0.49 &micro;s for a pure first-order envelope; the measured ~1.13 &micro;s is longer because of the ring from the zero and the second dominant pole. Either way, <b>lock time $\sim 1/f_c$</b> — halving the bandwidth roughly doubles the settling. <span class="tag t-derive">model</span> <span class="tag t-std">textbook</span>
+<b>Lock time scales as $1/f_c$.</b> The dominant closed-loop pole sits near $\omega_c$, so the envelope time constant is $\tau\approx 1/\omega_c = 1/(2\pi f_c)$. A 1% settle needs roughly $\ln(100)\approx 4.6$ time constants, i.e. $t_\text{settle}\approx 4.6/(2\pi f_c)$. With $f_c=1.5$ MHz that is ~0.49 &micro;s for a pure first-order envelope; the measured ~1.13 &micro;s is longer because of the ring from the zero and the second dominant pole. Either way, <b>lock time
+
+<details class="deriv"><summary><b>Worked example:</b> reconcile the 0.49 &micro;s envelope estimate with the simulated 1.13 &micro;s</summary>
+<p><b>GIVEN:</b> \(f_c=1.5\) MHz \(\Rightarrow \omega_c = 9.425\times10^6\) rad/s, and the three closed-loop poles \(-4.104,\,-9.425,\,-21.645\) Mrad/s from the cubic above <span class="tag t-derive">model</span>. A 1% settle needs \(\ln(100)=4.605\) time constants of the slowest surviving mode.</p>
+<p><b>Naive estimate &mdash; assume the envelope sits at the crossover \(\omega_c\):</b></p>
+$$ t_\text{settle} \approx \frac{\ln 100}{\omega_c} = \frac{4.605}{9.425\times10^6} = 0.489\ \mu\text{s}. $$
+<p>This is the number quoted just above &mdash; and it is more than 2&times; too fast versus the discrete-time simulation's <b>1.13 &micro;s</b>. Why?</p>
+<p><b>Corrected estimate &mdash; use the true dominant (slowest) pole.</b> The envelope is governed by the pole <em>closest to the origin</em>, \(|s_1| = 4.104\times10^6\) rad/s (\(=0.653\) MHz, well below \(\omega_c\)), not by \(\omega_c\) itself:</p>
+$$ t_\text{settle} \approx \frac{\ln 100}{|s_1|} = \frac{4.605}{4.104\times10^6} = 1.122\ \mu\text{s}. $$
+<p>Now it lands within 1% of the simulated 1.13 &micro;s. The remaining sliver is the ring contributed by the zero \(\omega_z\) and the second pole. <b>Lesson:</b> &ldquo;lock time \(\sim 1/f_c\)&rdquo; is the right <em>scaling</em>, but the right <em>prefactor</em> uses the dominant pole, which here is \(0.653/1.5 = 0.44\) of \(f_c\) &mdash; so the loop is roughly \(1.5/0.653 = 2.3\times\) slower than the crossover would suggest.</p>
+<p style="font-size:0.9em;color:#666"><b>Sanity check:</b> halving \(f_c\) halves every pole, so both \(t_\text{settle}\) estimates double &mdash; confirming the \(1/f_c\) law independent of which pole you use. <span class="tag t-derive">model</span> <span class="tag t-std">textbook</span></p>
+</details>
+ $\sim 1/f_c$</b> — halving the bandwidth roughly doubles the settling. <span class="tag t-derive">model</span> <span class="tag t-std">textbook</span>
 </div>
 
 <h2>5. Acquisition: how the loop actually catches lock</h2>

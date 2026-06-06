@@ -105,6 +105,22 @@ $\omega_c = \sqrt{\omega_z\,\omega_p}$ <span class="tag t-std">textbook (Gardner
 zero a factor $k$ below $f_c$ and the pole a factor $k$ above $f_c$ gives exactly that geometric-mean
 crossover, so the chosen PM is the <i>maximum</i> phase margin for that zero/pole spacing — the most
 robust design for a given bandwidth. Check: $\sqrt{402\text{ kHz}\cdot 5.60\text{ MHz}} \approx 1.50$ MHz $= f_c$. ✓
+
+<div class="derive">
+<b>Worked example — designing the loop from two targets.</b> The §2.2 recipe is just two formulas; here is every digit.
+<p><b>GIVEN.</b> $f_c = 1.5$ MHz <span class="tag t-assume">assumption [A1]</span>, $\text{PM}=60^\circ$ <span class="tag t-assume">assumption [A2]</span>. So $\omega_c = 2\pi f_c = 9.4248\times10^{6}$ rad/s.</p>
+<p><b>STEP 1 — spacing factor.</b> Invert $\text{PM}=2\arctan(k)-90^\circ$:</p>
+$$ k=\tan\!\Bigl(\tfrac{\text{PM}+90^\circ}{2}\Bigr)=\tan\!\Bigl(\tfrac{60^\circ+90^\circ}{2}\Bigr)=\tan(75^\circ)=3.7321. $$
+<p><b>STEP 2 — zero and pole, symmetric about $f_c$.</b></p>
+$$ f_z=\frac{f_c}{k}=\frac{1.5\text{ MHz}}{3.7321}=401.9\text{ kHz},\qquad
+   f_p=f_c\,k=1.5\text{ MHz}\times3.7321=5.598\text{ MHz}. $$
+<p style="font-size:0.9em;color:#666">(i.e. $\omega_z=2.5254\times10^{6}$, $\omega_p=3.5174\times10^{7}$ rad/s.)</p>
+<p><b>STEP 3 — gain constant from unity-gain-at-crossover.</b> Demand $|G_\text{ol}(j\omega_c)|=1$. The pure shape factor evaluated at $j\omega_c$ is</p>
+$$ \Bigl|\tfrac{1+j\omega_c/\omega_z}{(j\omega_c)^2\,(1+j\omega_c/\omega_p)}\Bigr| = 4.2015\times10^{-14},\qquad
+   K_\text{loop}=\frac{1}{4.2015\times10^{-14}}=2.380\times10^{13}. $$
+<p><b>SANITY CHECK.</b> Geometric-mean crossover $\sqrt{f_z f_p}=\sqrt{401.9\text{ kHz}\times5.598\text{ MHz}}=1.500$ MHz $=f_c$ ✓, and plugging back gives $|G_\text{ol}(j\omega_c)|=1.000$ with $\angle G_\text{ol}=-120^\circ$, so $\text{PM}=180^\circ-120^\circ=60^\circ$ ✓ — matching the numerically-extracted $f_c=1.501$ MHz / PM $=59.99^\circ$ in §6 <span class="tag t-derive">model</span>.</p>
+</div>
+
 </div>
 
 <figure>
@@ -140,6 +156,18 @@ Close the loop and two master transfer functions appear. With $G \equiv G_\text{
     </ul>
     <p style="font-size:0.9em;color:#666">Anything that enters with the reference (CKREF noise, DTC
     QN/thermal, calibration residual) shares this LP shape.</p>
+
+<div class="derive">
+<b>Worked example — why $H_\text{ref}(0)=N$ (a one-line limit, with the number).</b>
+<p><b>GIVEN.</b> $H_\text{ref}(s)=N\,G/(1+G)$ with $N=f_\text{out}/f_\text{ref}=6.72\text{ GHz}/104\text{ MHz}=64.615$ <span class="tag t-derive">derived</span>, and $G\equiv G_\text{ol}(s)$ the type-II open loop (two poles at the origin).</p>
+<p><b>STEP 1 — how big is $G$ at low offset?</b> The $s^{-2}$ from the two integrators makes $G$ huge in band. Evaluating the model:</p>
+$$ |G_\text{ol}(j2\pi\cdot100\text{ Hz})|=6.03\times10^{7},\qquad
+   |G_\text{ol}(j2\pi\cdot1\text{ kHz})|=6.03\times10^{5}. $$
+<p><b>STEP 2 — take the limit.</b> With $G\gg1$, $\dfrac{G}{1+G}\to1$, so</p>
+$$ H_\text{ref}(0)=N\cdot\lim_{G\to\infty}\frac{G}{1+G}=N\cdot1=64.615. $$
+<p><b>SANITY CHECK.</b> The model returns $|H_\text{ref}|=64.6154$ at 1, 10, 100, and 1000 Hz — flat to 5 digits and equal to $N$ <span class="tag t-derive">model</span>, exactly the §6 check “$H_\text{ref}(0)\to64.62$, pass.” Physically: in band the loop forces the output phase to track the reference, multiplied up by the divide ratio. By the same algebra $H_\text{vco}=1/(1+G)\to1/(6\times10^{7})\approx0$ at DC — the loop scrubs VCO noise inside $f_c$.</p>
+</div>
+
   </div>
   <div class="card">
     <h4>VCO &rarr; output (high-pass)</h4>
@@ -330,7 +358,28 @@ The DTC contributes via two white floors injected on the reference path
       sampled $kT/C$ converted to timing through the slew rate.</li>
 </ul>
 <p>
-Both are low-passed by $H_\text{ref}$, so they only matter inside $f_c$. This is why DR (dynamic range)
+Both are low-passed by $H_\text{ref}$, so they only matter inside $f_c$.
+
+<div class="derive">
+<b>Worked example — building the DTC row of the budget number-by-number.</b>
+<p><b>GIVEN.</b> Two flat floors injected on the reference path: DTC QN $=-163$ dBc/Hz <span class="tag t-slide">slide p15</span> and DTC thermal $=-171$ dBc/Hz <span class="tag t-slide">slide p16</span>. Band $1\text{ kHz}\!-\!100\text{ MHz}$ <span class="tag t-assume">assumption [A16]</span>. $f_\text{out}=6.72$ GHz, $N=64.615$.</p>
+<p><b>STEP 1 — dBc/Hz → phase PSD</b> (with $\mathcal{L}=10\log_{10}(\tfrac12 S_\phi)$, so $S_\phi=2\cdot10^{\mathcal{L}/10}$) <span class="tag t-std">textbook (IEEE-1139)</span>:</p>
+$$ S_{\phi,\text{QN}}=2\cdot10^{-16.3}=1.002\times10^{-16},\quad S_{\phi,\text{th}}=2\cdot10^{-17.1}=1.589\times10^{-17}, $$
+$$ S_{\phi,\text{DTC}}=1.161\times10^{-16}\ \text{rad}^2/\text{Hz (flat)}. $$
+<p><b>STEP 2 — refer to output and integrate.</b> The DTC sees the low-pass $H_\text{ref}$, so $\sigma_\phi^2=\int S_{\phi,\text{DTC}}\,|H_\text{ref}|^2\,df = S_{\phi,\text{DTC}}\,N^2\!\int|H_\text{ref}/N|^2\,df$. The shape integral is an effective noise bandwidth $\text{ENBW}=3.218$ MHz $(\approx2.14\,f_c)$ <span class="tag t-derive">model</span>:</p>
+$$ \sigma_\phi^2 = (1.161\times10^{-16})\,(64.615^2)\,(3.218\times10^{6})=1.560\times10^{-6}\ \text{rad}^2, $$
+$$ \sigma_\phi=1.249\times10^{-3}\ \text{rad}. $$
+<p><b>STEP 3 — convert to jitter and to dBc:</b></p>
+$$ \sigma_t=\frac{\sigma_\phi}{2\pi f_\text{out}}=\frac{1.249\times10^{-3}}{2\pi\cdot6.72\times10^{9}}=29.6\ \text{fs},\qquad
+   \text{IPN}=10\log_{10}\!\bigl(\tfrac12\sigma_\phi^2\bigr)=-61.1\ \text{dBc}. $$
+<div class="kpi">
+  <div class="box"><div class="v">1.249e−3</div><div class="l">&sigma;_&phi; [rad]</div></div>
+  <div class="box"><div class="v">29.6 fs</div><div class="l">DTC jitter</div></div>
+  <div class="box"><div class="v">&minus;61.1 dBc</div><div class="l">DTC IPN (SSB)</div></div>
+</div>
+<p><b>SANITY CHECK.</b> This is exactly the DTC row of the §5 table (29.58 fs, 11.4% of variance) <span class="tag t-derive">model</span>. Round-trip: $2\pi f_\text{out}\sigma_t=2\pi\cdot6.72\text{ GHz}\cdot29.58\text{ fs}=1.249\times10^{-3}$ rad recovers $\sigma_\phi$ ✓. Every other low-pass row (REF, MMD, SPD+GM) is the same three steps with its own flat floor; the VCO row uses $|H_\text{vco}|^2$ on a sloped PSD instead.</p>
+</div>
+ This is why DR (dynamic range)
 reduction matters: $\text{DTC QN}\propto T_\text{res}^2$ and $T_\text{res}\propto \text{DR}$, so the ½- and
 1/8-range techniques (slides 34, 38) cut this contribution directly
 <span class="tag t-slide">slide p33</span> <span class="tag t-derive">derived (derivations §5)</span>.

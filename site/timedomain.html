@@ -159,7 +159,25 @@ jitter_fs = U.rms_jitter_from_sigma_phi(sigma_phi, f_out) * 1e15   # /(2*pi*f_ou
 <tr><td>SPD + GM</td><td class="num">18.3</td><td>low-pass (white)</td></tr>
 </tbody>
 </table>
-<p class="">These per-source RMS values do not sum linearly to 88 fs — uncorrelated sources add in <b>quadrature</b>: $\sqrt{67.5^2+44.8^2+31.1^2+23.0^2+18.3^2}\approx 90$ fs, consistent with the 88.2 fs full-system run (slight difference from windowing/overlap). The relative ranking matches the slide-42 budget (VCO ~52%, REF+DTC ~38%). <span class="tag t-slide">slide p42</span></p>
+<p class="">These per-source RMS values do not sum linearly to 88 fs — uncorrelated sources add in <b>quadrature</b>: $\sqrt{67.5^2+44.8^2+31.1^2+23.0^2+18.3^2}\approx 90$ fs, consistent with the 88.2 fs full-system run
+
+<div class="derive">
+<b>Worked example — from one VCO data point to its jitter.</b> The VCO card (§A) anchors the free-running VCO at \(\mathcal{L}=-116.5\) dBc/Hz @ 1 MHz with a \(-20\) dB/dec (white-FM) slope <span class="tag t-assume">assumption</span>[A13]. White-FM means \(S_\varphi(f)=S_0\,(f_0/f)^2\), a spectrum whose integral has a closed form — so we can get the free-running jitter with pen and paper, then watch the loop kill it.
+<p style="margin-top:.6em"><b>Step 1 — the spec point as a PSD.</b> Convert dBc/Hz to single-sided \(S_\varphi\) with \(S_\varphi=2\cdot10^{\mathcal{L}/10}\):</p>
+$$S_0=S_\varphi(1\,\text{MHz})=2\cdot10^{-116.5/10}=4.477\times10^{-12}\ \text{rad}^2/\text{Hz},\qquad f_0=1\,\text{MHz}.$$
+<p><b>Step 2 — integrate the \(1/f^2\) tail analytically.</b> For white-FM, \(\int_{f_{lo}}^{f_{hi}}\frac{S_0 f_0^2}{f^2}\,df=S_0 f_0^2\!\left(\frac{1}{f_{lo}}-\frac{1}{f_{hi}}\right)\). With \(f_{lo}=1\) kHz, \(f_{hi}=100\) MHz [A16]:</p>
+$$\sigma_\varphi^2=4.477\!\times\!10^{-12}\cdot(10^{6})^2\cdot\!\left(\tfrac{1}{10^{3}}-\tfrac{1}{10^{8}}\right)=4.477\cdot(9.9999\!\times\!10^{-4})=4.477\times10^{-3}\ \text{rad}^2.$$
+<p><b>Step 3 — phase to jitter</b> at the output frequency (\(f_{out}=6.72\) GHz, <em>not</em> \(f_{ref}\)):</p>
+$$\sigma_\varphi=\sqrt{4.477\times10^{-3}}=0.0669\ \text{rad},\qquad \sigma_t=\frac{\sigma_\varphi}{2\pi f_{out}}=\frac{0.0669}{2\pi(6.72\times10^9)}=1.585\times10^{-12}\ \text{s}.$$
+<div class="kpi" style="margin-top:.6em">
+  <div class="box"><div class="v">1585 fs</div><div class="l">free-running VCO (white-FM only), 1 kHz–100 MHz</div></div>
+  <div class="box"><div class="v">63.1 fs</div><div class="l">in-loop VCO (×|H<sub>vco</sub>|², freq model)</div></div>
+  <div class="box"><div class="v">~25×</div><div class="l">jitter suppressed by the loop's high-pass NTF</div></div>
+</div>
+<p style="margin-top:.5em"><b>Why the huge gap — and why the PLL exists.</b> 1585 fs is the jitter of the <em>bare</em> oscillator; the integral is dominated by the \(1/f_{lo}\) term, i.e. by slow phase wander at low offset. The loop's VCO transfer is high-pass — \(|H_{vco}|\to0\) below \(f_c=1.5\) MHz <span class="tag t-assume">assumption</span>[A1] — so it scrubs out exactly that low-offset wander, leaving only the \(>f_c\) tail. Running the full model with \(S_\varphi^{free}\cdot|H_{vco}(f)|^2\) gives \(\sigma_t=63.1\) fs <span class="tag t-derive">model</span>, matching the slide-42 VCO budget line (51.8 % of total). The time-domain run isolates the same source at 67.5 fs (§D), the small difference being the Nyquist-band and windowing effects of §E. <span class="tag t-slide">slide p42</span></p>
+<p style="margin:.4em 0 0 0"><b>Sanity check.</b> A \(-20\) dB/dec spectrum integrates to a result set by its <em>low</em> edge: halving \(f_{lo}\) from 1 kHz to 500 Hz would multiply \(\sigma_\varphi^2\) by ~2 (jitter \(\times\sqrt2\)), while moving \(f_{hi}\) from 100 MHz to \(\infty\) changes it by \(<0.001\,\%\) — confirming the integral is low-offset-limited, precisely the region a PLL is built to suppress. <span class="tag t-std">textbook — Leeson white-FM</span></p>
+</div>
+ (slight difference from windowing/overlap). The relative ranking matches the slide-42 budget (VCO ~52%, REF+DTC ~38%). <span class="tag t-slide">slide p42</span></p>
 
 <figure>
   <img src="assets/figures/td_per_source.png" alt="per-source output phase noise, each source simulated alone">
@@ -184,7 +202,24 @@ This is the payoff. The time-domain Welch PSD (gray), the analytic <em>discrete<
 </div>
 
 <p>
-The two RMS jitter numbers agree to <b>+0.08 dB</b> ($20\log_{10}(88.2/87.4)$) — far inside the 1.5 dB test tolerance. <span class="tag t-derive">derived</span> The Parseval check matches: the variance computed directly from the time series, $\mathrm{var}(\varphi)=1.50\times10^{-5}$ rad², equals the integral of the PSD over the full resolved band, $1.43\times10^{-5}$ rad² (within ~5%, expected from Hann windowing and the dropped DC bin). <span class="tag t-std">DSP — Parseval</span>
+The two RMS jitter numbers agree to <b>+0.08 dB</b> ($20\log_{10}(88.2/87.4)$) — far inside the 1.5 dB test tolerance.
+
+<div class="derive">
+<b>Worked example — the cross-check, done by hand.</b> The page reports \(+0.08\) dB agreement and a Parseval match; here are both numbers built from the raw outputs in <code>time_domain.json</code>. These are <em>two different</em> comparisons that are easy to conflate, so we do them separately.
+<p style="margin-top:.6em"><b>Given</b> (model outputs, <span class="tag t-derive">model</span> <code>time_domain.json</code>): band-limited jitter \(\sigma_{t,\text{time}}=88.22\) fs (time domain) and \(\sigma_{t,\text{freq}}=87.44\) fs (frequency domain, <em>identical</em> band [1 kHz, 49.4 MHz]); time-series variance \(\mathrm{var}(\varphi)=1.4983\times10^{-5}\) rad\(^2\) and Welch-PSD band integral \(\int S_\varphi\,df=1.4283\times10^{-5}\) rad\(^2\).</p>
+<p><b>Comparison 1 — jitter agreement (the headline).</b> RMS jitter is an amplitude, so a fair comparison of two amplitudes is the 20·log ratio:</p>
+$$\Delta\mathcal{L}_{\text{cross}}=20\log_{10}\!\frac{\sigma_{t,\text{time}}}{\sigma_{t,\text{freq}}}=20\log_{10}\!\frac{88.22}{87.44}=20\log_{10}(1.00896)=+0.078\ \text{dB}.$$
+<p><b>Comparison 2 — Parseval (variance is a power, so 10·log).</b> The time-series variance and the integral of its single-sided PSD should be equal; the residual is a power ratio:</p>
+$$\frac{\mathrm{var}(\varphi)}{\int S_\varphi\,df}=\frac{1.4983\times10^{-5}}{1.4283\times10^{-5}}=1.0490,\qquad 10\log_{10}(1.0490)=+0.21\ \text{dB}.$$
+<div class="kpi" style="margin-top:.6em">
+  <div class="box"><div class="v">+0.08 dB</div><div class="l">jitter cross-check \(20\log_{10}(88.22/87.44)\)</div></div>
+  <div class="box"><div class="v">+0.21 dB</div><div class="l">Parseval residual \(10\log_{10}(1.049)\)</div></div>
+  <div class="box"><div class="v">4.9 %</div><div class="l">var(time)/var(PSD) − 1</div></div>
+</div>
+<p style="margin-top:.5em"><b>Sanity check.</b> Two amplitudes within 0.9 % differ by ~0.08 dB (since \(20\log_{10}(1.009)\approx0.08\)); two powers within 4.9 % differ by ~0.2 dB (since \(10\log_{10}(1.05)\approx0.21\)) — both well inside the \(<1.5\) dB (jitter) and \(<10\%\) (Parseval) automated tolerances of §F. The Parseval residual being slightly larger is expected: the var integral drops the DC bin and carries the Hann power-normalization bias, while the band-limited jitter excludes those bins from both models equally. <span class="tag t-std">DSP — Welch / Parseval</span></p>
+<p style="margin:.4em 0 0 0"><b>Gotcha.</b> The full-record variance \(1.4983\times10^{-5}\) rad\(^2\) corresponds to \(\sqrt{\mathrm{var}}/(2\pi f_{out})=91.7\) fs, <em>not</em> 88.2 fs — because the headline 88.2 fs integrates only [1 kHz, 49.4 MHz], deliberately excluding the lowest bins (DC wander, \(<1\) kHz) per band [A16]. The 88.2 vs 87.4 comparison and the Parseval var vs var comparison are answering different questions; do not mix the numbers. <span class="tag t-assume">assumption</span>[A16]</p>
+</div>
+ <span class="tag t-derive">derived</span> The Parseval check matches: the variance computed directly from the time series, $\mathrm{var}(\varphi)=1.50\times10^{-5}$ rad², equals the integral of the PSD over the full resolved band, $1.43\times10^{-5}$ rad² (within ~5%, expected from Hann windowing and the dropped DC bin). <span class="tag t-std">DSP — Parseval</span>
 </p>
 
 <div class="warn">

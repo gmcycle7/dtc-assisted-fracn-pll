@@ -135,7 +135,25 @@ $$\boxed{\;\frac{C}{I}=P_\text{wanted}-\big[P_\text{blocker}+\mathcal{L}(\Delta 
 $$\mathcal{L}(f_m)=10\log_{10}\!\Big\{\frac{2FkT}{P_\text{sig}}\Big[1+\Big(\frac{f_0}{2Qf_m}\Big)^2\Big]\Big(1+\frac{f_c}{f_m}\Big)\Big\},\ \ F=4,\,Q=10,\,P_\text{sig}=1.67\,\text{mW}$$
 <span class="tag t-std">Leeson form (textbook)</span><span class="tag t-derive">parameters back-solved to −116.5 dBc/Hz @ 1 MHz [A13]</span>
 </div>
-<p>At a far blocker offset $\Delta f = 80$ MHz the skirt has flattened toward its thermal floor: $\mathcal{L}(80\,\text{MHz}) = -154.3$ dBc/Hz (the far-out floor of this model is $10\log_{10}(2FkT/P_\text{sig})=-167$ dBc/Hz). Take a wanted signal at $-90$ dBm, a blocker 60 dB stronger at $-30$ dBm, and a 20 MHz channel:</p>
+<p>At a far blocker offset $\Delta f = 80$ MHz the skirt has flattened toward its thermal floor: $\mathcal{L}(80\,\text{MHz}) = -154.3$ dBc/Hz (the far-out floor of this model is $10\log_{10}(2FkT/P_\text{sig})=-167$ dBc/Hz
+
+<details class="deriv"><summary><strong>Worked example — where does the &minus;154.3 dBc/Hz at 80 MHz come from?</strong> (decompose the Leeson formula term-by-term)</summary>
+<div class="derive">
+<p><strong>GIVEN</strong> the project's Leeson parameters <span class="tag t-derive">parameters back-solved to &minus;116.5 dBc/Hz @ 1 MHz [A13]</span>: \(F=4\), \(Q=10\), \(P_\text{sig}=1.67\,\text{mW}\), \(f_0=6.72\) GHz <span class="tag t-slide">slide p42</span>, flicker corner \(f_c=150\) kHz. <strong>FIND</strong> \(\mathcal{L}\) at the blocker offset \(\Delta f = 80\) MHz.</p>
+<p><strong>FORMULA</strong> &mdash; read the Leeson expression as a product of three factors (thermal floor &times; tank term &times; flicker term):</p>
+$$\mathcal{L}(f_m)=\underbrace{\frac{2FkT}{P_\text{sig}}}_{\text{floor}}\cdot\underbrace{\Big[1+\Big(\tfrac{f_0}{2Qf_m}\Big)^2\Big]}_{\text{tank }1/f^2}\cdot\underbrace{\Big(1+\tfrac{f_c}{f_m}\Big)}_{\text{flicker}}$$
+<p><strong>SUBSTITUTE</strong> the numbers at \(f_m=80\) MHz:</p>
+<ul>
+<li>Floor: \(\dfrac{2(4)(1.381\times10^{-23})(300)}{1.67\times10^{-3}}=1.98\times10^{-17}\Rightarrow 10\log_{10}(\cdot)=-167.0\) dBc/Hz <span class="tag t-derive">derived/model</span></li>
+<li>Tank: \(\Big(\dfrac{6.72\times10^{9}}{2\cdot10\cdot 80\times10^{6}}\Big)^2=(4.2)^2=17.64\Rightarrow 1+17.64=18.64\Rightarrow +12.7\) dB</li>
+<li>Flicker: \(1+\dfrac{150\times10^3}{80\times10^6}=1.0019\Rightarrow +0.008\) dB (negligible this far out)</li>
+</ul>
+<p><strong>RESULT</strong> &mdash; add the three in dB:</p>
+$$\mathcal{L}(80\,\text{MHz})=-167.0+12.7+0.0=\boxed{-154.3\ \text{dBc/Hz}}$$
+<span class="tag t-derive">derived/model</span>
+<p><strong>Sanity check.</strong> At 80 MHz the tank term still adds 12.7 dB above the floor, so the skirt has <em>not</em> fully flattened &mdash; we are 12.7 dB above the &minus;167 dBc/Hz asymptote, consistent with the floor being reached only when \(f_m\gg f_0/2Q=336\) MHz. Note this offset is &gt;50&times; the ~1.5 MHz loop bandwidth, so the loop has no authority here (\(H_\text{vco}\to1\)): the &minus;154.3 dBc/Hz is pure free-running VCO, exactly the quantity the blocker C/I below consumes.</p>
+</div></details>
+). Take a wanted signal at $-90$ dBm, a blocker 60 dB stronger at $-30$ dBm, and a 20 MHz channel:</p>
 <div class="derive">
 $$\frac{C}{I}=-90-\big[-30 + (-154.3) + 10\log_{10}(20\times10^6)\big]=-90-\big[-30-154.3+73.0\big]=+21.3\ \text{dB}$$
 <span class="tag t-derive">derived/model</span> 21.3 dB of carrier-to-interference survives the blocker — set <em>entirely</em> by the LO's −154 dBc/Hz at 80 MHz, a region the EVM integral (1 kHz→100 MHz, but weighted toward the in-band hump) barely notices.
@@ -160,6 +178,30 @@ $$\frac{C}{I}=-90-\big[-30 + (-154.3) + 10\log_{10}(20\times10^6)\big]=-90-\big[
 $$\boxed{\;\text{FoM}_\text{jitter}=10\log_{10}\!\Big[\big(\sigma_t\big)^2\cdot\frac{P}{1\,\text{mW}}\Big]\;}\quad(\text{dB, more negative = better})$$
 <span class="tag t-std">textbook (Gao/Staszewski FoM)</span> For this design, $\sigma_t=87.6$ fs and $P=14.2$ mW (VCO 12 + DTC 1.2 + MMD 0.5 + rest 0.5) <span class="tag t-slide">slide p39</span>:
 $$\text{FoM}=10\log_{10}\!\big[(87.6\times10^{-15})^2\cdot 14.2\big]=-249.6\ \text{dB}.$$
+
+<details class="deriv"><summary><strong>Worked example — rank three synthesizers, then prove the dual-core VCO does <em>not</em> change the FoM</strong></summary>
+<div class="derive">
+<p><strong>GIVEN</strong> three candidates and the FoM \(=10\log_{10}[\sigma_t^2\,(P/1\,\text{mW})]\) (more negative = better):</p>
+<ul>
+<li><strong>This work</strong> &mdash; \(\sigma_t=87.6\) fs <span class="tag t-derive">derived/model</span>, \(P=14.2\) mW <span class="tag t-slide">slide p39</span></li>
+<li><strong>A</strong> &mdash; a lower-jitter but power-hungry design: 60 fs / 50 mW (illustrative)</li>
+<li><strong>B</strong> &mdash; same power class, looser jitter: 90 fs / 14 mW (illustrative)</li>
+</ul>
+<p><strong>SUBSTITUTE</strong>:</p>
+$$\text{FoM}_\text{this}=10\log_{10}[(87.6\text{f})^2\cdot14.2]=-249.6\ \text{dB}$$
+$$\text{FoM}_A=10\log_{10}[(60\text{f})^2\cdot50]=-247.5\ \text{dB},\qquad \text{FoM}_B=10\log_{10}[(90\text{f})^2\cdot14]=-249.5\ \text{dB}$$
+<div class="kpi">
+  <div class="box"><div class="v">&minus;249.6 dB</div><div class="l">this work (best)</div></div>
+  <div class="box"><div class="v">&minus;249.5 dB</div><div class="l">B (90 fs / 14 mW)</div></div>
+  <div class="box"><div class="v">&minus;247.5 dB</div><div class="l">A (60 fs / 50 mW)</div></div>
+</div>
+<p><span class="tag t-derive">derived/model</span> <strong>The surprise:</strong> design A has the <em>lowest absolute jitter</em> (60 fs) yet the <em>worst</em> FoM (&minus;247.5 dB) &mdash; it bought that jitter with brute-force power, 2.1 dB off this work. Raw femtoseconds do not rank designs; the FoM does.</p>
+<p><strong>Now the dual-core check.</strong> Combining \(N_\text{core}=2\) cores drops \(\mathcal{L}\) by \(10\log_{10}(2)=3\) dB (jitter \(\div\sqrt2\)) at \(2\times\) power <span class="tag t-slide">slide p39 dual-core VCO</span>:</p>
+$$\sigma_t\to\frac{87.6}{\sqrt2}=61.9\ \text{fs},\quad P\to2(14.2)=28.4\ \text{mW}\ \Rightarrow\ \text{FoM}=10\log_{10}[(61.9\text{f})^2\cdot28.4]=-249.6\ \text{dB}$$
+<p><strong>RESULT:</strong> identical FoM. The factor-2 power rise exactly cancels the factor-2 jitter-power drop, because \(\sigma_t^2 P\) is invariant. The dual core buys you <em>lower absolute jitter for EVM and reciprocal mixing</em> &mdash; not efficiency. By contrast, a genuine topology win &mdash; same 87.6 fs at <em>half</em> the power (7.1 mW) &mdash; gives \(10\log_{10}[(87.6\text{f})^2\cdot7.1]=-252.6\) dB, a real \(-3\) dB.</p>
+<p><strong>Sanity check.</strong> Every move that follows the thermal law \(\sigma_t^2 P=\text{const}\) leaves the FoM flat (a slide along the iso-FoM diagonal); only <em>breaking</em> that law (same jitter, less power) moves you to a lower diagonal. The &minus;3 dB of the dual core is a noise win, not an efficiency win.</p>
+</div></details>
+
 <span class="tag t-derive">derived/model</span>
 </div>
 

@@ -123,7 +123,19 @@ dbc = 20*np.log10( (2*np.abs(X)/N/0.5)/2 )       # 20log10(phi_pk/2) per bin</co
   <div class="box"><div class="v">−56 dBc</div><div class="l">worst spur, full range (model)</div></div>
   <div class="box"><div class="v">\(k\,\alpha f_{\rm ref}\)</div><div class="l">spur offset frequencies</div></div>
 </div>
-<p>With INL ±0.6/0.1 LSB and fractional offset \(\alpha=0.02\), the worst spur is about <b>−56&nbsp;dBc at full DTC range</b> <span class="tag t-derive">model (extras.py)</span> — far above the −70…−85&nbsp;dBc the silicon actually achieves, which is precisely why the range-reduction and NLC of §5 exist.</p>
+<p>With INL ±0.6/0.1 LSB and fractional offset \(\alpha=0.02\), the worst spur is about <b>−56&nbsp;dBc at full DTC range</b> <span class="tag t-derive">model (extras.py)</span> — far above the −70…−85&nbsp;dBc the silicon actually achieves, which is precisely why the range-reduction and NLC of §5 exist
+
+<div class="derive">
+<b>Worked example - from an INL coefficient to a spur in dBc.</b> Take the §2 model: \(t_{\rm res}=400\) fs, INL \(g_2{=}0.6,\,g_3{=}0.1\) LSB, fractional offset \(\alpha{=}0.02\), <b>full DTC range</b> (\(\text{redux}{=}1\)) <span class="tag t-assume">assumption [A1]</span>, output \(f_{\rm out}=6.72\) GHz <span class="tag t-slide">slide p42</span>.
+<ol style="margin:.3em 0 .2em 1.1em">
+<li><b>Peak timing error</b> of the bent curve at the sawtooth peak \(u{=}{+}1\): \(\delta t_{\rm pk}=t_{\rm res}(g_2{+}g_3)=400\,\text{fs}\times0.7=280\) fs (this is the static excursion; the spur lives in its <i>periodic Fourier content</i>, not this peak directly).</li>
+<li><b>Run the FFT model</b> (\(\phi[n]=2\pi f_{\rm out}\,\delta t[n]\), Hann-windowed, single-sided, loop-shaped) and read the tallest in-band bin: the dominant tone is the <b>2nd-harmonic</b> of the quadratic term at \(2\alpha f_{\rm ref}=2(0.02)(104\,\text{MHz})=4.16\) MHz, at <b>\(-55.9\) dBc</b> <span class="tag t-derive">model (extras.py)</span>.</li>
+<li><b>Invert the boxed formula</b> to recover the residual peak phase: \(\phi_{\rm pk}=2\cdot10^{L/20}=2\cdot10^{-55.9/20}=3.20\times10^{-3}\) rad \((=0.183^\circ)\), i.e. a residual timing jitter on the tone of \(\phi_{\rm pk}/(2\pi f_{\rm out})=76\) fs peak <span class="tag t-derive">derived</span>.</li>
+</ol>
+$$\boxed{\ \text{spur}=20\log_{10}\!\frac{\phi_{\rm pk}}{2}=20\log_{10}\!\frac{3.20\times10^{-3}}{2}=-55.9\ \text{dBc}\ }$$
+<b>Sanity check:</b> ~0.06% of a full \(T_{\rm vco}\) of INL (76 fs vs 148.8 ps) makes a \(-56\) dBc tone - tiny in time, lethal in dBc. That is the whole reason this page exists. <span class="tag t-derive">model</span>
+</div>
+.</p>
 
 <hr>
 
@@ -157,7 +169,23 @@ $$\sigma_{t,\rm spur} = \frac{1.41\times10^{-2}}{2\pi\cdot6.72\times10^{9}} = \b
 </div>
 
 <div class="warn">
-<b>This is the punchline of the page.</b> A single −40&nbsp;dBc spur is <b>335&nbsp;fs</b> all by itself — almost <b>4×</b> the entire 87.6&nbsp;fs jitter budget <span class="tag t-derive">model ≈ 87.5&nbsp;fs (slide p42)</span>. You simply cannot have −40&nbsp;dBc spurs in a sub-100&nbsp;fs PLL. To keep a spur "in the noise" (a few fs, negligible vs 87.6&nbsp;fs) you need it down around −70&nbsp;dBc or better — which is exactly the measured target. Spurs are budgeted in <i>linear power</i>: they add in quadrature with the random sources, \(\sigma_{t,\rm total}^2=\sigma_{t,\rm random}^2+\sum_i\sigma_{t,\rm spur,i}^2\) <span class="tag t-derive">derived</span>.
+<b>This is the punchline of the page.</b> A single −40&nbsp;dBc spur is <b>335&nbsp;fs</b> all by itself — almost <b>4×</b> the entire 87.6&nbsp;fs jitter budget <span class="tag t-derive">model ≈ 87.5&nbsp;fs (slide p42)</span>. You simply cannot have −40&nbsp;dBc spurs in a sub-100&nbsp;fs PLL. To keep a spur "in the noise" (a few fs, negligible vs 87.6&nbsp;fs) you need it down around −70&nbsp;dBc or better — which is exactly the measured target. Spurs are budgeted in <i>linear power</i>: they add in quadrature with the random sources
+
+<div class="derive">
+<b>Worked example - the real cost of a spur, combined with the budget.</b> The model's random budget is <b>87.6 fs</b> <span class="tag t-derive">model ≈ 87.5 fs (slide p42)</span>. A single spur adds <i>in quadrature</i>: \(\sigma_{t,\rm tot}=\sqrt{\sigma_{t,\rm random}^2+\sigma_{t,\rm spur}^2}\). Using \(\sigma_{t,\rm spur}=\sqrt{2\cdot10^{L/10}}/(2\pi f_{\rm out})\) from §4:</p>
+<table class="num">
+<thead><tr><th>Spur \(L\)</th><th>\(\sigma_{t,\rm spur}\)</th><th>total with 87.6 fs</th><th>budget cost</th></tr></thead>
+<tbody>
+<tr><td>-56 dBc (full range)</td><td>53.1 fs</td><td>\(\sqrt{87.6^2{+}53.1^2}=102.4\) fs</td><td><b>+14.8 fs</b> - blows the budget</td></tr>
+<tr><td>-70 dBc (measured edge)</td><td>10.6 fs</td><td>\(\sqrt{87.6^2{+}10.6^2}=88.2\) fs</td><td>+0.6 fs - visible</td></tr>
+<tr><td>-85 dBc (measured deep)</td><td>1.9 fs</td><td>\(\sqrt{87.6^2{+}1.9^2}=87.6\) fs</td><td>+0.02 fs - negligible</td></tr>
+</tbody>
+</table>
+<p><b>Threshold:</b> to keep a spur under <b>5%</b> of the budget (\(0.05\times87.6=4.4\) fs) you need</p>
+$$L < 10\log_{10}\!\frac{(4.4\times10^{-15}\cdot2\pi f_{\rm out})^2}{2} = -77.7\ \text{dBc}.$$
+<b>Sanity check:</b> the measured -70...-85 dBc band <span class="tag t-slide">slide p41</span> straddles this -78 dBc line - the deep channels are negligible, the worst (-70 dBc) adds a still-tolerable 0.6 fs, and the un-cured -56 dBc full-range spur would have made the PLL miss spec by itself. <span class="tag t-derive">derived</span>
+</div>
+, \(\sigma_{t,\rm total}^2=\sigma_{t,\rm random}^2+\sum_i\sigma_{t,\rm spur,i}^2\) <span class="tag t-derive">derived</span>.
 </div>
 
 <table class="num">
@@ -186,7 +214,21 @@ $$\sigma_{t,\rm spur} = \frac{1.41\times10^{-2}}{2\pi\cdot6.72\times10^{9}} = \b
   <div class="box"><div class="v">−92 dBc</div><div class="l">1/8 range (8φ) <span class="tag t-slide">p38</span></div></div>
   <div class="box"><div class="v">≈ +12 dB</div><div class="l">improvement per range halving (\(g_2u^2\))</div></div>
 </div>
-<p>Because the dominant term is quadratic (\(g_2u^2\)), halving the range cuts the spur amplitude ~4× (≈12&nbsp;dB) — the model's −56 → −68 → −92&nbsp;dBc as range goes full → ½ → 1/8 <span class="tag t-derive">model (extras.py)</span>.</p>
+<p>Because the dominant term is quadratic (\(g_2u^2\)), halving the range cuts the spur amplitude ~4× (≈12&nbsp;dB) — the model's −56 → −68 → −92&nbsp;dBc as range goes full → ½ → 1/8
+
+<details class="deriv"><summary>Worked example - prove the "+12 dB per range halving" from the model output</summary>
+<p>The dominant spur comes from the quadratic INL \(g_2u^2\). Range reduction scales the sawtooth \(u\to r\,u\), so the quadratic content scales as \(r^2\) and the spur amplitude in dB by \(20\log_{10}r^2=40\log_{10}r\). Each <b>halving</b> (\(r:1\to\tfrac12\)) is therefore</p>
+$$\Delta L = 40\log_{10}\tfrac12 = -12.04\ \text{dB}\quad\text{per halving.}$$
+<p>Run <code>spur_spectrum</code> at the three ranges (full \(r{=}1\), ½ \(r{=}0.5\), 1/8 \(r{=}0.125\)) and read the worst tone <span class="tag t-derive">model (extras.py)</span>:</p>
+<div class="kpi">
+  <div class="box"><div class="v">-55.9 dBc</div><div class="l">full range</div></div>
+  <div class="box"><div class="v">-67.9 dBc</div><div class="l">½ range (1 halving)</div></div>
+  <div class="box"><div class="v">-92.0 dBc</div><div class="l">1/8 range (3 halvings)</div></div>
+</div>
+<p>full → ½ = <b>-12.0 dB</b> (one halving); ½ → 1/8 = <b>-24.0 dB</b> over two halvings = <b>-12.0 dB each</b> <span class="tag t-derive">model</span>. The model reproduces the \(40\log_{10}r\) law to 0.02 dB.</p>
+<p><b>Sanity check:</b> from full range, 1/8 is three halvings, so predicted \(3\times(-12.04)=-36.1\) dB; measured \(-91.96-(-55.92)=-36.0\) dB. The slide-quoted endpoints (-68 dBc at ½ <span class="tag t-slide">slide p34</span>, -92 dBc at 1/8 <span class="tag t-slide">slide p38</span>) sit right on this line. <span class="tag t-derive">derived</span></p>
+</details>
+ <span class="tag t-derive">model (extras.py)</span>.</p>
 
 <h3>5.2 Nonlinearity correction (NLC) — pre-distort the code</h3>
 <p>NLC adds an inverse-INL polynomial to the DTC code so the cascade is linear <span class="tag t-slide">slide p31</span>:</p>

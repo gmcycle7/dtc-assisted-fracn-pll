@@ -115,6 +115,27 @@ $$\Delta t[n] = \frac{\Phi_{QE}[n]}{K_{DTC}}, \qquad \text{DTC code} = K_{DTC}\c
 <p>
 When $K_{DTC}$ is calibrated to its true value, the delay exactly cancels the divider wander and the PD sees near-zero phase error after lock — <b>"just like the integer-N case"</b> <span class="tag t-slide">slide p9</span>. If $K_{DTC}$ is off (wrong picoseconds-per-code), the cancellation is partial and a residual phase error proportional to $(K_{DTC,true}-\hat{K}_{DTC})\cdot\Phi_e$ leaks into the loop <span class="tag t-derive">derived</span> (derivations §7.1) — which is exactly what the DTC-gain calibration nulls.</p>
 
+<details class="deriv"><summary><b>Worked example — a DSM residue becomes a DTC code (and what a 10% gain error leaks)</b></summary>
+<div style="padding:.2em .2em 0">
+<p style="margin:.4em 0"><b>Step 1 — the DTC's resolution in codes per VCO period.</b> With \(T_{vco}=1/f_{out}=1/(6.72\,\text{GHz})=148.8\) ps <span class="tag t-derive">derived</span> and a DTC LSB \(T_{res}=400\) fs <span class="tag t-slide">slide p15</span>, one full VCO period spans</p>
+$$\frac{T_{vco}}{T_{res}} = \frac{148.8\ \text{ps}}{0.400\ \text{ps}} = 372\ \text{codes} \;=\; K_{DTC}\ \text{(codes per }T_{vco}\text{)}.$$
+<p style="margin:.4em 0"><b>Step 2 — a concrete residue.</b> Say the accumulated DSM quantization error this cycle is \(\Phi_{e}[n]=0.62\) of a VCO period (the fractional part of \(N=64.62\) is a representative residue) <span class="tag t-derive">derived [A3]</span>. The DTC must delay the reference by \(\Delta t[n]=\Phi_{QE}[n]/K_{DTC}\), i.e. \(0.62\,T_{vco}\):</p>
+$$\Delta t[n] = 0.62 \times 148.8\ \text{ps} = 92.3\ \text{ps}, \qquad \text{DTC code} = K_{DTC}\cdot\Phi_e[n] = 372 \times 0.62 = 230.6\ \text{codes}.$$
+<p style="margin:.4em 0"><b>Step 3 — the code is an integer.</b> Round 230.6 \(\to\) <b>231 codes</b>; the leftover \(0.345\) code is the DTC's own quantization, a residual time error</p>
+$$\delta t = (230.6-231)\times T_{res} = -0.345\times 400\ \text{fs} = -138\ \text{fs}.$$
+<p style="margin:.4em 0">This per-cycle rounding (uniform over one LSB) is exactly the source of the DTC-QN floor \(\frac{(2\pi T_{res})^2}{12}f_{ref}=-163\) dBc/Hz quoted elsewhere <span class="tag t-slide">slide p15</span>.</p>
+<p style="margin:.6em 0 .4em"><b>Step 4 — what a mis-calibrated gain leaks.</b> If the estimated gain is 10% low <span class="tag t-assume">assumption [A18]</span>, the delay is short by \(10\%\) of the commanded value. For this residue the static leak is \(0.10\times92.3\ \text{ps}=9.2\) ps; but \(\Phi_e\) is random (uniform over one \(T_{vco}\), so \(\sigma_{\Phi_e}=T_{vco}/\sqrt{12}=43.0\) ps), giving an RMS leaked timing error of</p>
+$$\sigma_{\text{leak}} = 0.10\times\frac{T_{vco}}{\sqrt{12}} = 0.10\times 43.0\ \text{ps} = 4.30\ \text{ps RMS}.$$
+<div class="kpi" style="margin:.6em 0 .3em">
+  <div class="box"><div class="v">372 codes</div><div class="l">\(K_{DTC}=T_{vco}/T_{res}\)</div></div>
+  <div class="box"><div class="v">231 codes</div><div class="l">command for 0.62 \(T_{vco}\)</div></div>
+  <div class="box"><div class="v">&minus;138 fs</div><div class="l">rounding residual (this cycle)</div></div>
+  <div class="box"><div class="v">4.3 ps</div><div class="l">RMS leak if \(K_{DTC}\) 10% off</div></div>
+</div>
+<p style="margin:.3em 0 0"><b>Sanity check.</b> 4.3 ps RMS leaked timing is &asymp;100&times; the post-cal DTC bucket (29.6 fs) <span class="tag t-derive">model</span> — a 10% gain error would utterly dominate the budget, which is precisely why the \(\mu_2\) sign-LMS loop drives that 10% to near-zero (the model uses a 0.01% residual, \(K_{DTC}\) error \(10^{-4}\)) <span class="tag t-derive">model</span>. And 231 codes is well inside the 10-bit (1024-code, 400 ps) range <span class="tag t-slide">slide p15</span>, confirming the range-reduction trick keeps the command on-scale.</p>
+</div></details>
+
+
 <div class="warn">
 <b>If you removed the DTC:</b> the sampling PD would have to absorb the full DSM QE swing ($\pm$ several $T_{vco}$). That is far outside the SPD's small linear range, so it would saturate, fold the QE into in-band noise, and produce strong fractional spurs. The DTC is what makes the high-gain sampling PD usable at all.
 </div>
@@ -214,7 +235,25 @@ The reason this gain matters: because $K_{SPD}$ is so large, the noise of everyt
   <div class="box"><div class="v">3.9%</div><div class="l">SPD + GM</div></div>
   <div class="box"><div class="v">~0.3%</div><div class="l">DSM-QN (cancelled)</div></div>
 </div>
-<p style="font-size:0.9em">Values reproduce slide 42 (the slide quotes VCO 51%, REF 39%, MMDIV 6%, SPD+GM 4%, ΣΔM QE ≈ 0%) <span class="tag t-slide">slide p42</span>; our model's exact splits are cross-checked against the JSON budget <span class="tag t-derive">derived</span>. The crucial line: the DSM quantization noise, the native curse of frac-N, is driven to ≈0% because the DTC cancels it <span class="tag t-slide">slide p9</span> <span class="tag t-slide">slide p42</span>.</p>
+<p style="font-size:0.9em">Values reproduce slide 42 (the slide quotes VCO 51%, REF 39%, MMDIV 6%, SPD+GM 4%, ΣΔM QE ≈ 0%) <span class="tag t-slide">slide p42</span>; our model's exact splits are cross-checked against the JSON budget
+
+<div class="derive">
+<b>Worked example — fold REF + DTC into one "reference path" bucket (RSS).</b>
+<p style="margin:.4em 0">The pie above lists the reference clock and the DTC separately, but they are <i>both</i> in the reference path and they are statistically independent. Independent jitter sources do <b>not</b> add linearly — they add in <b>quadrature</b> (root-sum-square), because it is their <i>variances</i> (powers) that add:</p>
+$$\sigma_{t,\text{REF+DTC}} = \sqrt{\sigma_{t,\text{REF}}^{2} + \sigma_{t,\text{DTC}}^{2}}.$$
+<p style="margin:.4em 0"><b>Given</b> (from the model budget <span class="tag t-derive">model</span>): \(\sigma_{t,\text{REF}} = 44.99\ \text{fs}\), \(\sigma_{t,\text{DTC}} = 29.58\ \text{fs}\). <b>Substitute:</b></p>
+$$\sigma_{t,\text{REF+DTC}} = \sqrt{44.99^{2} + 29.58^{2}}\ \text{fs} = \sqrt{2024.3 + 875.0}\ \text{fs} = \sqrt{2899.3}\ \text{fs} = 53.85\ \text{fs}.$$
+<p style="margin:.4em 0">Now convert that combined jitter to an integrated phase noise at \(f_{out}=6.72\) GHz <span class="tag t-slide">slide p42</span> using \(\sigma_\phi = 2\pi f_{out}\,\sigma_t\) and \(\mathrm{IPN}_{ssb} = 10\log_{10}(\tfrac{1}{2}\sigma_\phi^{2})\):</p>
+$$\sigma_\phi = 2\pi(6.72\times10^{9})(53.85\times10^{-15}) = 2.274\times10^{-3}\ \text{rad}, \quad \mathrm{IPN}_{ssb} = 10\log_{10}\!\big(\tfrac{1}{2}(2.274\times10^{-3})^2\big) = -55.9\ \text{dBc}.$$
+<div class="kpi" style="margin:.6em 0 .3em">
+  <div class="box"><div class="v">53.8 fs</div><div class="l">REF \(\oplus\) DTC (RSS) <span class="tag t-derive">derived</span></div></div>
+  <div class="box"><div class="v">&minus;55.9 dBc</div><div class="l">that bucket's IPN (SSB)</div></div>
+  <div class="box"><div class="v">37.8%</div><div class="l">of total jitter <i>power</i></div></div>
+  <div class="box"><div class="v">26.4 + 11.4</div><div class="l">REF% + DTC% (powers add)</div></div>
+</div>
+<p style="margin:.3em 0 0"><b>Sanity check.</b> The <i>percentages</i> are fractions of total jitter <i>power</i>, so they add linearly: \(26.38\% + 11.40\% = 37.79\%\). And folding the combined 53.8 fs back as one bucket gives \((53.85/87.60)^2 = 37.79\%\) <span class="tag t-derive">model</span> — the same number, confirming RSS-of-jitter and sum-of-percent are two views of the identical "variances add" rule. The reference path (REF+DTC) is the second-largest contributor after the VCO, matching slide 42's \(\approx 39\%\) REF figure <span class="tag t-slide">slide p42</span>.</p>
+</div>
+ <span class="tag t-derive">derived</span>. The crucial line: the DSM quantization noise, the native curse of frac-N, is driven to ≈0% because the DTC cancels it <span class="tag t-slide">slide p9</span> <span class="tag t-slide">slide p42</span>.</p>
 
 <h3>The four background calibrations</h3>
 <figure class="slide"><img src="assets/slides/slide_40.png" alt="slide 40 simulated background calibration"><figcaption>PDF p.40 / slide p.40 — all four calibrations (sign-LMS integrators $\mu_1,\mu_2,\mu_3$ plus the offset/ΔV-DAC) converge in &lt; 30 µs and track PVT for integer and fractional channels, with 20 ps VCO duty error, 32 mV comparator offset, and 1 ns (57%) CKREF duty error injected.</figcaption></figure>

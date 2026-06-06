@@ -211,6 +211,25 @@ Anchors you can trust everywhere: $f_\text{out}=6.72$ GHz, $f_\text{ref}=104$ MH
 
 <div class="derive">
 <b>Worked conversion (closes slide 42).</b> With $\sigma_t=87.5$ fs and $f_\text{out}=6.72$ GHz: $\sigma_\varphi=2\pi f_\text{out}\sigma_t=3.69\times10^{-3}$ rad, so $\sigma_\varphi^2=1.365\times10^{-5}$ rad<sup>2</sup>. Then $\text{IPN}_\text{SSB}=10\log_{10}(\tfrac12\sigma_\varphi^2)=-51.66$ dBc, matching the deck's &minus;51.7 dBc; the total-variance convention $10\log_{10}(\sigma_\varphi^2)=-48.65$ dBc is exactly 3 dB higher <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>. Our frequency-domain model returns 87.6 fs / &minus;51.6 dBc in the same convention.
+
+<div class="derive">
+<b>The same triangle, run backward (dBc &rarr; mrad &rarr; fs).</b> The box above goes <i>jitter&nbsp;&rarr;&nbsp;dBc</i>. Reading a budget plot usually hands you the opposite: a single IPN number, from which you want the RMS phase and the jitter. Invert the SSB definition $\text{IPN}=10\log_{10}\!\big(\tfrac12\sigma_\varphi^2\big)$ to get $\sigma_\varphi=\sqrt{2\cdot 10^{\,\text{IPN}/10}}$, then divide by $2\pi f_\text{out}$.
+
+<p style="margin:.5em 0 .2em"><b>Given.</b> The model's headline $\text{IPN}=-51.6$ dBc (SSB) <span class="tag t-derive">derived</span> &middot; $f_\text{out}=6.72$ GHz <span class="tag t-slide">slide p42</span>.</p>
+
+<p style="margin:.2em 0"><b>Step 1 &mdash; dBc &rarr; rad.</b> $\sigma_\varphi=\sqrt{2\cdot 10^{-51.6/10}}=\sqrt{2\cdot 6.92\times10^{-6}}=3.72\times10^{-3}\ \text{rad}=3.72\ \text{mrad}.$</p>
+
+<p style="margin:.2em 0"><b>Step 2 &mdash; rad &rarr; s.</b> $\sigma_t=\dfrac{\sigma_\varphi}{2\pi f_\text{out}}=\dfrac{3.72\times10^{-3}}{2\pi(6.72\times10^{9})}=8.81\times10^{-14}\ \text{s}=88.1\ \text{fs}.$</p>
+
+<div class="kpi">
+  <div class="box"><div class="v">&minus;51.6 dBc</div><div class="l">IPN in (SSB)</div></div>
+  <div class="box"><div class="v">3.72 mrad</div><div class="l">&sigma;_&phi; out</div></div>
+  <div class="box"><div class="v">88.1 fs</div><div class="l">&sigma;_t out</div></div>
+</div>
+
+<p style="margin:.4em 0 0"><b>Sanity check.</b> The recovered $88.1$ fs sits right on the model's stored $87.6$ fs (the $0.5$ fs gap is just the rounding of $-51.6$ vs.\ the model's exact $-51.65$ dBc), and $3.72$ mrad matches the forward box's $3.69$ mrad. Forward and reverse close on the same point, so the three columns &mdash; $-51.6$ dBc, $3.7$ mrad, $87.6$ fs &mdash; are one quantity in three units, exactly as the units cheat-sheet promises. <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span></p>
+</div>
+
 </div>
 
 <h2>A tiny KaTeX legend</h2>

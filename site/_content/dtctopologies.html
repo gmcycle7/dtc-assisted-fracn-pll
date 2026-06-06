@@ -49,7 +49,33 @@ $$\mathrm{DR} = 2^{n}\,t_{res} = 2^{n}\,\ln 2\cdot R\,C_{LSB}$$
 <p class="cite">Proposed technique [Wu'21] — see the full story (½-range, VCO duty error, <code>vco_dcc</code> sign-LMS) in <a href="calibrations.html">Calibrations</a>.</p>
 
 <h3 id="range-ledger-interactive">Interactive: the range-reduction ledger</h3>
-<p>One lever — the DTC dynamic range DR — moves four things at once, and they scale <i>differently</i>. The bars show the worst fractional spur for full / ½ / ⅛ range (live from the same <code>spurSpectrum</code> the spurs page uses): the dominant 2nd-order INL term drops <b>≈12 dB per halving</b> (\(40\log_{10}r\)). Meanwhile DTC power follows DR² (÷4 per halving) and quantization noise follows \(t_{\rm res}^2\) (−6 dB) — so the spur win <i>outruns</i> the noise win, which is why range reduction is the architecture's favorite lever. <span class="tag t-derive">model</span></p>
+<p>One lever — the DTC dynamic range DR — moves four things at once, and they scale <i>differently</i>. The bars show the worst fractional spur for full / ½ / ⅛ range (live from the same <code>spurSpectrum</code> the spurs page uses): the dominant 2nd-order INL term drops <b>≈12 dB per halving</b> (\(40\log_{10}r\)). Meanwhile DTC power follows DR² (÷4 per halving) and quantization noise follows \(t_{\rm res}^2\) (−6 dB) — so the spur win <i>outruns</i> the noise win
+
+<div class="derive">
+<strong>Worked example — ½-range, number by number (slide 34).</strong> Take the full-range DTC as the 1× baseline and switch on the two-VCO-phase scheme, which halves the range: \(r=\tfrac12\). The same lever moves three things, each with a <em>different</em> exponent.
+
+<p><strong>GIVEN.</strong> Baseline RC variable-slope DTC with <span class="katex-inline">$T_{res}=400$</span> fs, <span class="katex-inline">$n=10$</span> bits <span class="tag t-slide">slide p15</span>, <span class="katex-inline">$f_{ref}=104$</span> MHz, <span class="katex-inline">$f_{out}=6.72$</span> GHz <span class="tag t-slide">slide p39</span>. INL <span class="katex-inline">$g_2=0.6,\,g_3=0.1$</span> LSB, fractional setting <span class="katex-inline">$\alpha=0.02$</span> <span class="tag t-assume">assumption [A]</span>. Range cut <span class="katex-inline">$r=\tfrac12$</span>.</p>
+
+<p><strong>(1) Worst fractional spur</strong> — dominated by the 2nd-order INL term, which scales as the <em>square</em> of the swept code amplitude and shows up in dBc as \(40\log_{10}r\):</p>
+$$\Delta\mathcal{L}_{spur}=40\log_{10}\tfrac12=-12.0\ \text{dB}.$$
+<p>Running the same <code>spur_spectrum</code> the spurs page uses: full-range worst spur <span class="katex-inline">$=-55.9$</span> dBc, ½-range <span class="katex-inline">$=-67.9$</span> dBc — a measured drop of <span class="katex-inline">$-12.0$</span> dB. <span class="tag t-derive">model</span></p>
+
+<p><strong>(2) DTC quantization noise</strong> — at <em>fixed</em> bit count the step shrinks with the range, <span class="katex-inline">$t_{res}\propto\mathrm{DR}$</span>, and QN <span class="katex-inline">$\propto t_{res}^2$</span>, i.e. \(20\log_{10}r\):</p>
+$$\Delta\mathrm{QN}=20\log_{10}\tfrac12=-6.0\ \text{dB}.$$
+<p>Check against the slide-15 PSD <span class="katex-inline">$\Phi=\frac{(2\pi T_{res})^2}{12}f_{ref}$</span>: <span class="katex-inline">$T_{res}{:}\,400\to200$</span> fs gives <span class="katex-inline">$-162.6\to-168.6$</span> dBc/Hz <span class="tag t-derive">model</span> (the deck rounds the 400 fs value to −163 <span class="tag t-slide">slide p15</span>) — exactly <span class="katex-inline">$-6.0$</span> dB. <span class="tag t-slide">slide p33</span></p>
+
+<p><strong>(3) Power</strong> — <span class="katex-inline">$P\propto\mathrm{DR}^2$</span>, so a halving is <span class="katex-inline">$(\tfrac12)^2=\tfrac14\times$</span> = <span class="katex-inline">$-6.0$</span> dB. <span class="tag t-slide">slide p33</span></p>
+
+<p><strong>RESULT &amp; sanity check.</strong> One free structural change buys <strong>−12 dB spur, −6 dB QN, ¼× power</strong>. The punchline is in the exponents: the spur uses <span class="katex-inline">$40\log_{10}$</span> but QN uses only <span class="katex-inline">$20\log_{10}$</span>, so the spur improves <strong>twice as fast</strong> in dB — it outruns the noise win by exactly <span class="katex-inline">$12-6=6$</span> dB. That is why range reduction is the architecture's favorite lever. <span class="tag t-derive">derived from slide 33</span></p>
+</div>
+
+<div class="kpi">
+  <div class="box"><div class="v">−12.0 dB</div><div class="l">½-range worst spur (model)</div></div>
+  <div class="box"><div class="v">−6.0 dB</div><div class="l">½-range DTC QN</div></div>
+  <div class="box"><div class="v">¼×</div><div class="l">½-range DTC power</div></div>
+  <div class="box"><div class="v">6 dB</div><div class="l">spur win − QN win (the gap)</div></div>
+</div>
+, which is why range reduction is the architecture's favorite lever. <span class="tag t-derive">model</span></p>
 <div id="range-ledger"></div>
 </div>
 
@@ -273,7 +299,19 @@ $$\Delta t_{DTC}=\int \frac{C_L(V)\,dV}{K\,I_G(V)} \;=\; \int \frac{C_L(V)\,dV}{
   <li><strong>Thermal ℒ.</strong> <span class="katex-inline">$\mathcal{L}\propto\mathrm{DR}$</span>. Halving: <span class="katex-inline">$10\log_{10}\tfrac12=-3.01$</span> dB. Eighth: <span class="katex-inline">$10\log_{10}\tfrac18=-9.03$</span> dB.</li>
   <li><strong>Power.</strong> <span class="katex-inline">$P\propto\mathrm{DR}^2$</span>. Halving: <span class="katex-inline">$(\tfrac12)^2=\tfrac14$</span>. Eighth: <span class="katex-inline">$(\tfrac18)^2=\tfrac1{64}$</span>.</li>
 </ul>
-<p>Note the two noise mechanisms scale <em>differently</em> with the same range cut: QN (a quantization variance) goes as DR² but thermal ℒ (an integrated-noise/range product, slide 16/33) goes only as DR. So range reduction is a stronger lever on the quantization floor than on the thermal floor — useful when the DTC QN, not its thermal noise, is the limiter. <span class="tag t-derive">derived from slide 33</span></p>
+<p>Note the two noise mechanisms scale <em>differently</em> with the same range cut: QN (a quantization variance) goes as DR² but thermal ℒ (an integrated-noise/range product, slide 16/33) goes only as DR. So range reduction is a stronger lever on the quantization floor than on the thermal floor
+
+<details class="deriv">
+<summary>Worked example: 1/8-range (8 RO phases, slide 38) — the gap widens to 18 dB</summary>
+<p><strong>GIVEN.</strong> Same baseline as above (<span class="katex-inline">$T_{res}=400$</span> fs <span class="tag t-slide">slide p15</span>, <span class="katex-inline">$f_{ref}=104$</span> MHz, <span class="katex-inline">$f_{out}=6.72$</span> GHz), now cut the range to one eighth, <span class="katex-inline">$r=\tfrac18$</span> <span class="tag t-slide">slide p38</span>.</p>
+<ul>
+  <li><strong>Spur</strong> <span class="katex-inline">$=40\log_{10}\tfrac18=-36.1$</span> dB. Model: full-range <span class="katex-inline">$-55.9$</span> dBc → 1/8-range <span class="katex-inline">$-92.0$</span> dBc, a measured drop of <span class="katex-inline">$-36.0$</span> dB. <span class="tag t-derive">model</span></li>
+  <li><strong>DTC QN</strong> <span class="katex-inline">$=20\log_{10}\tfrac18=-18.1$</span> dB. Slide-15 PSD: <span class="katex-inline">$T_{res}{:}\,400\to50$</span> fs gives <span class="katex-inline">$-162.6\to-180.7$</span> dBc/Hz <span class="tag t-derive">model</span>, i.e. <span class="katex-inline">$-18.1$</span> dB. <span class="tag t-slide">slide p33</span></li>
+  <li><strong>Power</strong> <span class="katex-inline">$=(\tfrac18)^2=\tfrac1{64}\times$</span>. <span class="tag t-slide">slide p33</span></li>
+</ul>
+<p><strong>RESULT &amp; sanity check.</strong> The spur improves <span class="katex-inline">$36$</span> dB while QN improves only <span class="katex-inline">$18$</span> dB — the gap is now <span class="katex-inline">$36-18=18$</span> dB, exactly triple the 6 dB gap of the ½-range case (the cut is <span class="katex-inline">$\log_2 8=3$</span> halvings, and each halving adds <span class="katex-inline">$12-6=6$</span> dB of gap). The spur always wins twice as fast as the noise because of <span class="katex-inline">$40\log$</span> vs <span class="katex-inline">$20\log$</span>. The catch (per the warning above): this needs eight matched RO phases and a dedicated phase-error LMS, so the structural win is paid for with extra calibration. <span class="tag t-derive">derived from slide 33</span></p>
+</details>
+ — useful when the DTC QN, not its thermal noise, is the limiter. <span class="tag t-derive">derived from slide 33</span></p>
 </details>
 
 <div class="warn">

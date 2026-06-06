@@ -73,7 +73,26 @@ $$ T_\text{res} = \ln 2 \cdot R\, C_\text{LSB} $$
 <p>
 The realized delay for code $D$ is $\Delta t = D\cdot T_\text{res}$ (staircase). The cancellation relation is
 $\Delta t[n] = K_\text{DTC}^{-1}\,\Phi_\text{QE}[n]$, with the gain $K_\text{DTC}=T_\text{vco}/\Delta t_\text{DTC}$
-expressed in <i>codes per VCO period</i> <span class="tag t-slide">slide p9</span>.
+expressed in <i>codes per VCO period</i>
+
+<div class="derive">
+<b>Worked example — size the RC cell for a 400 fs LSB, then check the range.</b>
+<p><b>Given:</b> the unit-delay law $T_\text{res}=\ln 2\cdot R\,C_\text{LSB}$ <span class="tag t-slide">slide p15</span>, target LSB $T_\text{res}=400$ fs, $n=10$ bits <span class="tag t-slide">slide p15</span> <span class="tag t-assume">assumption [A6]</span>.</p>
+<p><b>Step 1 — a first cut.</b> Try a $R=5\ \text{k}\Omega$ buffer driving a small per-LSB cap $C_\text{LSB}=115\ \text{aF}$ <span class="tag t-assume">assumption [A7]</span>:</p>
+$$ T_\text{res}=\ln 2\cdot R\,C_\text{LSB}=0.6931\times(5\times10^{3})\times(1.15\times10^{-16})=3.99\times10^{-13}\,\text{s}\approx 399\ \text{fs}\ \checkmark $$
+<p><b>Step 2 — the noise-driven re-pick.</b> Block-1's thermal floor wants a <i>bigger</i> $C_\text{LSB}$ ($\ge 2$ fF, next example). Keeping $T_\text{res}=400$ fs and fixing $C_\text{LSB}=2$ fF, solve the same equation for $R$ <span class="tag t-assume">assumption [A7]</span>:</p>
+$$ R=\frac{T_\text{res}}{\ln 2\,C_\text{LSB}}=\frac{400\times10^{-15}}{0.6931\times(2\times10^{-15})}=289\ \Omega $$
+<p><b>Step 3 — the dynamic range.</b> The total programmable delay is the LSB times the code count $2^{n}$ <span class="tag t-slide">slide p15</span> <span class="tag t-slide">slide p33</span>:</p>
+$$ \text{DR}=2^{n}\,T_\text{res}=2^{10}\times 400\ \text{fs}=1024\times400\ \text{fs}=409.6\ \text{ps} $$
+<p><b>Sanity check.</b> One VCO period is $T_\text{vco}=1/6.72\,\text{GHz}=148.8$ ps <span class="tag t-derive">derived</span>, so a 409.6 ps range spans $409.6/148.8\approx 2.75\,T_\text{vco}$ — comfortably more than the $\pm T_\text{vco}$ swing of a 2nd-order (MASH1-1) DSM, which is exactly the slide's claim that a 10-bit / 400 fs DTC "supports a 2nd-order DSM at $f_\text{vco}>5$ GHz" <span class="tag t-slide">slide p15</span>.</p>
+</div>
+<div class="kpi">
+  <div class="box"><div class="v">399 fs</div><div class="l">$T_\text{res}$ from $R{=}5\,\text{k}\Omega,\,C_\text{LSB}{=}115\,\text{aF}$</div></div>
+  <div class="box"><div class="v">289 Ω</div><div class="l">$R$ if $C_\text{LSB}{=}2$ fF (noise pt)</div></div>
+  <div class="box"><div class="v">409.6 ps</div><div class="l">$\text{DR}=2^{10}T_\text{res}$</div></div>
+  <div class="box"><div class="v">2.75 $T_\text{vco}$</div><div class="l">range / VCO period</div></div>
+</div>
+ <span class="tag t-slide">slide p9</span>.
 </p>
 
 <h4>Frequency-domain model</h4>
@@ -108,7 +127,34 @@ $$ \mathcal{L}\cong 10\log_{10}\!\Big[\tfrac{1}{2}\Big(\tfrac{2\pi f_\text{ref}}
 <p>
 Physically the slew rate converts the sampled $kT/C$ voltage noise into timing jitter $\sigma_t=\sigma_v/k_\text{slew}$,
 then $(2\pi f_\text{ref})^2$ converts timing to reference phase. Larger $C_\text{LSB}$ ⇒ less $kT/C$ ⇒ lower noise.
-A floor below the PN target of <b>−171 dBc/Hz</b> needs $C_\text{LSB}\ge 2$ fF <span class="tag t-slide">slide p16</span>.
+A floor below the PN target of <b>−171 dBc/Hz</b> needs
+
+<div class="derive">
+<b>Worked example — the DTC thermal floor at $C_\text{LSB}=2$ fF.</b>
+<p><b>Given:</b> the mid-code thermal form $\mathcal{L}\cong 10\log_{10}\!\big[2kT\,f_\text{ref}\,(2\pi/\ln 2)^{2}\,2^{n}T_\text{res}^{2}/C_\text{LSB}\big]$ <span class="tag t-slide">slide p16</span>, with $kT=4.14\times10^{-21}$ J (300 K) <span class="tag t-std">textbook</span>, $f_\text{ref}=104$ MHz, $n=10$, $T_\text{res}=400$ fs, $C_\text{LSB}=2$ fF <span class="tag t-assume">assumption [A6][A7]</span>.</p>
+<p><b>Substitute, factor by factor:</b></p>
+$$ 2kT\,f_\text{ref}=2(4.14\times10^{-21})(1.04\times10^{8})=8.62\times10^{-13},\qquad \Big(\tfrac{2\pi}{\ln 2}\Big)^{2}=82.2 $$
+$$ \frac{2^{n}T_\text{res}^{2}}{C_\text{LSB}}=\frac{1024\,(400\times10^{-15})^{2}}{2\times10^{-15}}=8.19\times10^{-8} $$
+$$ \mathcal{L}=10\log_{10}\!\big(8.62\times10^{-13}\times 82.2\times 8.19\times10^{-8}\big)=10\log_{10}(5.80\times10^{-18})=\mathbf{-172.4\ \text{dBc/Hz}} $$
+<p><b>Why "$C_\text{LSB}\ge 2$ fF".</b> Since $\mathcal{L}\propto 1/C_\text{LSB}$, sweeping the cap shows the floor crossing the $-171$ dBc/Hz target right around $1.45$ fF — so $C_\text{LSB}=2$ fF clears it with $\approx 1.4$ dB of margin, reproducing the slide's design rule exactly <span class="tag t-slide">slide p16</span> <span class="tag t-derive">derived</span>:</p>
+<table class="num">
+<thead><tr><th class="num">$C_\text{LSB}$</th><th class="num">$\mathcal{L}_\text{thermal}$</th></tr></thead>
+<tbody>
+<tr><td class="num">1.0 fF</td><td class="num">−169.4 dBc/Hz</td></tr>
+<tr><td class="num">1.45 fF</td><td class="num">−171.0 dBc/Hz (target)</td></tr>
+<tr><td class="num">2.0 fF</td><td class="num">−172.4 dBc/Hz</td></tr>
+<tr><td class="num">3.0 fF</td><td class="num">−174.1 dBc/Hz</td></tr>
+</tbody>
+</table>
+<p><b>Sanity check.</b> Using the same $T_\text{res}=400$ fs, the DTC's <i>quantization</i> floor is $-162.6$ dBc/Hz (block-1 box) <span class="tag t-derive">derived</span>. The thermal floor at $-172.4$ sits $\approx 9.7$ dB <i>below</i> it — so quantization noise, not thermal, sets the DTC's white floor at this design point, which is why the QN number is the one the slide leads with.</p>
+</div>
+<div class="kpi">
+  <div class="box"><div class="v">−172.4 dBc/Hz</div><div class="l">thermal floor @ $C_\text{LSB}{=}2$ fF</div></div>
+  <div class="box"><div class="v">1.45 fF</div><div class="l">$C_\text{LSB}$ for exactly −171</div></div>
+  <div class="box"><div class="v">−162.6 dBc/Hz</div><div class="l">DTC QN floor (same $T_\text{res}$)</div></div>
+  <div class="box"><div class="v">9.7 dB</div><div class="l">thermal below QN ⇒ QN dominates</div></div>
+</div>
+ $C_\text{LSB}\ge 2$ fF <span class="tag t-slide">slide p16</span>.
 </p>
 
 <h4>Dynamic range and the range/noise/power tradeoff</h4>
