@@ -20,7 +20,7 @@ PAGES = [
      "A guided hands-on tour of all 24 interactive widgets: missions across architecture, loop dynamics, calibrations, fractional spurs, and system impact, plus a full widget index."),
     ("slides",        "slides.html",        "2",  "Slide-by-slide Map",    False, False,
      "Per-slide analysis table (p.1-42) mapping each slide to its formulas, calibrations, models, and parameters."),
-    ("architecture",  "architecture.html",  "3",  "Architecture",          False, False,
+    ("architecture",  "architecture.html",  "3",  "Architecture",          True,  True,
      "Overall DTC-assisted sampling fractional-N PLL: signal flow, noise-injection flow, and calibration flow."),
     ("blocks",        "blocks.html",        "4",  "Block Models",          True,  True,
      "Per-block time- and frequency-domain models: DTC, sampling PD, GM/loop filter, VCO (Leeson), MMD/DSM, with non-idealities."),

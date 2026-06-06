@@ -634,6 +634,32 @@
     draw();
   }
 
+  // ============ Fractional accumulator: how α becomes a fractional divide ============
+  function accumulator(root){
+    var s=scaffold(root); s.plot.style.height="520px"; var o={alpha:0.6154, L:8};
+    function draw(){
+      var n=256, r=P.simAccumulator({alpha:o.alpha,L:o.L,n:n});
+      var t=Array.from({length:n},function(_,i){return i;});
+      var ra={x:t,y:r.runavg,mode:"lines",line:{color:"#1f77b4",width:2},xaxis:"x",yaxis:"y"};
+      var al={x:[0,n-1],y:[o.alpha,o.alpha],mode:"lines",line:{color:"#0a8f5b",dash:"dash",width:1.4},xaxis:"x",yaxis:"y"};
+      var res={x:t,y:r.residue,mode:"lines",line:{color:"#c8442b",width:1},xaxis:"x2",yaxis:"y2"};
+      Plotly.react(s.plot,[ra,al,res],Object.assign({margin:{t:14,r:10,b:44,l:62},showlegend:false,
+        annotations:[{x:0.5,y:1.0,xref:"paper",yref:"paper",text:"top: running mean of the carry → α  (so the divide N+carry averages to N+α)",showarrow:false,font:{size:10,color:"#888"}}],
+        xaxis:{domain:[0,1],anchor:"y",title:"reference cycle n",gridcolor:"#eee"},
+        yaxis:{domain:[0.58,1],title:"mean carry",range:[0,1],gridcolor:"#eee"},
+        xaxis2:{domain:[0,1],anchor:"y2",title:"reference cycle n",gridcolor:"#eee"},
+        yaxis2:{domain:[0,0.42],title:"residue Φ_QE [T_vco]",range:[0,1],gridcolor:"#eee"}},BG),{displayModeBar:false,responsive:true});
+      var resHz=r.fref/r.M;
+      s.read.innerHTML=box("FCW = round(α·2^L)",r.fcw.toLocaleString())+
+        box("realized α = FCW/2^L",r.alphaReal.toFixed(o.L>=16?6:4))+
+        box("divide averages",r.Nint+" + "+r.alphaReal.toFixed(4)+" = "+(r.Nint+r.alphaReal).toFixed(4))+
+        box("resolution f_ref/2^L",(resHz>=1e3?(resHz/1e3).toFixed(1)+" kHz":resHz.toFixed(2)+" Hz"));
+    }
+    slider(s.ctl,"fractional α",0.01,0.99,0.01,o.alpha,"",function(v){return (+v).toFixed(2);},function(v){o.alpha=v;draw();});
+    slider(s.ctl,"accumulator bits L",3,24,1,o.L,"",function(v){return (+v).toFixed(0);},function(v){o.L=v;draw();});
+    draw();
+  }
+
   ready(function(){
     if(!window.Plotly||!P){ return; }
     var map={ "spur-explorer":spurExplorer, "pole-zero":poleZero, "lock-transient":lockTransient,
@@ -641,7 +667,7 @@
       "cal-residual-floor":calResidualFloor, "cal-offset-race":calOffsetRace, "cal-dashboard":calDashboard,
       "nlc-inl":nlcInl, "budget-pie":budgetPie, "pm-bridge":pmBridge, "range-ledger":rangeLedger,
       "gear-shift":gearShift, "legendre-mono":legendreMono, "type-compare":typeCompare, "recip-mix":recipMix,
-      "rc-ramp":rcRamp, "zoh-erosion":zohErosion, "td-lab":tdLab, "fom-scatter":fomScatter };
+      "rc-ramp":rcRamp, "zoh-erosion":zohErosion, "td-lab":tdLab, "fom-scatter":fomScatter, "accumulator":accumulator };
     Object.keys(map).forEach(function(id){ var el=document.getElementById(id); if(el) map[id](el); });
   });
 })();

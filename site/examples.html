@@ -260,6 +260,38 @@ $$S_\varphi(f) = \frac{2}{f_s M U}\,\big|\text{FFT}(w\cdot\varphi)\big|^2,\qquad
 <figure><img src="assets/figures/td_phase_noise.png" alt="time-domain derived phase noise PSD overlaid with frequency-domain model"><figcaption>Time-domain PSD vs frequency-domain model overlay. Source: time_domain.json, cross-check per <span class="tag t-derive">derivations &sect;9</span>.</figcaption></figure>
 </div>
 
+<h2 id="ex8">8 &mdash; Fraction → bits: the FCW and channel resolution</h2>
+<p>How fine a frequency grid can a fractional-N loop hit, and how many accumulator bits does that take? The fraction \(\alpha\) is stored in an \(L\)-bit accumulator as \(\text{FCW}=\operatorname{round}(\alpha\,2^{L})\); the output frequency step is one accumulator LSB, \(\Delta f=f_{\rm ref}/2^{L}\).</p>
+<div class="derive">
+<p><b>Given:</b> \(f_{\rm ref}=104\) MHz, \(\alpha=0.6154\) (so \(N=64.6154\)). Resolution and word value vs bit-width:</p>
+<table class="num">
+<thead><tr><th>\(L\) (bits)</th><th>FCW = round(α·2^L)</th><th>\(\Delta f = f_{\rm ref}/2^{L}\)</th><th>output freq error</th></tr></thead>
+<tbody>
+<tr><td>20</td><td>645,278</td><td>99.2 Hz</td><td>−45.8 Hz</td></tr>
+<tr><td><b>24</b></td><td><b>10,324,441</b></td><td><b>6.20 Hz</b></td><td>−2.4 Hz</td></tr>
+<tr><td>27</td><td>82,595,525</td><td>0.77 Hz</td><td>−0.06 Hz</td></tr>
+</tbody>
+</table>
+<p><b>Sizing rule:</b> to guarantee a raster finer than \(\Delta f_{\rm spec}\) you need \(L \ge \lceil\log_2(f_{\rm ref}/\Delta f_{\rm spec})\rceil\). For a 1 Hz grid: \(L=\lceil\log_2(104\times10^{6})\rceil = 27\) bits (giving 0.77 Hz). The deck does not specify \(L\); these use [A23]. <span class="tag t-derive">derived</span> <span class="tag t-assume">assumption [A23]</span></p>
+</div>
+
+<h2 id="ex9">9 &mdash; Capstone: one fraction, all the way to a DTC code</h2>
+<p>String the whole digital chain together for the design's own channel, \(N=64.6154\) — fraction → bits → accumulator residue → delay → DTC code → residual.</p>
+<div class="derive">
+<p><b>① Fraction → FCW</b> (\(L=24\), <span class="tag t-assume">[A23]</span>): \(\text{FCW}=\operatorname{round}(0.6153846\cdot2^{24})=10{,}324{,}441\).</p>
+<p><b>② Accumulator → residue.</b> The accumulator's leftover each cycle is \(\Phi_{\rm QE}[n]=\text{acc}[n]/2^{24}\) (in \(T_{\rm vco}\)); take a representative residue \(\Phi_{\rm QE}=0.6154\,T_{\rm vco}\).</p>
+<p><b>③ Residue → delay.</b> The DTC must delay the reference by \(\Delta t=\Phi_{\rm QE}\,T_{\rm vco}=0.6154\times148.8\ \text{ps}=91.6\) ps.</p>
+<p><b>④ Delay → DTC code,</b> with \(K_{\rm DTC}=T_{\rm vco}/T_{\rm res}=148.8\ \text{ps}/400\ \text{fs}=372\) codes per \(T_{\rm vco}\):</p>
+$$ \text{code}=\operatorname{round}(K_{\rm DTC}\cdot\Phi_{\rm QE})=\operatorname{round}(372\times0.6154)=\operatorname{round}(228.9)=\mathbf{229}\ \text{codes}. $$
+<p><b>⑤ Code → residual.</b> The 0.1-code rounding leaves \(\delta t=(228.9-229)\times400\ \text{fs}=-25\) fs of uncancelled error per cycle — the DTC quantization that sets the \(-163\) dBc/Hz floor <span class="tag t-slide">slide p15</span>; any DTC <i>nonlinearity</i> on top turns this periodic residue into the fractional spurs of the <a href="spurs.html">Spurs</a> page. <span class="tag t-derive">derived</span></p>
+<div class="kpi" style="margin:.5em 0 .2em">
+  <div class="box"><div class="v">0.6154</div><div class="l">fraction α</div></div>
+  <div class="box"><div class="v">10,324,441</div><div class="l">24-bit FCW</div></div>
+  <div class="box"><div class="v">91.6 ps</div><div class="l">DTC delay Δt</div></div>
+  <div class="box"><div class="v">229 codes</div><div class="l">DTC command (K_DTC=372)</div></div>
+</div>
+</div>
+
 <div class="cite">
 <b>Provenance summary.</b> Slide values: $f_{out},f_{ref}$ <span class="tag t-slide">slide p42</span> (and slide-42 prints total 87.5 fs / &minus;51.7 dBc); $N$ is <span class="tag t-derive">derived</span> ($=f_{out}/f_{ref}$); $T_{res}$, DR, DTC QN <span class="tag t-slide">slide p15</span>; $K_{SPD}$ <span class="tag t-slide">slide p20</span>; cal timing &amp; NLC <span class="tag t-slide">slide p26-40</span>. Derived/model numbers: <code>freq_domain.json</code>, <code>calibrations.json</code>, <code>time_domain.json</code>, and <code>docs/derivations.md</code> (&sect;3 DTC QN, &sect;6 $K_{SPD}$, &sect;7 cal, &sect;8 jitter conversions, &sect;9 cross-check). Standard theory named inline: Bennett quantization, Gardner/Razavi loop design, Widrow &amp; Stearns LMS, Welch PSD, IEEE-1139/Leeson phase-noise conventions.
 </div>

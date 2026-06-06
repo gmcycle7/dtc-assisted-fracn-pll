@@ -44,3 +44,9 @@ Every assumption below is **NOT** stated in the slides (or not stated with a num
 
 - **[A19] Single-sided phase-noise convention** with `ℒ(f)=10log10(½ S_φ)`. The ±3 dB SSB/DSB ambiguity (see derivations §3, §8) is acknowledged; numbers are reported single-sided unless a slide value is explicitly DSB (slide 42 IPN is DSB).
 - **[A20] All "background" calibrations run continuously after lock** (slide 40 "background"). Foreground variants are discussed but not the default.
+
+## Design-exercise / illustrative inputs
+
+- **[A21] The 80-fs synthesis target** on the Design Walkthrough is a *self-chosen* spec, deliberately tighter than slide-42's 87.5 fs so the walkthrough has to tighten something. It is the only invented number on that page; everything downstream is computed from it with slide formulas.
+- **[A22] State-of-the-art jitter/power cloud** on the System FoM scatter is an *illustrative* envelope of fractional-N synthesizer results, not specific cited papers; it exists only to show where the iso-FoM diagonals fall. The design's own point (87.6 fs / 14.2 mW → −249.6 dB) and the iso-FoM lines are exact.
+- **[A23] DSM fractional accumulator bit-width L.** The deck gives the DTC resolution (10-bit → 400 fs DR, slide 15) and the DSM order (2nd, slide 15) but **not** the fractional accumulator word length or the channel raster. The fraction→bits worked examples use **L = 24** as a representative value (channel resolution f_ref/2²⁴ ≈ 6.2 Hz), and show L = 20 (≈99 Hz) alongside to make the bit-width↔resolution trade explicit. FCW = round(α·2^L) and the resolution f_ref/2^L are exact given L; only L itself is assumed.

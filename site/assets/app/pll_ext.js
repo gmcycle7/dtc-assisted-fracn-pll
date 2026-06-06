@@ -377,6 +377,24 @@
     return { t_us: t, Khat: K, Ktrue: Ktrue, effOffset: OFF, finalErrPct: 100 * (fin - Ktrue) / Ktrue };
   }
 
+  // ---------------- fractional accumulator / FCW (1st-order DSM carry mechanism) ----------------
+  // An L-bit accumulator adds FCW=round(alpha*2^L) each cycle; its carry-out has mean alpha, so the
+  // instantaneous divide N_int+carry averages to N_int+alpha. The leftover acc/2^L (in T_vco) IS the
+  // accumulated quantization error Phi_QE that the DTC cancels.
+  function simAccumulator(o) {
+    o = o || {}; var L = o.L || 24, M = Math.pow(2, L);
+    var Nint = o.Nint != null ? o.Nint : 64, alpha = o.alpha != null ? o.alpha : 0.6153846;
+    var fcw = o.fcw != null ? o.fcw : Math.round(alpha * M);
+    var n = o.n || 256, acc = 0, csum = 0;
+    var carry = [], resid = [], runavg = [], divide = [];
+    for (var k = 0; k < n; k++) {
+      acc += fcw; var c = acc >= M ? 1 : 0; if (c) acc -= M;
+      csum += c; carry.push(c); resid.push(acc / M); divide.push(Nint + c); runavg.push(csum / (k + 1));
+    }
+    return { carry: carry, residue: resid, runavg: runavg, divide: divide, fcw: fcw, M: M, L: L,
+             alphaReal: fcw / M, Nint: Nint, fref: 104e6 };
+  }
+
   // ---------------- type-I loop (single integrator) — for the type-I vs type-II widget ----------------
   function designType1(p) { var wc = 2 * Math.PI * p.f_c, wp = 8 * wc; return { wc: wc, wp: wp, K1: wc * Math.sqrt(1 + (wc / wp) * (wc / wp)) }; }
   // open-loop G_I(jw)=K1/(s(1+s/wp)); return magnitude + Re/Im (denominator = -w^2/wp + j w)
@@ -482,6 +500,6 @@
     simCkrefDcc: simCkrefDcc, simOffsetRace: simOffsetRace, fomJitter: fomJitter,
     designType1: designType1, olType1: olType1, hrefType1N: hrefType1N, hvcoType1: hvcoType1, pmType1: pmType1,
     legendreVsMonomial: legendreVsMonomial, simGearShift: simGearShift, lmsTradeoff: lmsTradeoff,
-    simTimeDomain: simTimeDomain,
+    simTimeDomain: simTimeDomain, simAccumulator: simAccumulator,
   });
 })();

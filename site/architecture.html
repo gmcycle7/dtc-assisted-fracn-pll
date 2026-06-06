@@ -54,6 +54,35 @@ In any fractional-N PLL you divide the VCO by a number that is, on average, frac
 The DTC-assisted trick: <b>the DSM knows the QE exactly at every cycle</b> (it is the residue inside the accumulator). So instead of dumping that QE into the phase detector, we <b>delay the reference clock by the same amount</b> using a programmable delay element (the DTC). The reference edge now arrives at the detector at the same instant the feedback edge does. The phase detector sees $\approx 0$ — exactly as if we were running integer-N <span class="tag t-slide">slide p9</span>.
 </p>
 
+<h2 id="frac-to-bits">From a fraction to bits — how the DSM actually divides by 64.62</h2>
+<p>That "average fractional divide" deserves to be made concrete: which number is the integer, which is the fraction, how the fraction is stored as bits, and why an accumulator's <i>overflow</i> is what creates the fractional ratio.</p>
+
+<div class="derive">
+<b>Worked example 1 — split the divide ratio into an integer and a fraction.</b>
+<p>The required ratio is fixed by the two frequencies:</p>
+$$ N = \frac{f_{\rm out}}{f_{\rm ref}} = \frac{6720\ \text{MHz}}{104\ \text{MHz}} = 64.6154 \;\Longrightarrow\; \underbrace{N_{\rm int}=64}_{\text{integer} \,\to\, \text{MMD}} \;+\; \underbrace{\alpha=0.6154}_{\text{fraction} \,\to\, \text{DSM}}. $$
+<p><b>Which number is which:</b> the integer <b>64</b> is the base modulus handed to the multi-modulus divider (MMD); the fraction <b>0.6154</b> is what the ΔΣ modulator must synthesize by dithering the divide value. <span class="tag t-derive">derived [A3]</span></p>
+</div>
+
+<div class="derive">
+<b>Worked example 2 — encode the fraction as bits (the frequency control word, FCW).</b>
+<p>The fraction lives in an <b>\(L\)-bit accumulator</b>; the digital word you program is \(\text{FCW}=\operatorname{round}(\alpha\cdot 2^{L})\). With \(L=24\) bits <span class="tag t-assume">assumption [A23]</span>:</p>
+$$ \text{FCW} = \operatorname{round}\!\big(0.6153846\times 2^{24}\big) = \operatorname{round}(10\,324\,440.9) = \mathbf{10\,324\,441}. $$
+<p>The realized fraction is \(\text{FCW}/2^{24}=0.6153846\), off target by only \(\approx2.4\) Hz at the output; the <b>channel resolution</b> is one accumulator LSB:</p>
+$$ \Delta f = \frac{f_{\rm ref}}{2^{L}} = \frac{104\ \text{MHz}}{2^{24}} = 6.20\ \text{Hz}. $$
+<div class="kpi" style="margin:.5em 0 .2em">
+  <div class="box"><div class="v">10,324,441</div><div class="l">FCW (24-bit fractional word)</div></div>
+  <div class="box"><div class="v">6.20 Hz</div><div class="l">channel resolution f_ref/2²⁴</div></div>
+  <div class="box"><div class="v">64 + 0.6154</div><div class="l">integer (MMD) + fraction (DSM)</div></div>
+  <div class="box"><div class="v">L=20 → 99 Hz</div><div class="l">fewer bits, coarser raster</div></div>
+</div>
+<p><b>The bit picture:</b> all 24 bits of the FCW are the <i>fractional</i> word — they feed the DSM accumulator; the integer 64 is a separate, much shorter word (7 bits, since \(64<128\)) that sets the MMD's base divide. More accumulator bits → finer frequency raster, nothing else changes. <span class="tag t-derive">derived</span> <span class="tag t-assume">[A23]</span></p>
+</div>
+
+<h3 id="accumulator-interactive">Interactive: watch the accumulator turn α into a fractional divide</h3>
+<p>This is the mechanism behind "dithering the integer divide averages to a fraction." Each reference cycle the \(L\)-bit accumulator adds the FCW; whenever it <b>overflows</b> it emits a <b>carry</b> that bumps the divide from \(N\) to \(N{+}1\) for that one cycle. The <b>top panel</b> shows the running mean of the carry climbing to α (so the divide averages to \(N{+}\alpha\)); the <b>bottom panel</b> is the leftover accumulator residue \(\text{acc}/2^{L}\) — which, in VCO periods, <i>is</i> the accumulated quantization error \(\Phi_{\rm QE}\) the DTC then cancels. Drop \(L\) to 3–4 bits to follow the carries by eye; raise it to 24 for the real design (and watch the realized α snap onto the target). <span class="tag t-derive">model (simAccumulator)</span> <span class="tag t-std">textbook (accumulator = 1st-order ΔΣ)</span></p>
+<div id="accumulator"></div>
+
 <div class="grid">
   <div class="card">
     <h4>Why this is powerful</h4>
@@ -418,7 +447,11 @@ The natural confusion: if the DTC and PD run on CKREFX2, is the "reference" 104 
 <script src="assets/vendor/prism/prism-core.min.js"></script>
 <script src="assets/vendor/prism/prism-clike.min.js"></script>
 <script src="assets/vendor/prism/prism-python.min.js"></script>
-
+<script src="assets/vendor/plotly/plotly.min.js"></script>
+<script src="assets/app/pll.js"></script>
+<script src="assets/app/pll_ext.js"></script>
+<script src="assets/app/widgets.js"></script>
+<script src="assets/app/widgets_ext.js"></script>
 <script src="assets/app/site.js"></script>
 </body>
 </html>

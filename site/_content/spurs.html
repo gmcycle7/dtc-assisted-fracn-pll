@@ -12,6 +12,27 @@
 <h3>Intuition: a fractional ratio cannot be made from integer cycles</h3>
 <p>The multi-modulus divider (MMD) can only divide by an <b>integer</b>. To realize an average ratio \(N=64.62\) <span class="tag t-derive">derived</span> the ΔΣ modulator (DSM) dithers the instantaneous divide value between integers (…64, 65, 64, 65, 66…) so the <i>long-term average</i> equals 64.62. Each cycle that the divider is "wrong by an integer", the feedback edge <code>CKFB</code> lands early or late relative to <code>CKREF</code>. The running sum of those integer errors is the <b>accumulated quantization error</b> \(\Phi_{\rm QE}[n]\) — measured in VCO periods, because each integer divide error displaces the feedback edge by one \(T_{\rm vco}\).</p>
 
+<details class="deriv"><summary><b>Worked example — follow a 1st-order accumulator by hand: why dithering averages to a fraction</b></summary>
+<div style="padding:.2em">
+<p>Take a tiny 4-bit accumulator (\(2^4=16\)) with \(\text{FCW}=10\), i.e. \(\alpha=10/16=0.625\). Each reference cycle does \(\text{acc}\leftarrow(\text{acc}+10)\bmod 16\), and a <b>carry</b> fires (divide = \(N{+}1\) instead of \(N\)) whenever the running sum reaches 16:</p>
+<table class="num">
+<thead><tr><th>cycle \(n\)</th><th>acc + FCW</th><th>carry → divide</th><th>new acc \((=\Phi_{\rm QE}\cdot16)\)</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>0+10=10</td><td>0 → \(N\)</td><td>10</td></tr>
+<tr><td>2</td><td>10+10=20</td><td><b>1 → \(N{+}1\)</b></td><td>4</td></tr>
+<tr><td>3</td><td>4+10=14</td><td>0 → \(N\)</td><td>14</td></tr>
+<tr><td>4</td><td>14+10=24</td><td><b>1 → \(N{+}1\)</b></td><td>8</td></tr>
+<tr><td>5</td><td>8+10=18</td><td><b>1 → \(N{+}1\)</b></td><td>2</td></tr>
+<tr><td>6</td><td>2+10=12</td><td>0 → \(N\)</td><td>12</td></tr>
+<tr><td>7</td><td>12+10=22</td><td><b>1 → \(N{+}1\)</b></td><td>6</td></tr>
+<tr><td>8</td><td>6+10=16</td><td><b>1 → \(N{+}1\)</b></td><td>0</td></tr>
+</tbody>
+</table>
+<p>Carries over the 8-cycle period: \(0,1,0,1,1,0,1,1\) — exactly <b>5 carries in 8 cycles</b>, so the divide is \(N{+}1\) five-eighths of the time and \(N\) the rest: the average divide is \(N+\tfrac58 = N+0.625 = N+\alpha\). <b>That is the whole trick — the overflow rate equals \(\alpha\).</b> <span class="tag t-derive">derived</span> <span class="tag t-std">textbook (accumulator = 1st-order ΔΣ)</span></p>
+<p>The real design is identical with \(L=24,\ \text{FCW}=10{,}324{,}441\) (\(\alpha=0.6154\)): the carry now averages 0.6154, so the MMD averages \(64.6154\). The leftover residue (the last column \(\div 2^L\), in \(T_{\rm vco}\)) is precisely the \(\Phi_{\rm QE}[n]\) the DTC cancels — and for a 1st-order accumulator it sweeps the full \([0,1)\,T_{\rm vco}\) sawtooth, the "1&nbsp;\(T_{\rm vco}\)" MASH-1 range below. Watch it live in the <a href="architecture.html#accumulator-interactive">accumulator widget →</a>. <span class="tag t-derive">model</span></p>
+</div>
+</details>
+
 <p>The DTC's job is to delay <code>CKREF</code> by exactly \(\Phi_{\rm QE}[n]\) each cycle so the phase detector sees ≈0 error — the fractional PLL then behaves like an integer-N PLL <span class="tag t-slide">slide p9</span>:</p>
 $$\Delta t[n] \;=\; \frac{1}{K_{\rm DTC}}\,\Phi_{\rm QE}[n],\qquad K_{\rm DTC}=\frac{T_{\rm vco}}{\Delta t_{\rm DTC}}\ \ \text{[codes per VCO period]} \quad\text{\small slide p9}$$
 
@@ -31,6 +52,21 @@ $$\Delta t[n] \;=\; \frac{1}{K_{\rm DTC}}\,\Phi_{\rm QE}[n],\qquad K_{\rm DTC}=\
 </tbody>
 </table>
 <p style="margin-top:-0.4em"><span class="tag t-slide">slide p6</span> — the QE range is \(1/2/4\,T_{\rm vco}\) for MASH-1 / 1-1 / 1-1-1.</p>
+
+<details class="deriv"><summary><b>Worked example — which integers each MASH order emits, and why that sets the DTC range</b></summary>
+<div style="padding:.2em">
+<p>For orders &gt; 1 the DSM doesn't just toggle \(N/N{+}1\): the MASH combiner sums several differenced carries, so the instantaneous divide spans more integers. With 1st-order carries \(c_i\in\{0,1\}\) and combiner \(y=c_1+(1-z^{-1})c_2+(1-z^{-1})^2c_3+\dots\):</p>
+<table class="num">
+<thead><tr><th>MASH</th><th>combiner</th><th>divide offsets \(y[n]\)</th><th>residue range</th></tr></thead>
+<tbody>
+<tr><td>MASH-1</td><td>\(c_1\)</td><td>\(\{0,1\}\)</td><td>\(1\,T_{\rm vco}\)</td></tr>
+<tr><td><b>MASH-1-1</b></td><td>\(c_1+\Delta c_2\)</td><td>\(\{-1,0,1,2\}\)</td><td>\(2\,T_{\rm vco}\)</td></tr>
+<tr><td>MASH-1-1-1</td><td>\(c_1+\Delta c_2+\Delta^2 c_3\)</td><td>\(\{-3,\dots,4\}\)</td><td>\(4\,T_{\rm vco}\)</td></tr>
+</tbody>
+</table>
+<p>So for the proposed 2nd-order (MASH-1-1) design the divide ratio is not just 64/65 — it ranges over \(\{63,64,65,66\}\), and the accumulated residue the DTC must absorb spans <b>2&nbsp;\(T_{\rm vco}\)</b> peak-to-peak <span class="tag t-slide">slide p6</span>. Each extra order doubles that span (and the DTC range) while steepening the noise shaping — the trade quantified just below. <span class="tag t-derive">derived</span></p>
+</div>
+</details>
 
 <p>This is the trade in one line: each extra DSM stage steepens the noise shaping by one factor of \((1-z^{-1})\) (pushing quantization noise to higher frequency where the loop filters it), but <b>doubles</b> the DTC range, which — by the slide-33 scaling — costs DTC quantization noise (\(\propto t_{\rm res}^2\)), thermal noise (\(\propto\) DR), power (\(\propto\) DR\(^2\)) and linearity. The proposed design therefore uses a <b>modified low-order DSM plus range-reduction tricks</b> rather than brute-forcing a high order <span class="tag t-slide">slides p33–34</span>.</p>
 
