@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Self-Test · DTC-Assisted Frac-N PLL</title>
+<meta name="description" content="24 auto-graded multiple-choice questions across all five themes, with instant scoring and explanations.">
+<meta property="og:title" content="Self-Test · DTC-Assisted Fractional-N PLL">
+<meta property="og:description" content="24 auto-graded multiple-choice questions across all five themes, with instant scoring and explanations.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism-tomorrow.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar"><button class="ham" aria-label="Open menu">&#9776;</button><span class="ttl">Self-Test</span></div>
+<div class="scrim"></div>
+<div class="wrap">
+<nav class="side" aria-label="Site sections">
+<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>
+<div class="sub">Interactive study of slides 1–42</div>
+<a class="" href="index.html"><span class="n">1</span>Home</a>
+<a class="" href="lab.html"><span class="n">2</span>Interactive Lab</a>
+<a class="active" href="selftest.html"><span class="n">3</span>Self-Test</a>
+<a class="" href="slides.html"><span class="n">4</span>Slide-by-slide Map</a>
+<a class="" href="architecture.html"><span class="n">5</span>Architecture</a>
+<a class="" href="blocks.html"><span class="n">6</span>Block Models</a>
+<a class="" href="calibrations.html"><span class="n">7</span>Calibrations</a>
+<a class="" href="frequency.html"><span class="n">8</span>Frequency-Domain</a>
+<a class="" href="loopdyn.html"><span class="n">9</span>Loop Dynamics & Lock</a>
+<a class="" href="timedomain.html"><span class="n">10</span>Time-Domain Noise</a>
+<a class="" href="spurs.html"><span class="n">11</span>Fractional Spurs</a>
+<a class="" href="system.html"><span class="n">12</span>System Impact</a>
+<a class="" href="codewalk.html"><span class="n">13</span>Code Walkthrough</a>
+<a class="" href="examples.html"><span class="n">14</span>Numerical Examples</a>
+<a class="" href="designex.html"><span class="n">15</span>Design Walkthrough</a>
+<a class="" href="problems.html"><span class="n">16</span>Design Problems</a>
+<a class="" href="dtctopologies.html"><span class="n">17</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">18</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">19</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">20</span>References</a>
+</nav>
+<main>
+<div class="article">
+<h1>Self-Test — 24 auto-graded questions</h1>
+<p class="lead">Click an answer and it grades instantly: the right and wrong choices light up and an explanation appears. Nothing hides behind "show answer" — you commit, then learn. Every number here matches the models used across the site, and your running score sits pinned at the top.</p>
+<div class="note">A mix of concept and calculation across all five themes. The wrong answers are the most useful ones — read the explanation. Hit <b>Reset</b> (or reload) to retake.</div>
+
+<div id="selftest"></div>
+
+<div class="note" style="margin-top:18px">Want to <i>see</i> the answer to any of these move? Each links back to an interactive widget — start from the <a href="lab.html">Interactive Lab</a>. Open-ended "the spec just changed" versions live on the <a href="problems.html">Design Problems</a> page.</div>
+
+<script>
+(function(){
+  var Q=[
+    {t:"Architecture",q:"The ratio is N = f_out/f_ref = 6720/104 = 64.6154. Which part is handed to the multi-modulus divider (MMD)?",
+     o:["The integer 64","The fraction 0.6154","Both halves equally","Neither — the DTC sets the divide"],a:0,
+     e:"A divider can only divide by an integer, so the MMD takes the base 64. The fraction 0.6154 is what the ΔΣ modulator (DSM) synthesizes by dithering the divide value cycle-to-cycle."},
+
+    {t:"Fraction → bits",q:"With a 24-bit accumulator, the fractional word is FCW = round(α·2^24) for α = 0.6154. What is it?",
+     o:["64","645,278","10,324,441","16,777,216"],a:2,
+     e:"round(0.6153846 × 2^24) = round(10,324,440.9) = 10,324,441. (645,278 is the 20-bit FCW; 16,777,216 = 2^24 is the full-scale, i.e. α = 1.)"},
+
+    {t:"DSM mechanism",q:"Why does dithering the integer divide value actually produce a fractional average ratio?",
+     o:["The DTC interpolates between integers","The accumulator's overflow (carry) rate equals the fraction α","The VCO runs at a fractional frequency","The loop filter averages the phase error"],a:1,
+     e:"An L-bit accumulator adds FCW each cycle; it overflows (carry = 1, divide N→N+1) at an average rate FCW/2^L = α. So the divide is N+1 for a fraction α of cycles and N otherwise → average = N+α. The accumulator IS a 1st-order ΔΣ."},
+
+    {t:"Fraction → bits",q:"You add more bits L to the fractional accumulator. What improves?",
+     o:["Lower phase noise","Finer frequency resolution (Δf = f_ref/2^L)","Faster lock time","Lower spur level"],a:1,
+     e:"One accumulator LSB = f_ref/2^L of output frequency. L=20 → 99 Hz, L=24 → 6.2 Hz, L=27 → 0.77 Hz. Bits buy frequency raster, nothing else directly."},
+
+    {t:"MASH / DSM",q:"For the proposed 2nd-order MASH-1-1 modulator, the instantaneous divide offset y[n] takes which values?",
+     o:["{0, 1}","{−1, 0, 1, 2}","{−2, −1, 0, 1, 2}","{−3 … 4}"],a:1,
+     e:"MASH-1-1's combiner c₁ + (1−z⁻¹)c₂ gives y ∈ {−1,0,1,2}, so the divide ranges over {63,64,65,66} and the residue the DTC must absorb spans 2 T_vco. (MASH-1 → {0,1}/1 T_vco; MASH-1-1-1 → {−3..4}/4 T_vco.)"},
+
+    {t:"DTC",q:"K_DTC = T_vco/T_res, with T_vco = 148.8 ps and T_res = 400 fs. How many codes span one VCO period?",
+     o:["10 codes","148 codes","372 codes","400 codes"],a:2,
+     e:"148.8 ps / 400 fs = 372 codes per T_vco. The DTC command for a residue Φ_QE is round(K_DTC·Φ_QE)."},
+
+    {t:"Budget",q:"In the converged slide-42 budget (87.6 fs), which source is the largest jitter contributor?",
+     o:["The reference clock","The VCO (~52%)","The DTC","The ΔΣ quantization noise"],a:1,
+     e:"VCO 51.8%, REF 26.4%, DTC 11.4%, MMD 6.2%, SPD+GM 3.9%, ΔΣ-QN ~0.3%. Once the DTC cancels the DSM noise, the budget is dominated by the two sources common to every PLL: VCO and reference."},
+
+    {t:"Budget",q:"What happens to the jitter budget if the DTC does NOT cancel the ΔΣ quantization noise?",
+     o:["Nothing — it's already small","It rises slightly to ~95 fs","The ΔΣ slice explodes and the total jumps to hundreds–thousands of fs","Only the spurs get worse"],a:2,
+     e:"The whole architecture exists for this. Uncancelled, the shaped ΔΣ quantization noise dominates and the integrated jitter blows up by orders of magnitude — the loop is unusable. (Try the budget pie on the home page.)"},
+
+    {t:"Conversion",q:"σ_t = 87.6 fs at f_out = 6.72 GHz. What integrated phase noise (SSB convention) is that?",
+     o:["−30 dBc","−44 dBc","−51.6 dBc","−70 dBc"],a:2,
+     e:"σ_φ = 2π·6.72e9·87.6e−15 = 3.70 mrad; IPN = 10log₁₀(½σ_φ²) = −51.6 dBc (the deck's slide-42 value is −51.7 dBc)."},
+
+    {t:"Loop dynamics",q:"For a symmetric type-II loop with phase margin 60°, the zero/pole spacing factor is k = tan((PM+90°)/2). What is k?",
+     o:["1.00","1.73","3.73","7.60"],a:2,
+     e:"k = tan(75°) = 2+√3 = 3.73. The zero sits at f_c/k ≈ 402 kHz and the far pole at f_c·k ≈ 5.6 MHz, geometric-mean = f_c."},
+
+    {t:"Loop dynamics",q:"The closed-loop response peaks ~1.70 dB even though ζ ≈ 0.97 (which a 2nd-order pair could not peak). What causes the peak?",
+     o:["An underdamped pole pair","The stabilizing zero of the type-II loop","The sampling (ZOH) lag","VCO flicker noise"],a:1,
+     e:"All three closed-loop poles are real (no underdamped pair), so the peaking is supplied entirely by the type-II zero ω_z, not by a resonance. The 2nd-order M_p formula is invalid for ζ>0.707."},
+
+    {t:"Loop dynamics",q:"A reviewer wants f_c pushed to f_ref/8 ≈ 13 MHz to suppress the VCO. What is the main problem?",
+     o:["The VCO would get noisier","The ZOH half-sample lag (−π f/f_ref) erodes phase margin badly (−22.5°)","The reference disappears","Nothing — it's a good idea"],a:1,
+     e:"At f_ref/8 the sampled-loop ZOH lag eats ~22.5° of phase margin (vs only −2.6° at 1.5 MHz), and you'd be past the jitter optimum (~2.1 MHz) anyway. Keep f_c low; beat the VCO with cores, not bandwidth."},
+
+    {t:"Calibrations",q:"Why must the comparator-offset calibration converge BEFORE the K_DTC gain calibration?",
+     o:["It shares the same hardware","Under ½-range E{Φ_e} ≠ 0, so a residual offset leaks into the gain estimate (+22.6%)","The offset loop is faster","To save power"],a:1,
+     e:"The ½-range trick makes the gain regressor Φ_e have a non-zero mean, so a biased 1-bit error (from offset) injects μ·m·E{Φ_e} into K_DTC — driving it 22.6% off. Null the offset first and the coupling vanishes."},
+
+    {t:"Calibrations",q:"In a sign-LMS loop, increasing the step size μ does what?",
+     o:["Faster lock but larger steady-state ripple","Slower lock and smaller ripple","Both faster lock and smaller ripple","No effect on either"],a:0,
+     e:"Settling τ ∝ 1/μ but misadjustment (ripple) ∝ μ — the product τ·M is roughly constant. One fixed μ cannot give both fast lock and a quiet floor."},
+
+    {t:"Calibrations",q:"So how do you get BOTH fast lock and a quiet steady-state from one loop?",
+     o:["Use a bigger comparator","Gear-shift μ: large to acquire, then drop to track","Add a second VCO","Lower the reference frequency"],a:1,
+     e:"Gear-shifting separates the two requirements in time (speed only at startup, quiet forever after), jumping off the τ·M frontier toward 'fast AND quiet.'"},
+
+    {t:"Calibrations",q:"A residual DTC-gain error of ε = 10⁻³ (0.1%) adds roughly how much in-band jitter?",
+     o:["~0.5 fs","~4.5 fs","~45 fs","~450 fs"],a:2,
+     e:"The floor is linear in ε: 4.5 fs at 10⁻⁴, 45 fs at 10⁻³, 449 fs at 10⁻². So 0.1% residual already costs ~45 fs — you need ε ≲ 2×10⁻⁴ to keep it negligible."},
+
+    {t:"Calibrations",q:"The VCO duty-cycle calibration regresses the error against the ±1 SEL_CKFB sequence. What does it converge to?",
+     o:["The full duty error Δt_err","Half the duty error, Δt_err/2","Zero always","T_vco/2"],a:1,
+     e:"The correction is added on one side of the ±-toggled phase select, so it only needs to remove half the spacing error: vco_dcc → Δt_err/2 (e.g. 10 ps for a 20 ps duty error)."},
+
+    {t:"Fractional spurs",q:"How much RMS jitter does a single −40 dBc spur carry at 6.72 GHz?",
+     o:["~3 fs","~33 fs","~335 fs","~3300 fs"],a:2,
+     e:"σ_t = √(2·10^(−40/10))/(2π·6.72e9) = 335 fs — nearly 4× the entire 87.6 fs budget. That's why a sub-100 fs PLL cannot tolerate −40 dBc spurs; the measured spurs sit at −70…−85 dBc."},
+
+    {t:"Fractional spurs",q:"Halving the DTC range (the ½-range trick) drops the dominant fractional spur by about how much?",
+     o:["~3 dB","~6 dB","~12 dB","~20 dB"],a:2,
+     e:"The dominant INL term is quadratic (g₂u²), so range×½ scales the spur amplitude by ¼ ≈ −12 dB. The model's ladder: −56 (full) → −68 (½) → −92 dBc (⅛)."},
+
+    {t:"Fractional spurs",q:"Fractional spurs are WORST when the accumulator residue is...",
+     o:["Most periodic (a near-rational fraction like 0.10)","Most random-looking","Exactly zero","At its slowest"],a:0,
+     e:"A periodic residue has energy concentrated in a few tall discrete lines (spurs). An 'ugly' irrational-looking fraction smears the energy into a continuous shaped floor. Try a near-rational FCW in the DSM explorer."},
+
+    {t:"System",q:"σ_t = 87.6 fs at 6.72 GHz corresponds to what RMS EVM?",
+     o:["0.037%","0.37%","3.7%","37%"],a:1,
+     e:"EVM_rms ≈ σ_φ = 2π·6.72e9·87.6e−15 = 3.70 mrad = 0.37%. That clears 1024-QAM (needs ~−44 dBc / 0.63%) with margin."},
+
+    {t:"System",q:"Reciprocal mixing from a far-out blocker is set mainly by...",
+     o:["The in-band jitter (same as EVM)","L(Δf) at the blocker offset — the far VCO floor, ~independent of loop bandwidth","The reference spur","The DTC range"],a:1,
+     e:"It depends on the LO skirt at the blocker offset (tens of MHz), where H_vco→1 — the VCO's far-out thermal floor. Retuning f_c barely moves it, so it's an orthogonal spec to EVM."},
+
+    {t:"System / FoM",q:"A dual-core VCO drops VCO phase noise 3 dB but at ~2× power. What happens to the jitter FoM?",
+     o:["Improves by 3 dB","Worsens by 3 dB","Unchanged","Improves by 6 dB"],a:2,
+     e:"FoM = 10log₁₀(σ_t²·P). Halving jitter power (−3 dB) while doubling P leaves σ_t²·P fixed — the star slides ALONG the same iso-FoM diagonal. You buy lower absolute jitter, not better efficiency."},
+
+    {t:"System / FoM",q:"What is the jitter FoM for 87.6 fs at 14.2 mW? (FoM = 10log₁₀[σ_t²·P/1mW])",
+     o:["−229.6 dB","−249.6 dB","−269.6 dB","−199.6 dB"],a:1,
+     e:"10log₁₀[(87.6e−15)²·14.2] = −249.6 dB. More negative = better; this is competitive state-of-the-art for a fractional-N synthesizer."}
+  ];
+
+  var root=document.getElementById('selftest'); if(!root) return;
+  var total=Q.length, answered=0, score=0;
+  var bar=document.createElement('div'); bar.className='st-score';
+  var lbl=document.createElement('span'); var rb=document.createElement('button'); rb.textContent='Reset';
+  bar.appendChild(lbl); bar.appendChild(rb); root.appendChild(bar);
+  function upd(){ lbl.textContent = 'Score '+score+' / '+answered+' answered  ('+total+' total)' + (answered===total ? '  — done!' : ''); }
+  upd();
+  var cards=[];
+  Q.forEach(function(item,qi){
+    var card=document.createElement('div'); card.className='stq';
+    var tp=document.createElement('div'); tp.className='st-topic'; tp.textContent='Q'+(qi+1)+' · '+item.t; card.appendChild(tp);
+    var qq=document.createElement('div'); qq.className='qq'; qq.innerHTML=item.q; card.appendChild(qq);
+    var btns=[];
+    item.o.forEach(function(opt,oi){
+      var b=document.createElement('button'); b.className='opt'; b.type='button'; b.innerHTML=opt;
+      b.addEventListener('click',function(){
+        if(card.classList.contains('done')) return;
+        card.classList.add('done'); answered++;
+        btns.forEach(function(x){ x.disabled=true; });
+        if(oi===item.a){ b.classList.add('correct'); score++; }
+        else { b.classList.add('wrong'); btns[item.a].classList.add('correct'); }
+        upd();
+      });
+      btns.push(b); card.appendChild(b);
+    });
+    var ex=document.createElement('div'); ex.className='ex'; ex.innerHTML='<b>Why:</b> '+item.e; card.appendChild(ex);
+    root.appendChild(card); cards.push({card:card,btns:btns});
+  });
+  rb.addEventListener('click',function(){
+    answered=0; score=0; upd();
+    cards.forEach(function(c){ c.card.classList.remove('done'); c.btns.forEach(function(x){ x.disabled=false; x.classList.remove('correct','wrong'); }); });
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+})();
+</script>
+
+</div>
+<aside class="toc-rail" aria-label="On this page"></aside>
+<div class="btnrow"><div><a href="lab.html">← Interactive Lab</a></div><div><a href="slides.html">Slide-by-slide Map →</a></div></div>
+<div class="footer">
+  Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
+  (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
+  Provenance tags: <span class="tag t-slide">slide pX</span>
+  <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
+  <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
+</div>
+</main>
+</div>
+<button id="toTop" aria-label="Back to top">&#8593;</button>
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/prism/prism-core.min.js"></script>
+<script src="assets/vendor/prism/prism-clike.min.js"></script>
+<script src="assets/vendor/prism/prism-python.min.js"></script>
+
+<script src="assets/app/site.js"></script>
+</body>
+</html>

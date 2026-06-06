@@ -167,6 +167,20 @@ details.deriv[open] > summary::before{content:"▾ "}
 .quiz summary{cursor:pointer;color:var(--accent2);font-size:14px}
 .quiz .ans{margin-top:8px;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid var(--line);font-size:14.5px}
 
+/* auto-graded self-test */
+.st-score{position:sticky;top:8px;z-index:5;background:#1f2733;color:#fff;border-radius:10px;padding:10px 16px;margin:12px 0;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.st-score button{background:#fff;color:#1f2733;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:inherit;font-weight:600}
+.stq{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:14px 0;background:#fff}
+.stq .st-topic{font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.04em}
+.stq .qq{font-weight:600;margin:4px 0 8px}
+.stq .opt{display:block;width:100%;text-align:left;border:1px solid #cdddff;background:#f7faff;border-radius:8px;padding:8px 12px;margin:5px 0;cursor:pointer;font:inherit;color:inherit}
+.stq .opt:hover:not(:disabled){background:#e9f1ff}
+.stq .opt:disabled{cursor:default}
+.stq .opt.correct{background:#e6f7ec;border-color:#0a8f5b;color:#0a5b3b;font-weight:600}
+.stq .opt.wrong{background:#fdecea;border-color:#c8442b;color:#9b2d1b}
+.stq .ex{margin-top:8px;font-size:14px;color:#333;background:#fbfcfe;border-left:3px solid var(--accent2);padding:7px 11px;border-radius:4px;display:none}
+.stq.done .ex{display:block}
+
 /* interactive widgets */
 .widget{border:1px solid var(--line);border-radius:12px;padding:16px;margin:18px 0;background:var(--panel)}
 .widget .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px 22px;margin-bottom:12px}

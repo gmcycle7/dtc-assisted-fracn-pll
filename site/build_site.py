@@ -18,6 +18,8 @@ PAGES = [
      "Interactive study companion for W. Wu's DTC-assisted high-performance fractional-N PLL (slides 1-42): architecture, calibrations, and noise models."),
     ("lab",           "lab.html",           "",   "Interactive Lab",       True,  True,
      "A guided hands-on tour of all 24 interactive widgets: missions across architecture, loop dynamics, calibrations, fractional spurs, and system impact, plus a full widget index."),
+    ("selftest",      "selftest.html",      "",   "Self-Test",             False, False,
+     "24 auto-graded multiple-choice questions across all five themes, with instant scoring and explanations."),
     ("slides",        "slides.html",        "2",  "Slide-by-slide Map",    False, False,
      "Per-slide analysis table (p.1-42) mapping each slide to its formulas, calibrations, models, and parameters."),
     ("architecture",  "architecture.html",  "3",  "Architecture",          True,  True,
