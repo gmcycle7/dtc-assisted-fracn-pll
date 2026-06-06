@@ -113,25 +113,38 @@
     wrap.appendChild(sel); wrap.appendChild(controls); wrap.appendChild(plot); wrap.appendChild(readout);
     root.appendChild(wrap);
 
-    var prm = { mu: 0.5, initErr: 0.10, offset: 0, compNoise: 0, dutyPs: 20, noise: 0.05 };
+    var prm = { muDtc: 0.5, initErr: 0.10, offset: 0, compNoise: 0, halfRange: true,
+                muVco: 0.02, dutyPs: 20, noise: 0.05,
+                muCk: 0.02, dutyPct: 57, ckNoise: 0.05,
+                muMv: 0.09, offsetMv: 32, pheNoise: 0.008 };
 
     function redraw() {
-      var trace, target, layoutY, finalv, resid, unit;
+      var trace, target, layoutY, finalv, resid, unit, col, dp;
       if (which === "dtc") {
-        var r = P.simDtcGain({ mu: prm.mu, initErr: prm.initErr, offset: prm.offset, compNoise: prm.compNoise });
-        trace = { x: r.t_us, y: r.Khat, mode: "lines", line: { color: "#1f77b4", width: 1.2 }, name: "K_DTC" };
-        target = 1000; layoutY = "K_DTC estimate";
+        var r = P.simDtcGain({ mu: prm.muDtc, initErr: prm.initErr, offset: prm.offset, compNoise: prm.compNoise, halfRange: prm.halfRange });
+        col = "#1f77b4"; trace = { x: r.t_us, y: r.Khat, mode: "lines", line: { color: col, width: 1.2 }, name: "K_DTC" };
+        target = 1000; layoutY = "K_DTC estimate [codes]"; unit = " codes"; dp = 1;
         var tail = r.Khat.slice(-1500); finalv = tail.reduce(function (a, b) { return a + b; }, 0) / tail.length;
-        resid = (finalv - 1000) / 1000 * 100; unit = " codes";
-      } else {
-        var rv = P.simVcoDcc({ mu: prm.mu, dutyPs: prm.dutyPs, noise: prm.noise });
-        trace = { x: rv.t_us, y: rv.val_ps, mode: "lines", line: { color: "#d62728", width: 1.2 }, name: "vco_dcc" };
-        target = rv.target_ps; layoutY = "vco_dcc [ps]";
-        finalv = rv.val_ps.slice(-1).pop(); resid = finalv - rv.target_ps; unit = " ps";
+        resid = (finalv - 1000) / 1000 * 100;
+      } else if (which === "vco") {
+        var rv = P.simVcoDcc({ mu: prm.muVco, dutyPs: prm.dutyPs, noise: prm.noise });
+        col = "#d62728"; trace = { x: rv.t_us, y: rv.val_ps, mode: "lines", line: { color: col, width: 1.2 }, name: "vco_dcc" };
+        target = rv.target_ps; layoutY = "vco_dcc [ps]"; unit = " ps"; dp = 2;
+        finalv = rv.val_ps.slice(-1).pop(); resid = finalv - rv.target_ps;
+      } else if (which === "ckref") {
+        var rc = P.simCkrefDcc({ mu: prm.muCk, dutyPct: prm.dutyPct, noise: prm.ckNoise });
+        col = "#0a8f5b"; trace = { x: rc.t_us, y: rc.val_ns, mode: "lines", line: { color: col, width: 1.2 }, name: "ckref_dcc" };
+        target = rc.target_ns; layoutY = "ckref_dcc [ns]"; unit = " ns"; dp = 3;
+        finalv = rc.val_ns.slice(-1).pop(); resid = finalv - rc.target_ns;
+      } else { // offset
+        var ro = P.simOffsetCal({ offsetMv: prm.offsetMv, muMv: prm.muMv, pheNoise: prm.pheNoise });
+        col = "#7a3fb5"; trace = { x: ro.t_us, y: ro.vref_mv, mode: "lines", line: { color: col, width: 1.2 }, name: "Vref_adj" };
+        target = ro.target_mv; layoutY = "Vref_adj [mV]"; unit = " mV"; dp = 2;
+        var tlo = ro.vref_mv.slice(-1500); finalv = tlo.reduce(function (a, b) { return a + b; }, 0) / tlo.length; resid = finalv - ro.target_mv;
       }
       Plotly.react(plot, [trace, { x: [0, 80], y: [target, target], mode: "lines", name: "target",
         line: { color: "#000", dash: "dash", width: 1 } }], {
-        margin: { t: 10, r: 10, b: 45, l: 60 },
+        margin: { t: 10, r: 10, b: 45, l: 62 },
         xaxis: { title: "time [µs]", gridcolor: "#eee" },
         yaxis: { title: layoutY, gridcolor: "#eee" },
         legend: { orientation: "h", y: -0.22 },
@@ -140,22 +153,36 @@
         paper_bgcolor: "#fff", plot_bgcolor: "#fff",
       }, { displayModeBar: false, responsive: true });
       readout.innerHTML =
-        '<div class="b">final <b>' + finalv.toFixed(which === "dtc" ? 1 : 2) + unit + '</b></div>' +
+        '<div class="b">final <b>' + finalv.toFixed(dp) + unit + '</b></div>' +
         '<div class="b">' + (which === "dtc" ? "residual error" : "residual") + ' <b>' +
-        (which === "dtc" ? resid.toFixed(2) + " %" : resid.toFixed(2) + " ps") + '</b></div>' +
-        '<div class="b">target <b>' + target.toFixed(which === "dtc" ? 0 : 1) + unit + '</b></div>';
+        (which === "dtc" ? resid.toFixed(2) + " %" : resid.toFixed(dp) + unit) + '</b></div>' +
+        '<div class="b">target <b>' + target.toFixed(which === "dtc" ? 0 : dp) + unit + '</b></div>' +
+        (which === "dtc" ? '<div class="b">range <b>' + (prm.halfRange ? "½ (slide 34)" : "full") + '</b></div>' : '');
     }
 
     function buildControls() {
       controls.innerHTML = "";
-      slider(controls, { cb: function (v) { prm.mu = v; redraw(); } }, "Step size µ", which === "dtc" ? 0.05 : 0.005, which === "dtc" ? 6 : 0.1, which === "dtc" ? 0.05 : 0.005, prm.mu, "");
       if (which === "dtc") {
+        slider(controls, { cb: function (v) { prm.muDtc = v; redraw(); } }, "Step size µ", 0.05, 6, 0.05, prm.muDtc, "");
         slider(controls, { cb: function (v) { prm.initErr = v / 100; redraw(); } }, "Initial gain error", 0, 20, 1, prm.initErr * 100, " %", function (v){return (+v).toFixed(0);});
         slider(controls, { cb: function (v) { prm.offset = v; redraw(); } }, "Uncal comparator offset", 0, 150, 5, prm.offset, "", function (v){return (+v).toFixed(0);});
         slider(controls, { cb: function (v) { prm.compNoise = v; redraw(); } }, "Comparator noise", 0, 3, 0.1, prm.compNoise, " LSB");
-      } else {
+        var lab = document.createElement("label"); lab.style.cssText = "cursor:pointer;font-size:13px;display:block;margin-top:4px";
+        lab.innerHTML = '<input type="checkbox"' + (prm.halfRange ? " checked" : "") + '> ½-range Φ_e (slide 34) — uncheck for full-range';
+        lab.querySelector("input").addEventListener("change", function (e) { prm.halfRange = e.target.checked; redraw(); });
+        controls.appendChild(lab);
+      } else if (which === "vco") {
+        slider(controls, { cb: function (v) { prm.muVco = v; redraw(); } }, "Step size µ", 0.005, 0.1, 0.005, prm.muVco, "");
         slider(controls, { cb: function (v) { prm.dutyPs = v; redraw(); } }, "VCO duty error Δt", 4, 40, 1, prm.dutyPs, " ps", function (v){return (+v).toFixed(0);});
         slider(controls, { cb: function (v) { prm.noise = v; redraw(); } }, "Comparator noise", 0, 0.3, 0.01, prm.noise, "");
+      } else if (which === "ckref") {
+        slider(controls, { cb: function (v) { prm.muCk = v; redraw(); } }, "Step size µ", 0.005, 0.1, 0.005, prm.muCk, "");
+        slider(controls, { cb: function (v) { prm.dutyPct = v; redraw(); } }, "CKREF duty cycle", 50, 60, 0.5, prm.dutyPct, " %", function (v){return (+v).toFixed(1);});
+        slider(controls, { cb: function (v) { prm.ckNoise = v; redraw(); } }, "Comparator noise", 0, 0.3, 0.01, prm.ckNoise, "");
+      } else {
+        slider(controls, { cb: function (v) { prm.muMv = v; redraw(); } }, "ΔV-DAC step µ", 0.02, 0.3, 0.01, prm.muMv, " mV");
+        slider(controls, { cb: function (v) { prm.offsetMv = v; redraw(); } }, "Comparator+GM offset", 0, 60, 2, prm.offsetMv, " mV", function (v){return (+v).toFixed(0);});
+        slider(controls, { cb: function (v) { prm.pheNoise = v; redraw(); } }, "Locked PHE jitter", 0, 0.02, 0.001, prm.pheNoise, " rad", function (v){return (+v).toFixed(3);});
       }
     }
 
@@ -164,7 +191,8 @@
       b.addEventListener("click", function () { which = key; sel.querySelectorAll("button").forEach(function (x) { x.className = "btn sec"; }); b.className = "btn"; buildControls(); redraw(); });
       sel.appendChild(b);
     }
-    tab("DTC gain (K_DTC)", "dtc"); tab("VCO duty-cycle", "vco");
+    tab("DTC gain (sign-error)", "dtc"); tab("VCO duty (sign-sign)", "vco");
+    tab("CKREF duty (sign-sign)", "ckref"); tab("Offset (DC servo)", "offset");
     buildControls(); redraw();
   }
 

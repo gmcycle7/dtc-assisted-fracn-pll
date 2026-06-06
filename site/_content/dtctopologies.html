@@ -47,6 +47,10 @@ $$\mathrm{DR} = 2^{n}\,t_{res} = 2^{n}\,\ln 2\cdot R\,C_{LSB}$$
 <p><strong>Pro.</strong> Halving DR (per the slide-33 laws) directly improves QN, thermal noise, power, and linearity of the DTC — the cheapest "free lunch" in the design. <span class="tag t-derive">derived from slide 33</span></p>
 <p><strong>Con.</strong> It relies on the two VCO phases being <em>exactly</em> ½T<sub>VCO</sub> apart. A non-50% VCO duty cycle breaks this (<span class="katex-inline">$\Delta t_{err}=\Delta t - T_{VCO}/2\neq 0$</span>), injects a <code>SEL_CKFB</code>-correlated error, and re-introduces a spur — which is exactly why the <strong>VCO duty-cycle calibration</strong> exists. <span class="tag t-slide">slide p35</span></p>
 <p class="cite">Proposed technique [Wu'21] — see the full story (½-range, VCO duty error, <code>vco_dcc</code> sign-LMS) in <a href="calibrations.html">Calibrations</a>.</p>
+
+<h3 id="range-ledger-interactive">Interactive: the range-reduction ledger</h3>
+<p>One lever — the DTC dynamic range DR — moves four things at once, and they scale <i>differently</i>. The bars show the worst fractional spur for full / ½ / ⅛ range (live from the same <code>spurSpectrum</code> the spurs page uses): the dominant 2nd-order INL term drops <b>≈12 dB per halving</b> (\(40\log_{10}r\)). Meanwhile DTC power follows DR² (÷4 per halving) and quantization noise follows \(t_{\rm res}^2\) (−6 dB) — so the spur win <i>outruns</i> the noise win, which is why range reduction is the architecture's favorite lever. <span class="tag t-derive">model</span></p>
+<div id="range-ledger"></div>
 </div>
 
 <div class="cite">

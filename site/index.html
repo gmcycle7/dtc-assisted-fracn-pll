@@ -133,6 +133,10 @@ $$\sigma_{\phi,\text{tot}} = \sqrt{\textstyle\sum_i \sigma_{\phi,i}^2} \quad\tex
 
 <figure><img src="assets/figures/fd_jitter_pie.png" alt="jitter contribution pie chart"><figcaption>Modeled jitter-contribution breakdown reproducing slide 42 — cite slide p.42 and <code>freq_domain.json</code>.</figcaption></figure>
 
+<h3>Interactive: the budget is a toggle, not a given</h3>
+<p>The 87.6 fs total is a root-sum-square of uncorrelated sources, and "the DTC cancels the DSM quantization noise" is something the architecture <i>earns</i>. Untick <b>DTC cancels DSM-QN</b> and the brown ΣΔ slice explodes and the total jumps to hundreds of fs — that one toggle is the whole reason this architecture exists. Untick <b>calibrations converged</b> for the partial-leak case. <span class="tag t-derive">model (budget(), exact slide-42 split)</span></p>
+<div id="budget-pie"></div>
+
 <h2>Learning roadmap</h2>
 
 <p>The site is organized as a guided path. Read it top to bottom the first time; jump around once you know the layout.</p>
@@ -222,7 +226,11 @@ $$\sigma_{\phi,\text{tot}} = \sqrt{\textstyle\sum_i \sigma_{\phi,i}^2} \quad\tex
 <script src="assets/vendor/prism/prism-core.min.js"></script>
 <script src="assets/vendor/prism/prism-clike.min.js"></script>
 <script src="assets/vendor/prism/prism-python.min.js"></script>
-
+<script src="assets/vendor/plotly/plotly.min.js"></script>
+<script src="assets/app/pll.js"></script>
+<script src="assets/app/pll_ext.js"></script>
+<script src="assets/app/widgets.js"></script>
+<script src="assets/app/widgets_ext.js"></script>
 <script src="assets/app/site.js"></script>
 </body>
 </html>

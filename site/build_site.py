@@ -14,7 +14,7 @@ CONTENT = os.path.join(HERE, "_content")
 
 # (key, filename, nav-number, nav-title, needs_plotly, needs_ext_widgets, meta-description)
 PAGES = [
-    ("home",          "index.html",         "",   "Home",                  False, False,
+    ("home",          "index.html",         "",   "Home",                  True,  True,
      "Interactive study companion for W. Wu's DTC-assisted high-performance fractional-N PLL (slides 1-42): architecture, calibrations, and noise models."),
     ("slides",        "slides.html",        "2",  "Slide-by-slide Map",    False, False,
      "Per-slide analysis table (p.1-42) mapping each slide to its formulas, calibrations, models, and parameters."),
@@ -22,7 +22,7 @@ PAGES = [
      "Overall DTC-assisted sampling fractional-N PLL: signal flow, noise-injection flow, and calibration flow."),
     ("blocks",        "blocks.html",        "4",  "Block Models",          False, False,
      "Per-block time- and frequency-domain models: DTC, sampling PD, GM/loop filter, VCO (Leeson), MMD/DSM, with non-idealities."),
-    ("calibrations",  "calibrations.html",  "5",  "Calibrations",          True,  False,
+    ("calibrations",  "calibrations.html",  "5",  "Calibrations",          True,  True,
      "The four proposed background sign-LMS calibrations plus polynomial NLC: convergence, misadjustment, orthogonality, and an interactive playground."),
     ("frequency",     "frequency.html",     "6",  "Frequency-Domain",      True,  True,
      "Open/closed-loop transfer functions, noise transfer functions, jitter budget, plus an interactive phase-noise explorer, pole-zero/root-locus, and a bandwidth optimizer."),
@@ -42,7 +42,7 @@ PAGES = [
      "End-to-end capstone: design a 6.72 GHz fractional-N PLL to a <80 fs target -- budget allocation, optimal loop BW, DTC sizing, cal steps."),
     ("problems",      "problems.html",      "14", "Design Problems",       False, False,
      "Open-ended design problems (with hidden worked solutions) that exercise judgment beyond the recall quizzes."),
-    ("dtctopologies", "dtctopologies.html", "15", "DTC Topologies",        False, False,
+    ("dtctopologies", "dtctopologies.html", "15", "DTC Topologies",        True,  True,
      "Survey of DTC circuit topologies and digital-assist linearization techniques from the deck (p.21-24, 29-32, 38), with a decision matrix."),
     ("glossary",      "glossary.html",      "16", "Notation & Glossary",   False, False,
      "Every symbol, its definition, units, and where it is used across the models and pages."),

@@ -306,15 +306,75 @@
   }
 
   // ---------------- DTC gain-error residual floor (replaces magic 4e-3) ----------------
-  function residualFloorJitter(p, eps) {
+  // Returns the leaked residual PSD S_resid(f)=eps^2 (2pi)^2 S_Qdsm |H_ref|^2 AND its
+  // integrated RMS jitter. eps = residual fractional DTC-gain error.
+  function residualFloorSpectrum(p, eps) {
     var d = P.design(p), f = P.logspace(1e3, 100e6, 1500);
     var S = f.map(function (ff) {
       var sQ = (1 / 12) * (1 / p.f_ref) * Math.pow(2 * Math.sin(Math.PI * ff / p.f_ref), 2 * p.dsm_order);
-      var sphi = eps * eps * sQ * Math.pow(2 * Math.PI, 2) * Math.pow(P.cabs(P.Href(ff, p, d)), 2);
-      return sphi;
+      return eps * eps * sQ * Math.pow(2 * Math.PI, 2) * Math.pow(P.cabs(P.Href(ff, p, d)), 2);
     });
     var v = 0; for (var i = 1; i < f.length; i++) v += 0.5 * (S[i] + S[i - 1]) * (f[i] - f[i - 1]);
-    return Math.sqrt(v) / (2 * Math.PI * p.f_out) * 1e15;
+    return { f: f, sphi: S, jitter_fs: Math.sqrt(v) / (2 * Math.PI * p.f_out) * 1e15 };
+  }
+  function residualFloorJitter(p, eps) { return residualFloorSpectrum(p, eps).jitter_fs; }
+
+  // ---------------- calibration loop sims (sign-LMS), ported from calibration_models.py ----------------
+  var FREF = 104e6;
+  // Offset DC-servo: a 1-bit dV-DAC integrates sign(e) to drive mean(e)->0 (slide 28).
+  function simOffsetCal(o) {
+    o = o || {};
+    var n = o.n || 8000, offMv = o.offsetMv != null ? o.offsetMv : 32, kspd = o.kSpd != null ? o.kSpd : 9.18;
+    var muMv = o.muMv != null ? o.muMv : 0.09, pheN = o.pheNoise != null ? o.pheNoise : 0.008;
+    var osRad = (offMv * 1e-3) / kspd, vref = 0, run = 0, rng = mul(o.seed || 3);
+    var t = [], V = [], em = [];
+    for (var k = 0; k < n; k++) {
+      var phe = gss(rng) * pheN, eff = osRad - (vref * 1e-3) / kspd;
+      var e = Math.sign(phe + eff) || 1;
+      vref += muMv * e; run = 0.98 * run + 0.02 * e;
+      t.push(k / FREF * 1e6); V.push(vref); em.push(run);
+    }
+    return { t_us: t, vref_mv: V, target_mv: offMv, e_mean: em };
+  }
+  // CKREF duty-cycle: sign-sign LMS on even_cycle(+-1) converges to dt_ref/2 (slide 40).
+  function simCkrefDcc(o) {
+    o = o || {};
+    var n = o.n || 8000, duty = o.dutyPct != null ? o.dutyPct : 57, mu = o.mu != null ? o.mu : 0.02, noise = o.noise != null ? o.noise : 0.05;
+    var Tref = 1 / FREF, dtRef = (duty - 50) / 100 * Tref, target = dtRef / 2, v = 0, rng = mul(o.seed || 4);
+    var t = [], V = [];
+    for (var k = 0; k < n; k++) {
+      var ec = (k % 2 === 0) ? 1 : -1;
+      var phe = ec * (dtRef - 2 * v) + gss(rng) * noise * dtRef;
+      var e = Math.sign(phe) || 1; v += mu * ec * e * dtRef;
+      t.push(k / FREF * 1e6); V.push(v * 1e9);
+    }
+    return { t_us: t, val_ns: V, target_ns: target * 1e9 };
+  }
+  // Offset-FIRST race: the offset servo's residual feeds the K_DTC sign-error LMS each cycle.
+  // Under half-range E{Phi_e}=0.25!=0, so a biased e[k] leaks into K_DTC; full-range cancels it.
+  // mode: 'first' (offset pre-converged) | 'concurrent' | 'off' (offset never corrected).
+  function simOffsetRace(o) {
+    o = o || {};
+    var n = o.n || 11000, Ktrue = 1000, Khat = Ktrue * (1 - (o.initErr != null ? o.initErr : 0.10));
+    var mu = o.mu != null ? o.mu : 0.5, muOff = o.muOff != null ? o.muOff : 0.06;  // offset servo is SLOWER than gain
+    var offset = o.offset != null ? o.offset : 80;     // comparator offset (simDtcGain units; 80 -> +22.6% half-range)
+    var half = o.halfRange !== false, mode = o.mode || 'concurrent';
+    var srv = 0, rng = mul(o.seed || 5);
+    if (mode === 'first') {                              // pre-converge the offset servo before the gain loop starts
+      for (var w = 0; w < 6000; w++) { var ef0 = offset - srv; srv += muOff * (Math.sign(gss(rng) * 4 + ef0) || 1); }
+    }
+    var t = [], K = [], OFF = [];
+    for (var k = 0; k < n; k++) {
+      var eff = offset - srv;                            // residual uncorrected offset
+      if (mode !== 'off') srv += muOff * (Math.sign(gss(rng) * 4 + eff) || 1);  // servo keeps adapting
+      var phi_e = half ? rng() * 0.5 : (rng() - 0.5);
+      var phe = (Ktrue - Khat) / Ktrue * phi_e;
+      var e = Math.sign(phe + eff / Ktrue) || 1;         // gain loop sees the CURRENT effective offset
+      Khat += mu * e * phi_e;
+      t.push(k / FREF * 1e6); K.push(Khat); OFF.push(eff);
+    }
+    var tail = K.slice(-2000), fin = tail.reduce(function (a, b) { return a + b; }, 0) / tail.length;
+    return { t_us: t, Khat: K, Ktrue: Ktrue, effOffset: OFF, finalErrPct: 100 * (fin - Ktrue) / Ktrue };
   }
 
   // ---------------- FoM ----------------
@@ -330,6 +390,7 @@
     peakingDb: peakingDb, rootLocus: rootLocus, designDT: designDT, stepResponse: stepResponse,
     fft: fft, simMASH: simMASH, spurSpectrum: spurSpectrum, evmScatter: evmScatter,
     jitterDecompose: jitterDecompose, optimizeBW: optimizeBW, residualFloorJitter: residualFloorJitter,
-    fomJitter: fomJitter,
+    residualFloorSpectrum: residualFloorSpectrum, simOffsetCal: simOffsetCal,
+    simCkrefDcc: simCkrefDcc, simOffsetRace: simOffsetRace, fomJitter: fomJitter,
   });
 })();

@@ -93,8 +93,12 @@ The table maps four phase-margin choices through the same design recipe. The pea
 The <b>60&deg; row is the verified, node-validated design</b> ($\zeta=0.97$, 1.70 dB, ~25% overshoot, ~1.13 &micro;s) <span class="tag t-derive">model</span>.
 </p>
 <div class="assume">
-<b>[A3] Off-design rows.</b> The 45/55/70&deg; rows are illustrative trend values produced by running the same $\zeta=\sqrt{K_\text{loop}}/(2\omega_z)$ + $M_p$ formulas with PM swept; only the 60&deg; row is node-validated against Python. They show the monotonic trend (PM&uarr; &rArr; peaking&darr;, overshoot&darr;), not certified numbers. To get exact values, drag the <b>Phase margin</b> slider in the widgets below. <span class="tag t-need">needs citation</span> for the precise off-design overshoot/settle.
+<b>[A3] Off-design rows.</b> The 45/55/70&deg; rows are illustrative trend values produced by running the same $\zeta=\sqrt{K_\text{loop}}/(2\omega_z)$ + $M_p$ formulas with PM swept; only the 60&deg; row is node-validated against Python. They show the monotonic trend (PM&uarr; &rArr; peaking&darr;, overshoot&darr;), not certified numbers. To get exact values, drag the <b>Phase margin</b> slider in the widget below. <span class="tag t-need">needs citation</span> for the precise off-design overshoot/settle.
 </div>
+
+<h3 id="pm-bridge-interactive">Interactive: phase margin → damping → overshoot</h3>
+<p>The designer dials <b>phase margin</b> (a frequency-domain robustness number); the user feels <b>overshoot and ringing</b> (time-domain). Drag PM and watch both ends at once: the top panel is the open-loop Bode \(|G|\) with its 0-dB crossing at \(f_c\); the bottom panel is the live closed-loop phase-step response. The readout gives the exact \(\zeta\), gain-peaking, overshoot and 1% settling — turning the illustrative <span class="tag t-assume">[A3]</span> table above into validated numbers. <span class="tag t-derive">model (loopMetrics, loopZetaWn, peakingDb, stepResponse)</span></p>
+<div id="pm-bridge"></div>
 
 <h2>2. Closed-loop poles &amp; the root locus</h2>
 <p>

@@ -313,6 +313,10 @@ run = 0.98 * run + 0.02 * e                   # leaky mean of e[k]</code></pre>
 
 <figure class="slide"><img src="assets/slides/slide_28.png" alt="slide 28"><figcaption>PDF p.28 / slide p.28 — the fix [Wu '19]: a 1-bit ΔV-DAC adjusts \(V_{\rm ref1}\) to null the offset and restore zero-mean \(\operatorname{sign}(\text{PHE})\), unblocking the \(K_{\rm DTC}\) loop.</figcaption></figure>
 
+<h3 id="offset-first">Interactive: why the offset cal must converge <i>first</i></h3>
+<p>This is the keystone coupling, made falsifiable. The same simulated K_DTC gain loop runs three ways: with the offset <b>never corrected</b>, it locks to the wrong <b>+22.6%</b> (an 80-LSB offset under ½-range); run the offset servo <b>concurrently</b> and the gain is first yanked toward that wrong basin, then drags back as the (slower) servo catches up — a long, lossy transient; converge the offset <b>first</b> and the gain marches straight to target. Slow the offset servo and watch the hump grow. <span class="tag t-derive">model (extras.py:simOffsetRace; +22.6% matches calibrations.json)</span></p>
+<div id="cal-offset-race"></div>
+
 <hr>
 
 <h2>E. (Survey) Polynomial DTC nonlinearity correction (\(g_1,g_2,g_3\))</h2>
@@ -340,6 +344,10 @@ $$g_i[k{+}1]=g_i[k]+\mu_i\,e[k]\,D^{\,i},\qquad g\to(g_1^{\rm true},a_2,a_3)$$
 
 <figure><img src="assets/figures/cal_polynomial_nlc.png" alt="polynomial NLC"><figcaption>Left: DTC INL before/after polynomial NLC (peak 0.220 → ≈0). Right: \(g_1,g_2,g_3\) LMS convergence. — model <code>simulate_polynomial_nlc</code>, cf. slide p31.</figcaption></figure>
 
+<h3 id="nlc-interactive">Interactive: drag the INL, watch the bend — and the spur — collapse</h3>
+<p>Set the DTC's intrinsic INL (\(a_2,a_3\)) and the NLC pre-distortion (\(g_2,g_3\)). The cascade is linear only when \(g_2\to a_2,\ g_3\to a_3\); any mismatch leaves a residual bend — and the readout shows that residual bend is exactly what sets the worst fractional spur (computed live by <code>spurSpectrum</code>). Tick <b>auto-match</b> for perfect cancellation, or change the range-reduction to see the spur drop a second way. <span class="tag t-derive">model</span></p>
+<div id="nlc-inl"></div>
+
 <h3>(6)–(7) Python model &amp; walkthrough</h3>
 <pre><code class="language-python">regress  = np.array([D, D**2, D**3])
 residual = (g1_true-g[0])*D + (a2-g[1])*D**2 + (a3-g[2])*D**3
@@ -352,6 +360,10 @@ g = g + np.array(mu) * residual * regress          # 3 parallel LMS</code></pre>
 <p>Running all four sign-LMS loops concurrently, every one converges well inside the 30-µs budget while sharing the single 1-bit comparator error — reproducing slide 40's claim "all converge &lt; 30 µs" for both integer and fractional channels <span class="tag t-slide">slide p40</span>.</p>
 
 <figure><img src="assets/figures/cal_background_all.png" alt="all background cals"><figcaption>All four background calibrations converging in parallel, each crossing well before the dotted 30-µs line. — model <code>make_figures</code>, mimics slide p40.</figcaption></figure>
+
+<h3 id="dashboard">Interactive: all four loops on one 30-µs axis</h3>
+<p>Each loop is normalized to its own target (→ 1.0) so they share one axis. Watch the time-constant spread set by how <i>structured</i> each regressor is: the VCO/CKREF duty loops (strong deterministic ±1 regressor) settle in ~1 µs, the K_DTC gain loop in ~6.7 µs, and the offset DC servo — whose only "signal" is the tiny DC mean of a 1-bit stream — is the slow keystone at ~14.6 µs. Scale all step sizes together, or add comparator noise, and check whether the budget is still met. <span class="tag t-derive">model</span></p>
+<div id="cal-dashboard"></div>
 
 <h3>Summary table</h3>
 <table>
@@ -374,6 +386,10 @@ g = g + np.array(mu) * residual * regress          # 3 parallel LMS</code></pre>
 
 <h2>Where these calibrations sit in the budget</h2>
 <p>Once all loops are converged, the residual DSM quantization noise is essentially cancelled (slide-42 budget shows ΣΔM QE ≈ 0% <span class="tag t-slide">slide p42</span>; our model leaves ≈ 0.3% <span class="tag t-derive">model</span>, i.e. "cancelled") and the integrated jitter is dominated by VCO (51.8%) and REF+DTC (≈37.8%), totaling <b>87.6 fs <span class="tag t-derive">model</span> ≈ 87.5 fs <span class="tag t-slide">slide p42</span></b> / <b>−51.6 dBc <span class="tag t-derive">model</span> ≈ −51.7 dBc <span class="tag t-slide">slide p42</span></b> at \(f_{\rm out}=6.72\) GHz. The calibrations are what let the small-DR, high-gain DTC-assisted PD deliver that number — see the noise-budget page for the full breakdown.</p>
+
+<h3 id="residual-floor">Interactive: what is your cal accuracy worth in femtoseconds?</h3>
+<p>A leftover fractional gain error \(\varepsilon\) leaks an \(\varepsilon^2\)-scaled copy of the DSM quantization PSD back in-band, so the added RMS jitter is <b>linear in \(\varepsilon\)</b> — every decade of cal accuracy buys a decade of floor. Drag \(\varepsilon\): the top panel is the leaked residual PSD (the shaped DSM hump rolled off by \(|H_{\rm ref}|\)); the bottom panel is added jitter vs \(\varepsilon\) against the 87.6-fs budget line. Verified anchors: 4.5 / 45 / 449 fs at \(\varepsilon=10^{-4}/10^{-3}/10^{-2}\). Push \(\varepsilon\) toward the 0.226 offset-bias value and the floor blows ~100× past budget. <span class="tag t-derive">model (residualFloorJitter)</span></p>
+<div id="cal-residual-floor"></div>
 
 <h2 id="self-check">Self-check</h2>
 <div class="quiz"><div class="q">Q1. All four proposed loops share one 1-bit error \(e[k]=\operatorname{sign}(\text{PHE})\). Write the generic sign-LMS update they all use, and explain why a nonzero <i>mean</i> of \(e[k]\) (from comparator/GM offset) makes the \(K_{\rm DTC}\) gain loop converge to the wrong value.</div><details><summary>Show answer</summary><div class="ans">The shared engine is \(w[k{+}1]=w[k]+\mu\,e[k]\,x[k]\), an integrator \(\tfrac{\mu z^{-1}}{1-z^{-1}}\) <span class="tag t-slide">slide p26</span> <span class="tag t-std">textbook</span>. Sign-LMS assumes \(e[k]\) is zero-mean at the correct operating point. A static offset adds a DC term to PHE, giving \(e[k]\) a nonzero mean \(m\); the gain update then picks up a bias term \(\mu_2\,m\,E\{\Phi_e\}\). With the ½-range regressor \(\Phi_e\in[0,0.5]\), \(E\{\Phi_e\}\neq0\), so the bias does not average out and \(\hat K\) converges off-target. Quantitatively, a 32-mV (80-LSB) uncalibrated offset drives the gain loop to <b>+22.6% error</b> <span class="tag t-derive">derived</span> (calibrations.json: offset_bias_pct = 22.6). <span class="tag t-slide">slide p27</span></div></details></div>
@@ -566,7 +582,9 @@ This is the same orthogonality principle as §I, applied <i>within</i> one multi
 <script src="assets/vendor/prism/prism-python.min.js"></script>
 <script src="assets/vendor/plotly/plotly.min.js"></script>
 <script src="assets/app/pll.js"></script>
+<script src="assets/app/pll_ext.js"></script>
 <script src="assets/app/widgets.js"></script>
+<script src="assets/app/widgets_ext.js"></script>
 <script src="assets/app/site.js"></script>
 </body>
 </html>
