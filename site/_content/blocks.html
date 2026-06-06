@@ -66,6 +66,10 @@ $V_\text{dly}(t)$ that a comparator trips at $V_\text{DD}/2$. The exponential RC
 "$\ln 2 \cdot RC$" time constant, so the <b>unit delay</b> is <span class="tag t-slide">slide p15</span>:
 </p>
 $$ T_\text{res} = \ln 2 \cdot R\, C_\text{LSB} $$
+
+<h4 id="rc-ramp-interactive">Interactive: where the unit delay comes from</h4>
+<p>The comparator trips when the RC ramp \(V(t)=V_{\rm DD}(1-e^{-t/RC})\) crosses its threshold, at \(t_{\rm trip}=-RC\ln(1-V_{\rm th}/V_{\rm DD})\). Drag the threshold to \(V_{\rm DD}/2\) and \(t_{\rm trip}\) collapses to exactly \(\ln 2\cdot RC\) — that is why the unit delay is \(\ln 2\,RC\), not arbitrary. Change \(R\) and \(C_{\rm LSB}\) and the readout shows the resulting \(T_{\rm res}\) and DTC-QN floor \(10\log_{10}[(2\pi T_{\rm res})^2/12\cdot f_{\rm ref}]\). <span class="tag t-derive">model</span> <span class="tag t-slide">slide p15</span></p>
+<div id="rc-ramp"></div>
 <p>
 The realized delay for code $D$ is $\Delta t = D\cdot T_\text{res}$ (staircase). The cancellation relation is
 $\Delta t[n] = K_\text{DTC}^{-1}\,\Phi_\text{QE}[n]$, with the gain $K_\text{DTC}=T_\text{vco}/\Delta t_\text{DTC}$

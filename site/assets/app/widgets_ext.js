@@ -423,12 +423,225 @@
     draw();
   }
 
+  function smN(a,w){var n=a.length,ps=[0];for(var i=0;i<n;i++)ps.push(ps[i]+a[i]);var h=(w-1)/2,o=[];for(var j=0;j<n;j++){var lo=Math.max(0,j-h),hi=Math.min(n-1,j+h);o.push((ps[hi+1]-ps[lo])/(hi-lo+1));}return o;}
+  function decN(a,m){var out=[],st=Math.ceil(a.length/(m||600));for(var i=0;i<a.length;i+=st)out.push(a[i]);return out;}
+
+  // ============ Cal#6: speed-vs-ripple trade + gear-shift µ ============
+  function gearShift(root){
+    var s=scaffold(root); s.plot.style.height="520px"; var o={mu:1.0, gear:true, muLo:0.1, tSw:30};
+    var FRONT=[0.1,0.2,0.35,0.5,1,2,4,6];
+    function settleOf(K,t){for(var i=K.length-1;i>0;i--){if(Math.abs(K[i]-1000)/1000>0.03)return t[i];}return 0;}
+    function draw(){
+      var kSw=Math.round(o.tSw*104);
+      var single=P.simGearShift({muHi:o.mu,n:9000});
+      var run=o.gear?P.simGearShift({muHi:o.mu,muLo:o.muLo,kSwitch:kSw,n:9000}):single;
+      var err=decN(run.Khat.map(function(v){return 100*(v-1000)/1000;}),700), tt=decN(run.t_us,700);
+      var tr=P.lmsTradeoff(FRONT);
+      var curS=settleOf(single.Khat,single.t_us), curR=single.ripple_pct;
+      var gS=o.gear?settleOf(run.Khat,run.t_us):curS, gR=run.ripple_pct;
+      var top={x:tt,y:err,mode:"lines",line:{color:"#c8442b",width:1.6},xaxis:"x",yaxis:"y"};
+      var front={x:tr.map(function(r){return r.settle_us;}),y:tr.map(function(r){return Math.max(r.ripple_pct,1e-3);}),mode:"lines+markers",line:{color:"#9fb3c8",width:1.4},marker:{size:5},xaxis:"x2",yaxis:"y2"};
+      var cur={x:[curS],y:[Math.max(curR,1e-3)],mode:"markers",marker:{color:"#c8442b",size:11,symbol:"circle"},xaxis:"x2",yaxis:"y2"};
+      var pts=[top,front,cur];
+      if(o.gear) pts.push({x:[gS],y:[Math.max(gR,1e-3)],mode:"markers",marker:{color:"#0a8f5b",size:13,symbol:"star"},xaxis:"x2",yaxis:"y2"});
+      Plotly.react(s.plot,pts,Object.assign({margin:{t:12,r:10,b:44,l:60},showlegend:false,
+        annotations:[{x:0.02,y:0.98,xref:"paper",yref:"paper",text:"top: K_DTC error vs time",showarrow:false,font:{size:10,color:"#888"}},
+          o.gear?{x:gS,y:Math.log10(Math.max(gR,1e-3)),xref:"x2",yref:"y2",text:"gear-shift ★",showarrow:false,yshift:-14,font:{size:10,color:"#0a8f5b"}}:{}],
+        xaxis:{domain:[0,1],anchor:"y",title:"time [µs]",gridcolor:"#eee"},
+        yaxis:{domain:[0.58,1],title:"K_DTC error [%]",gridcolor:"#eee",zeroline:true},
+        xaxis2:{domain:[0,1],anchor:"y2",title:"settling time [µs]  (← faster)",gridcolor:"#eee"},
+        yaxis2:{domain:[0,0.42],type:"log",title:"steady ripple [%]",gridcolor:"#eee"},
+        shapes:o.gear?[{type:"line",x0:o.tSw,x1:o.tSw,y0:0.58,y1:1,yref:"paper",line:{color:"#0a8f5b",dash:"dot"}}]:[]},BG),{displayModeBar:false,responsive:true});
+      s.read.innerHTML=box("single-µ",curS.toFixed(1)+" µs / "+curR.toFixed(2)+"% ripple")+
+        (o.gear?box("gear-shift",gS.toFixed(1)+" µs / "+gR.toFixed(2)+"% ✓"):box("gear-shift","off"))+
+        box("the trade","τ·M ≈ const")+box("lesson",o.gear?"fast AND quiet ★":"one µ → pick one");
+    }
+    seg(s.seg,[{t:"single µ",v:false},{t:"gear-shift µ",v:true}],true,function(v){o.gear=v;draw();});
+    slider(s.ctl,"acquire step µ",0.1,6,0.1,o.mu,"",null,function(v){o.mu=v;draw();});
+    slider(s.ctl,"track step µ_lo (gear)",0.02,1,0.02,o.muLo,"",null,function(v){o.muLo=v;draw();});
+    slider(s.ctl,"gear-shift time",5,50,1,o.tSw," µs",function(v){return (+v).toFixed(0);},function(v){o.tSw=v;draw();});
+    draw();
+  }
+
+  // ============ Cal#9: monomial vs Legendre NLC convergence ============
+  function legendreMono(root){
+    var s=scaffold(root); var o={view:"resid"};
+    function draw(){
+      var r=P.legendreVsMonomial(4000,1);
+      var it=Array.from({length:r.errm.length},function(_,i){return i;});
+      var em=decN(smN(r.errm,81),500), el=decN(smN(r.errl,81),500), iv=decN(it,500);
+      Plotly.react(s.plot,[
+        {x:iv,y:em,mode:"lines",line:{color:"#d62728",width:2},name:"monomial [D,D²,D³]"},
+        {x:iv,y:el,mode:"lines",line:{color:"#0a8f5b",width:2},name:"Legendre P₁,P₂,P₃"},
+      ],Object.assign({margin:{t:10,r:10,b:44,l:58},
+        xaxis:{title:"LMS iteration",gridcolor:"#eee"},
+        yaxis:{type:"log",title:"|residual INL|  (smoothed)",gridcolor:"#eee"},
+        legend:{orientation:"h",y:-0.22}},BG),{displayModeBar:false,responsive:true});
+      var fm=r.errm.slice(-200).reduce(function(a,b){return a+b;},0)/200;
+      var fl=r.errl.slice(-200).reduce(function(a,b){return a+b;},0)/200;
+      s.read.innerHTML=box("monomial final",fm.toExponential(1))+box("Legendre final",fl.toExponential(1))+
+        box("ratio",(fm/fl).toFixed(1)+"× lower")+box("why","orthogonal basis → diagonal R");
+    }
+    draw();
+  }
+
+  // ============ Other#3: type-I vs type-II loop ============
+  function typeCompare(root){
+    var s=scaffold(root); var p=P.clone(P.DEFAULTS);
+    function draw(){
+      var d=P.design(p), d1=P.designType1(p), f=P.logspace(1e3,1e8,400);
+      var t2=f.map(function(ff){return 20*Math.log10(P.cabs(P.Href(ff,p,d))/d.N);});
+      var t1=f.map(function(ff){return 20*Math.log10(P.hrefType1N(ff,d1));});
+      Plotly.react(s.plot,[
+        {x:f,y:t2,mode:"lines",line:{color:"#1f77b4",width:2},name:"type-II (2 integrators + zero)"},
+        {x:f,y:t1,mode:"lines",line:{color:"#d62728",width:2},name:"type-I (1 integrator)"},
+        {x:[f[0],f[f.length-1]],y:[0,0],mode:"lines",line:{color:"#aaa",dash:"dash",width:1},name:"0 dB"},
+      ],Object.assign({margin:{t:10,r:10,b:44,l:58},
+        xaxis:{type:"log",title:"offset frequency [Hz]",gridcolor:"#eee"},
+        yaxis:{title:"|H_ref / N| [dB]",range:[-40,5],gridcolor:"#eee"},
+        legend:{orientation:"h",y:-0.22}},BG),{displayModeBar:false,responsive:true});
+      var pk2=Math.max.apply(null,t2), pk1=Math.max.apply(null,t1);
+      s.read.innerHTML=box("type-II peaking",pk2.toFixed(2)+" dB")+box("type-I peaking",pk1.toFixed(2)+" dB")+
+        box("type-II PM",p.pm_deg.toFixed(0)+"°")+box("type-I PM",P.pmType1(p,d1).toFixed(0)+"°");
+    }
+    slider(s.ctl,"loop BW f_c",0.5,5,0.05,p.f_c/1e6," MHz",null,function(v){p.f_c=v*1e6;draw();});
+    slider(s.ctl,"type-II phase margin",45,75,1,p.pm_deg,"°",function(v){return (+v).toFixed(0);},function(v){p.pm_deg=v;draw();});
+    draw();
+  }
+
+  // ============ Other#2: reciprocal mixing (blocker × LO skirt) ============
+  function recipMix(root){
+    var s=scaffold(root); var p=P.clone(P.DEFAULTS); var o={df:10e6, blk:60, bw:20e6};
+    function Lof(foff){var d=P.design(p);var c=P.contributions([foff],p,d);return 10*Math.log10(0.5*c.total[0]+1e-300);}
+    function draw(){
+      var d=P.design(p), f=P.logspace(1e4,1e8,300);
+      var L=f.map(function(ff){return Lof(ff);});
+      var Ldf=Lof(o.df);
+      var ci=-(o.blk + Ldf + 10*Math.log10(o.bw));   // C/I from reciprocal mixing
+      Plotly.react(s.plot,[
+        {x:f,y:L,mode:"lines",line:{color:"#1f77b4",width:2},name:"LO phase-noise skirt L(f)"},
+        {x:[o.df],y:[Ldf],mode:"markers",marker:{color:"#d62728",size:11},name:"blocker offset"},
+        {x:[o.df,o.df],y:[Ldf,Ldf+o.blk],mode:"lines",line:{color:"#d62728",width:6},name:"blocker (+"+o.blk+" dBc)"},
+      ],Object.assign({margin:{t:10,r:10,b:44,l:58},
+        xaxis:{type:"log",title:"offset frequency [Hz]",gridcolor:"#eee"},
+        yaxis:{title:"level [dBc/Hz] / [dBc]",gridcolor:"#eee"},
+        legend:{orientation:"h",y:-0.22}},BG),{displayModeBar:false,responsive:true});
+      s.read.innerHTML=box("L(Δf)",Ldf.toFixed(1)+" dBc/Hz")+box("blocker",("+"+o.blk)+" dBc @ "+(o.df/1e6).toFixed(0)+" MHz")+
+        box("C/I (recip-mix)",ci.toFixed(1)+" dB")+box("note","far Δf: retune f_c ⇒ L(Δf) ~unchanged");
+    }
+    slider(s.ctl,"blocker offset Δf",1,80,1,o.df/1e6," MHz",function(v){return (+v).toFixed(0);},function(v){o.df=v*1e6;draw();});
+    slider(s.ctl,"blocker power",20,90,5,o.blk," dBc",function(v){return (+v).toFixed(0);},function(v){o.blk=v;draw();});
+    slider(s.ctl,"channel BW",1,100,1,o.bw/1e6," MHz",function(v){return (+v).toFixed(0);},function(v){o.bw=v*1e6;draw();});
+    slider(s.ctl,"loop BW f_c",0.5,5,0.05,p.f_c/1e6," MHz",null,function(v){p.f_c=v*1e6;draw();});
+    draw();
+  }
+
+  // ============ Other#4: DTC RC-ramp trip → T_res = ln2·RC ============
+  function rcRamp(root){
+    var s=scaffold(root); var o={R:288, C:2.0, vth:0.5};  // R[Ω], C[fF], Vth/Vdd → T_res≈400 fs (deck nominal)
+    function draw(){
+      var RC=o.R*o.C*1e-15;                 // seconds
+      var ttrip=-RC*Math.log(1-o.vth);      // V(t)=Vdd(1-e^{-t/RC}) crosses Vth*Vdd
+      var tres=ttrip;                        // unit delay (at chosen threshold)
+      var tmax=RC*4, N=160, t=[],v=[]; for(var i=0;i<=N;i++){var tt=tmax*i/N;t.push(tt*1e12);v.push(1-Math.exp(-tt/RC));}
+      var qn=10*Math.log10(Math.pow(2*Math.PI*tres,2)/12*104e6);
+      Plotly.react(s.plot,[
+        {x:t,y:v,mode:"lines",line:{color:"#1f77b4",width:2},name:"V(t)/V_DD"},
+        {x:[0,tmax*1e12],y:[o.vth,o.vth],mode:"lines",line:{color:"#d62728",dash:"dash",width:1},name:"threshold"},
+        {x:[ttrip*1e12,ttrip*1e12],y:[0,o.vth],mode:"lines",line:{color:"#0a8f5b",dash:"dot",width:1.4},name:"trip"},
+      ],Object.assign({margin:{t:10,r:10,b:44,l:56},
+        xaxis:{title:"time [ps]",gridcolor:"#eee"},yaxis:{title:"V(t) / V_DD",range:[0,1.02],gridcolor:"#eee"},
+        legend:{orientation:"h",y:-0.22}},BG),{displayModeBar:false,responsive:true});
+      s.read.innerHTML=box("T_res = t_trip",(tres*1e12).toFixed(3)+" ps")+
+        box("at V_th=½: ln2·RC",(Math.LN2*RC*1e12).toFixed(3)+" ps")+
+        box("RC",(RC*1e12).toFixed(3)+" ps")+box("DTC QN floor",qn.toFixed(1)+" dBc/Hz");
+    }
+    slider(s.ctl,"R",50,400,5,o.R," Ω",function(v){return (+v).toFixed(0);},function(v){o.R=v;draw();});
+    slider(s.ctl,"C_LSB",0.5,8,0.5,o.C," fF",function(v){return (+v).toFixed(1);},function(v){o.C=v;draw();});
+    slider(s.ctl,"threshold V_th/V_DD",0.2,0.8,0.05,o.vth,"",function(v){return (+v).toFixed(2);},function(v){o.vth=v;draw();});
+    draw();
+  }
+
+  // ============ Other#6: sampled-loop ZOH phase-margin erosion ============
+  function zohErosion(root){
+    var s=scaffold(root); var p=P.clone(P.DEFAULTS);
+    function draw(){
+      var d=P.design(p), f=P.logspace(1e4,5e7,400);
+      var phC=f.map(function(ff){return P.cang(P.openLoop(ff,p,d))*180/Math.PI;});
+      var phZ=f.map(function(ff,i){return phC[i]-180*ff/p.f_ref;});     // ZOH adds -pi f/f_ref
+      var lm=P.loopMetrics(p,d), fc=lm.f_c, zohDeg=180*fc/p.f_ref;
+      var pmC=lm.pm, pmZ=pmC-zohDeg;
+      Plotly.react(s.plot,[
+        {x:f,y:phC,mode:"lines",line:{color:"#1f77b4",width:2},name:"continuous ∠G"},
+        {x:f,y:phZ,mode:"lines",line:{color:"#d62728",width:2,dash:"dot"},name:"+ ZOH (sampled)"},
+        {x:[f[0],f[f.length-1]],y:[-180,-180],mode:"lines",line:{color:"#aaa",dash:"dash",width:1},name:"−180°"},
+        {x:[fc,fc],y:[-200,-90],mode:"lines",line:{color:"#0a8f5b",dash:"dot",width:1.2},name:"f_c"},
+      ],Object.assign({margin:{t:10,r:10,b:44,l:58},
+        xaxis:{type:"log",title:"frequency [Hz]",gridcolor:"#eee"},
+        yaxis:{title:"open-loop phase [°]",range:[-210,-80],gridcolor:"#eee"},
+        legend:{orientation:"h",y:-0.22}},BG),{displayModeBar:false,responsive:true});
+      s.read.innerHTML=box("PM (continuous)",pmC.toFixed(1)+"°")+box("ZOH lag @ f_c","−"+zohDeg.toFixed(1)+"°")+
+        box("PM (sampled)",pmZ.toFixed(1)+"°")+box("f_c / f_ref","1/"+(p.f_ref/fc).toFixed(0));
+    }
+    slider(s.ctl,"loop BW f_c",0.5,13,0.1,p.f_c/1e6," MHz",null,function(v){p.f_c=v*1e6;draw();});
+    draw();
+  }
+
+  // ============ Other#7: sample-by-sample time-domain noise lab ============
+  function tdLab(root){
+    var s=scaffold(root); var p=P.clone(P.DEFAULTS); var src={vco:true,ref:true,dtc:true,mmd:true,spd:true};
+    function draw(){
+      var r=P.simTimeDomain({p:p,sources:src,n:16384,seed:0});
+      var f=[],db=[]; for(var i=0;i<r.f.length;i++){ if(r.f[i]>=1e3){ f.push(r.f[i]); db.push(r.db[i]); } }
+      var fd=decN(f,600), dd=decN(smN(db,9),600);
+      Plotly.react(s.plot,[{x:fd,y:dd,mode:"lines",line:{color:"#1f77b4",width:1},name:"output PSD"}],
+        Object.assign({margin:{t:10,r:10,b:44,l:58},
+          xaxis:{type:"log",title:"offset frequency [Hz]",gridcolor:"#eee"},
+          yaxis:{title:"phase-noise PSD [dB, rel.]",gridcolor:"#eee"}},BG),{displayModeBar:false,responsive:true});
+      var onlist=Object.keys(src).filter(function(k){return src[k];});
+      s.read.innerHTML=box("total jitter (TD sim)",r.jitter_fs.toFixed(1)+" fs")+
+        box("freq-domain budget","87.6 fs (model)")+box("sources on",onlist.length?onlist.join(", "):"none")+
+        box("note","sample-by-sample @ f_ref");
+    }
+    ["vco","ref","dtc","mmd","spd"].forEach(function(k){checkbox(s.tog,k.toUpperCase(),true,function(c){src[k]=c;draw();});});
+    draw();
+  }
+
+  // ============ Other#8: jitter FoM vs state-of-the-art scatter ============
+  function fomScatter(root){
+    var s=scaffold(root); var o={dual:false};
+    // illustrative SoTA cloud of fractional-N synthesizers (jitter fs, power mW) [assumption A22]
+    var SOTA=[[120,4],[95,7],[150,18],[60,22],[200,3],[110,10],[85,12],[75,30],[68,9],[130,6],[105,15],[160,5],[90,20]];
+    function draw(){
+      var pw=14.2, jit=o.dual?62:87.6;  // dual-core VCO: −3 dB VCO PN ⇒ ≈62 fs (illustrative)
+      var fom=P.fomJitter(jit*1e-15,pw);
+      // iso-FoM contours
+      var pw_ax=P.logspace(2,40,40);
+      function iso(F){return pw_ax.map(function(P){return Math.sqrt(Math.pow(10,F/10)/P)*1e15;});}
+      var traces=[];
+      [-246,-249.6,-252].forEach(function(F){traces.push({x:pw_ax,y:iso(F),mode:"lines",line:{color:"#ddd",width:1},hoverinfo:"skip",name:F+" dB"});});
+      traces.push({x:SOTA.map(function(d){return d[1];}),y:SOTA.map(function(d){return d[0];}),mode:"markers",marker:{color:"#9fb3c8",size:7},name:"SoTA (illustrative)"});
+      traces.push({x:[pw],y:[jit],mode:"markers",marker:{color:o.dual?"#0a8f5b":"#c8442b",size:14,symbol:"star"},name:"this design"});
+      Plotly.react(s.plot,traces,Object.assign({margin:{t:10,r:10,b:44,l:58},showlegend:false,
+        annotations:[{x:Math.log10(14.2),y:Math.log10(jit),text:"this design",showarrow:true,arrowhead:0,ay:-24,font:{size:10}}],
+        xaxis:{type:"log",title:"power [mW]",range:[Math.log10(2),Math.log10(45)],gridcolor:"#eee"},
+        yaxis:{type:"log",title:"integrated jitter [fs]",range:[Math.log10(40),Math.log10(600)],gridcolor:"#eee"}},BG),{displayModeBar:false,responsive:true});
+      s.read.innerHTML=box("jitter / power",jit.toFixed(1)+" fs / "+pw+" mW")+box("FoM",fom.toFixed(1)+" dB")+
+        box("vs deck −249.6",(fom+249.6>0?"+":"")+(fom+249.6).toFixed(1)+" dB")+
+        box("dual-core VCO",o.dual?"on (−3 dB VCO)":"off");
+    }
+    checkbox(s.tog,"dual-core VCO (−3 dB VCO PN)",false,function(c){o.dual=c;draw();});
+    draw();
+  }
+
   ready(function(){
     if(!window.Plotly||!P){ return; }
     var map={ "spur-explorer":spurExplorer, "pole-zero":poleZero, "lock-transient":lockTransient,
       "evm-demo":evmDemo, "dsm-explorer":dsmExplorer, "jitter-hist":jitterHist, "budget-optimizer":budgetOptimizer,
       "cal-residual-floor":calResidualFloor, "cal-offset-race":calOffsetRace, "cal-dashboard":calDashboard,
-      "nlc-inl":nlcInl, "budget-pie":budgetPie, "pm-bridge":pmBridge, "range-ledger":rangeLedger };
+      "nlc-inl":nlcInl, "budget-pie":budgetPie, "pm-bridge":pmBridge, "range-ledger":rangeLedger,
+      "gear-shift":gearShift, "legendre-mono":legendreMono, "type-compare":typeCompare, "recip-mix":recipMix,
+      "rc-ramp":rcRamp, "zoh-erosion":zohErosion, "td-lab":tdLab, "fom-scatter":fomScatter };
     Object.keys(map).forEach(function(id){ var el=document.getElementById(id); if(el) map[id](el); });
   });
 })();

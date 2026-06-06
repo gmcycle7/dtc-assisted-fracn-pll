@@ -163,6 +163,10 @@ robust design for a given bandwidth. Check: $\sqrt{402\text{ kHz}\cdot 5.60\text
   </figcaption>
 </figure>
 
+<h3 id="type-compare-interactive">Interactive: type-I vs type-II — why two integrators (and a zero)</h3>
+<p>Overlay the closed-loop reference transfer \(|H_{\rm ref}/N|\) for the proposed <b>type-II</b> loop (two integrators + a stabilizing zero) against a <b>type-I</b> loop (single VCO integrator) at the same crossover. Type-II tracks a frequency ramp with zero steady-state error, but its zero makes it <b>peak</b> (~1.70 dB); type-I never peaks but cannot null a frequency error and has a much higher PM (no zero needed). Drag \(f_c\) and the type-II phase margin and watch the peak move. <span class="tag t-derive">model</span> <span class="tag t-std">textbook</span></p>
+<div id="type-compare"></div>
+
 <h2>3. Closed-loop noise transfer functions (NTFs)</h2>
 <p>
 Close the loop and two master transfer functions appear. With $G \equiv G_\text{ol}(s)$

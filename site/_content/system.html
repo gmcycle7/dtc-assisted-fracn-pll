@@ -74,6 +74,10 @@ $$\text{SNR}_\text{phase}=-20\log_{10}(\sigma_\phi)=-\text{IPN}\quad(\text{dB}).
 <h3>Intuition</h3>
 <p>The LO is not a clean tone; it has phase-noise skirts. When a big out-of-band blocker hits the mixer, it convolves with that skirt and produces a noise floor inside your channel — as if the blocker had been "painted" with the LO's phase noise and slid down to baseband. This is <strong>reciprocal mixing</strong>. Crucially it is set by $\mathcal{L}(\Delta f)$ at the <em>blocker offset</em>, which can be tens of MHz away — a region governed by the VCO's far-out (thermal) floor, not by the in-loop jitter that dominates EVM. So this spec is frequently <em>independent of, and orthogonal to,</em> the integrated-jitter EVM spec.</p>
 
+<h3 id="recip-mix-interactive">Interactive: reciprocal mixing — drag the blocker, retune the loop</h3>
+<p>The blue curve is the LO output phase-noise skirt \(\mathcal{L}(f)\). A blocker (red) at offset \(\Delta f\) gets "painted" with \(\mathcal{L}(\Delta f)\) and folded into your channel; the readout is the resulting carrier-to-interference \(C/I = -[P_{\rm blk}+\mathcal{L}(\Delta f)+10\log_{10}B]\). The teaching move: drag the <b>loop bandwidth</b> — the in-band skirt shifts, but for a far blocker \(\mathcal{L}(\Delta f)\) barely changes (out there \(H_{\rm vco}\!\to\!1\)), so retuning the loop does almost nothing for reciprocal mixing. <span class="tag t-derive">model</span> <span class="tag t-std">textbook</span></p>
+<div id="recip-mix"></div>
+
 <h3>Math</h3>
 <div class="derive">
 The blocker's contribution to in-channel power is its power, lowered by the LO phase noise at the blocker offset, integrated over the channel bandwidth:
@@ -117,6 +121,10 @@ $$\text{FoM}=10\log_{10}\!\big[(87.6\times10^{-15})^2\cdot 14.2\big]=-249.6\ \te
 
 <h3>Numbers — the iso-FoM diagonals</h3>
 <figure><img src="assets/figures/fom_scatter.png" alt="Jitter vs power scatter with iso-FoM diagonal lines; this work marked at 87.6 fs, 14.2 mW on the −249.6 dB line"><figcaption>Jitter–power plane. Each grey diagonal is a constant FoM ($\sigma_t^2 P=$ const, slope −½ on log–log). Moving <em>along</em> a diagonal trades power for jitter at fixed FoM; moving to a <em>lower</em> diagonal is genuine improvement. This work (red star) sits on the −249.6 dB line. <span class="tag t-derive">derived/model</span></figcaption></figure>
+
+<h3 id="fom-scatter-interactive">Interactive: place this design on the FoM map</h3>
+<p>The grey diagonals are constant-FoM lines (\(\sigma_t^2P=\) const). The red ★ is this design (87.6 fs / 14.2 mW, FoM −249.6 dB) against an illustrative state-of-the-art cloud <span class="tag t-assume">[A22]</span>. Toggle the <b>dual-core VCO</b>: it drops VCO PN by 3 dB (≈62 fs) but at ~2× power, so the star slides <i>along</i> the same diagonal — lower absolute jitter, <b>unchanged FoM</b>. Moving to a <i>lower</i> diagonal (the DTC-assist trick: better jitter at the same power) is the only real efficiency win. <span class="tag t-derive">model</span></p>
+<div id="fom-scatter"></div>
 
 <div class="note">
 <strong>The dual-core VCO lever.</strong> Combine $N_\text{core}$ identical VCO cores: the correlated signal adds coherently while uncorrelated phase noise averages, dropping $\mathcal{L}$ by $10\log_{10}(N_\text{core})$ — <strong>−3 dB for a dual core</strong> — but at $N_\text{core}\times$ power. <span class="tag t-derive">derived/model</span> Plug into the FoM: jitter power drops 2×, power rises 2×, so $\sigma_t^2 P$ — and hence the FoM — is <em>unchanged</em>. The dual core does not improve the FoM; it buys you lower absolute jitter (for EVM and reciprocal mixing) at constant efficiency. That is the right tool when you are jitter-limited, not power-limited. <span class="tag t-slide">slide p39 dual-core VCO</span>

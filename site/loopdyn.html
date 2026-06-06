@@ -168,6 +168,10 @@ Plug $f=f_c$ into the lag: $\angle_\text{ZOH}(f_c)\approx -\pi\cdot(1/70) \appro
 <b>One line on aliasing.</b> Because the detector samples at $f_\text{ref}$, any phase-noise or spur content above $f_\text{ref}/2 = 52$ MHz <b>folds (aliases)</b> back into the band $[0,\,f_\text{ref}/2]$. The loop cannot distinguish a high-offset component from its alias, so noise that the continuous model places out-of-band can reappear in-band; this is one more reason to keep the loop bandwidth a small fraction of $f_\text{ref}$ and to band-limit the reference path. <span class="tag t-std">textbook (sampled systems)</span>
 </div>
 
+<h3 id="zoh-interactive">Interactive: how much phase margin the sampling really eats</h3>
+<p>The open-loop phase with (dotted) and without (solid) the ZOH half-sample lag \(\angle_{\rm ZOH}=-\pi f/f_\text{ref}\). At the design \(f_c=1.5\) MHz the erosion is a harmless ~2.6°; push \(f_c\) toward \(f_\text{ref}/10\approx10\) MHz and the readout shows the sampled phase margin collapsing — exactly why the continuous-time design is only trustworthy while \(f_c\ll f_\text{ref}\). <span class="tag t-derive">model</span> <span class="tag t-std">textbook (ZOH)</span></p>
+<div id="zoh-erosion"></div>
+
 <h2>4. Step / transient response</h2>
 <p>
 The transient is simulated in discrete time at $f_\text{ref}$ with the proportional+integral coefficients of the type-II loop <span class="tag t-derive">derived (extras.py::step_response)</span>. For a unit <b>phase step</b> at the reference, the output overshoots ~25% and settles to within 1% in ~1.13 &micro;s.

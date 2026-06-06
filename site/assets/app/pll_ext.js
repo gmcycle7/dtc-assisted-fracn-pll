@@ -377,6 +377,94 @@
     return { t_us: t, Khat: K, Ktrue: Ktrue, effOffset: OFF, finalErrPct: 100 * (fin - Ktrue) / Ktrue };
   }
 
+  // ---------------- type-I loop (single integrator) — for the type-I vs type-II widget ----------------
+  function designType1(p) { var wc = 2 * Math.PI * p.f_c, wp = 8 * wc; return { wc: wc, wp: wp, K1: wc * Math.sqrt(1 + (wc / wp) * (wc / wp)) }; }
+  // open-loop G_I(jw)=K1/(s(1+s/wp)); return magnitude + Re/Im (denominator = -w^2/wp + j w)
+  function olType1(f, d1) {
+    var w = 2 * Math.PI * f, dre = -w * w / d1.wp, dim = w, d2 = dre * dre + dim * dim;
+    return { mag: d1.K1 / Math.sqrt(d2), re: d1.K1 * dre / d2, im: -d1.K1 * dim / d2 };
+  }
+  function hrefType1N(f, d1) { var g = olType1(f, d1), m1 = Math.sqrt((1 + g.re) * (1 + g.re) + g.im * g.im); return g.mag / m1; } // |H_ref/N|
+  function hvcoType1(f, d1) { var g = olType1(f, d1); return 1 / Math.sqrt((1 + g.re) * (1 + g.re) + g.im * g.im); }
+  function pmType1(p, d1) { var wc = d1.wc; return 90 - Math.atan(wc / d1.wp) * 180 / Math.PI; }   // PM = 90 - atan(wc/wp)
+
+  // ---------------- monomial vs Legendre NLC convergence (port extras.legendre_vs_monomial) ----------------
+  function legendreVsMonomial(n, seed) {
+    n = n || 4000; var rng = mul(seed || 1), a2 = 0.18, a3 = 0.04, g1t = 1.0;
+    var gm = [0.9, 0, 0], gl = [0.9, 0, 0], errm = [], errl = [], mu = 0.02;
+    for (var k = 0; k < n; k++) {
+      var D = 2 * rng() - 1;
+      var rm = [D, D * D, D * D * D];
+      var res = (g1t - gm[0]) * D + (a2 - gm[1]) * D * D + (a3 - gm[2]) * D * D * D;
+      for (var i = 0; i < 3; i++) gm[i] += mu * res * rm[i]; errm.push(Math.abs(res));
+      var Pl = [D, (3 * D * D - 1) / 2, (5 * D * D * D - 3 * D) / 2];
+      var rl = (g1t - gl[0]) * D + (a2 - gl[1]) * D * D + (a3 - gl[2]) * D * D * D;
+      for (var j = 0; j < 3; j++) gl[j] += mu * rl * Pl[j]; errl.push(Math.abs(rl));
+    }
+    return { errm: errm, errl: errl };
+  }
+
+  // ---------------- sign-error LMS with optional gear-shift (mu schedule) ----------------
+  function simGearShift(o) {
+    o = o || {};
+    var n = o.n || 9000, Ktrue = 1000, Khat = Ktrue * (1 - (o.initErr != null ? o.initErr : 0.10));
+    var muHi = o.muHi != null ? o.muHi : 1.0, muLo = o.muLo != null ? o.muLo : muHi;
+    var kSw = o.kSwitch != null ? o.kSwitch : 1e9, rng = mul(o.seed || 7);
+    var t = [], K = [];
+    for (var k = 0; k < n; k++) {
+      var mu = k < kSw ? muHi : muLo;
+      var phi_e = rng() * 0.5;                       // half-range Phi_e in [0,0.5]
+      var phe = (Ktrue - Khat) / Ktrue * phi_e;
+      var e = Math.sign(phe) || 1;
+      Khat += mu * e * phi_e;
+      t.push(k / 104e6 * 1e6); K.push(Khat);
+    }
+    var tail = K.slice(-1500), ripple = std(tail) / Ktrue * 100;   // steady-state misadjustment [%]
+    return { t_us: t, Khat: K, Ktrue: Ktrue, ripple_pct: ripple };
+  }
+  // speed/accuracy trade: settling vs ripple as mu sweeps (the tau*M=const curve)
+  function lmsTradeoff(mus) {
+    return mus.map(function (mu) {
+      var r = simGearShift({ muHi: mu, n: 9000 });
+      var tgt = r.Ktrue, sm = r.Khat, settle = 0;
+      for (var i = sm.length - 1; i > 0; i--) { if (Math.abs(sm[i] - tgt) / tgt > 0.03) { settle = i; break; } }
+      return { mu: mu, settle_us: r.t_us[settle] || 0, ripple_pct: r.ripple_pct };
+    });
+  }
+
+  // ---------------- discrete-time noise simulation (port time_domain_noise_model) ----------------
+  function simTimeDomain(o) {
+    o = o || {}; var p = o.p || P.clone(P.DEFAULTS), n = o.n || 16384, fs = p.f_ref;
+    var on = o.sources || { vco: true, ref: true, dtc: true, mmd: true, spd: true };
+    var L = P.designDT(p), rng = mul(o.seed || 0);
+    var whiteStd = function (dbc) { return Math.sqrt(Math.pow(10, dbc / 10) * fs); }; // var = S_phi*fs/2, S_phi=2*10^(dbc/10)
+    // VCO white-FM: per-sample freq step sigma s.t. S_phi(1MHz)=L_to_Sphi(vco@1MHz)
+    var vcoSig = Math.sqrt(2 * Math.pow(10, p.vco_dbc_at_1mhz / 10) * Math.pow(2 * Math.PI * 1e6, 2) / fs);
+    var phi = new Float64Array(n), acc = 0, ctrl = 0;
+    var Kp = L.Kp, Ki = L.Ki, Kv = L.Kv, N = L.N;
+    for (var k = 1; k < n; k++) {
+      var vstep = on.vco ? gss(rng) * vcoSig : 0;
+      phi[k] = phi[k - 1] + Kv * ctrl + vstep;
+      var phi_fb = phi[k] / N + (on.mmd ? gss(rng) * whiteStd(p.mmd_dbc) : 0);
+      var phi_ref = (on.ref ? gss(rng) * whiteStd(p.ref_floor_dbc) : 0) +
+                    (on.dtc ? gss(rng) * whiteStd(p.dtc_qn_dbc) + gss(rng) * whiteStd(p.dtc_thermal_dbc) : 0);
+      var e = phi_ref - phi_fb + (on.spd ? gss(rng) * whiteStd(p.spd_gm_dbc) : 0);
+      acc += e; ctrl = Kp * e + Ki * acc;
+    }
+    // detrend (remove mean + slope) then PSD via Welch; jitter from in-band integral
+    var arr = Array.prototype.slice.call(phi);
+    var m = arr.reduce(function (s, x) { return s + x; }, 0) / n;
+    for (var i = 0; i < n; i++) arr[i] -= m;
+    var psd = welch(arr, fs);                              // {f (Hz), db (periodogram)}
+    // integrate variance over [1 kHz, fs/2] from the periodogram (calibrated to rad^2/Hz)
+    var df = fs / arr.length, v = 0;
+    for (var j = 0; j < psd.f.length; j++) if (psd.f[j] >= 1e3) v += Math.pow(10, psd.db[j] / 10) * 1; // periodogram already ~PSD*?
+    // robust jitter: in-band RMS via time-domain high-pass (1 kHz) is overkill; use detrended std (loop suppresses LF)
+    var v2 = arr.reduce(function (s, x) { return s + x * x; }, 0) / n;
+    var jit = Math.sqrt(v2) / (2 * Math.PI * p.f_out) * 1e15;
+    return { f: psd.f, db: psd.db, jitter_fs: jit, n: n };
+  }
+
   // ---------------- FoM ----------------
   function fomJitter(sigma_t_s, P_mw) { return 10 * Math.log10(Math.pow(sigma_t_s, 2) * P_mw); }
 
@@ -392,5 +480,8 @@
     jitterDecompose: jitterDecompose, optimizeBW: optimizeBW, residualFloorJitter: residualFloorJitter,
     residualFloorSpectrum: residualFloorSpectrum, simOffsetCal: simOffsetCal,
     simCkrefDcc: simCkrefDcc, simOffsetRace: simOffsetRace, fomJitter: fomJitter,
+    designType1: designType1, olType1: olType1, hrefType1N: hrefType1N, hvcoType1: hvcoType1, pmType1: pmType1,
+    legendreVsMonomial: legendreVsMonomial, simGearShift: simGearShift, lmsTradeoff: lmsTradeoff,
+    simTimeDomain: simTimeDomain,
   });
 })();

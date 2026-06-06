@@ -464,6 +464,10 @@ $$\sigma_{w,\infty}\;\propto\;\mu\,\sqrt{E\{x^2\}}\,, \qquad \text{misadjustment
 
 <figure><img src="assets/figures/cal_misadjustment.png" alt="sign-LMS steady-state ripple vs step size"><figcaption>Sign-LMS steady-state ripple \(\operatorname{std}(K_{\rm DTC})\) grows \(\propto\mu\) (log-log slope ≈ 1): bigger steps converge faster but leave a bigger limit cycle. — model <code>sign_lms_ripple</code> (extras.py), residual \(\Phi_e\in[0,0.5]\).</figcaption></figure>
 
+<h3 id="gear-shift-interactive">Interactive: the speed-vs-ripple trade, and how gear-shift beats it</h3>
+<p>The lower panel is the trade frontier: each grey point is one fixed \(\mu\) — to the left is faster settling, downward is quieter steady state, and they pull against each other (\(\tau\cdot\mathcal{M}\approx\) const). A single \(\mu\) (red dot) must sit <i>on</i> that curve. Switch to <b>gear-shift</b> (large \(\mu\) to acquire, then drop to \(\mu_{\rm lo}\) to track) and the green ★ jumps <i>off</i> the frontier — fast lock AND a quiet floor — because the two specs are needed at different times. <span class="tag t-derive">model (extras.py:simGearShift)</span></p>
+<div id="gear-shift"></div>
+
 <h3>The trade and how to beat it: gear-shifting</h3>
 <p>Settling time is \(\tau\propto 1/\mu\) <span class="tag t-derive">derived</span> (derivations.md §7.1) while ripple \(\propto\mu\) — so for a <i>fixed</i> \(\mu\) you cannot have both fast lock and a quiet floor. The standard escape is <b>gear-shifting</b> (variable step size): use a large \(\mu_{\rm acq}\) to acquire, then drop to a small \(\mu_{\rm track}\) once converged <span class="tag t-std">textbook</span>.</p>
 <div class="grid">
@@ -533,6 +537,10 @@ $$\boxed{\;S_{\rm resid}(f) \;=\; \varepsilon^2\,(2\pi)^2\,S_{Q,\rm dsm}(f)\,\bi
 <b>The one coupling: \(E\{\Phi_e\}\neq0\) in half-range.</b> The ½-range trick (slide 34) makes the cal-A regressor \(\Phi_e\in[0,0.5]\) instead of \([-0.5,0.5]\), so it has a <b>non-zero mean</b>. That puts \(E\{\Phi_e\cdot 1\}=E\{\Phi_e\}\neq0\) in the table — the offset regressor (cal D) is <b>not</b> orthogonal to the gain regressor (cal A). Consequently an un-nulled offset (cal D residual) couples straight into the gain estimate as the bias term \(\mu_2\,m\,E\{\Phi_e\}\), driving \(\hat K\) 22.6% off. <span class="tag t-slide">slide p27</span> <span class="tag t-derive">derived</span></div>
 
 <p>The remedy is sequencing, not redesign: because the coupling is one-directional (offset → gain, since \(\Phi_e\) is the loaded regressor), <b>the offset servo must converge first</b> (or run with a faster time constant). Once \(m\to0\), the off-diagonal term \(\mu_2\,m\,E\{\Phi_e\}\to0\) and the gain loop sees a clean diagonal \(R\) again. The other three pairs are unconditionally orthogonal, so B, C, and D never fight each other — only A's dependence on D needs ordering. <span class="tag t-derive">derived</span></p>
+
+<h3 id="legendre-interactive">Interactive: monomial vs Legendre regressors (same idea, one basis)</h3>
+<p>The polynomial NLC (§E) can adapt its cubic in the naive monomial basis \([D,D^2,D^3]\) or the orthogonal Legendre basis \(P_1,P_2,P_3\). Both span the same cubic, but the monomials are <b>correlated</b> (\(E\{D\cdot D^3\}=1/5\neq0\)) so their \(R\) is ill-conditioned — the loops couple and the residual crawls down; Legendre's \(R\) is diagonal, so it converges cleanly and to a lower floor. Same orthogonality principle as the four-loop argument above, now <i>inside</i> one loop. <span class="tag t-derive">model (extras.py:legendre_vs_monomial)</span> <span class="tag t-std">textbook</span></p>
+<div id="legendre-mono"></div>
 
 <div class="note">
 <b>Design lever.</b> Using the <i>full</i>-range regressor \(\Phi_e\in[-0.5,0.5]\) would make \(E\{\Phi_e\}=0\) and kill the coupling entirely — but full range costs DTC dynamic range, noise and power (derivations.md §5). The ½-range design trades a small sequencing constraint (offset-first) for a large DR/power win. <span class="tag t-derive">derived</span> <span class="tag t-slide">slide p34</span></div>

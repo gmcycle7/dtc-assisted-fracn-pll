@@ -105,6 +105,10 @@ $$\sigma_\varphi^2 \;=\; S_\varphi \cdot \frac{f_{ref}}{2}, \qquad S_\varphi = 2
 The sampling phase detector fires once per reference period, so the entire loop is a <b>discrete-time system clocked at $f_{ref}=104$ MHz</b> (Nyquist $=52$ MHz). The continuous type-II loop (BW $f_c=1.5$ MHz <span class="tag t-assume">assumption</span>[A1], PM $=60°$ <span class="tag t-assume">assumption</span>[A2]) is mapped to two discrete integrators (the VCO phase accumulator and the PI integral) plus one zero (the PI proportional term). The realized gains are $K_p=5.07$, $K_i=0.265$, zero at $f_z=866$ kHz <span class="tag t-derive">derived</span> (from <code>time_domain.json</code>).
 </p>
 
+<h3 id="td-lab-interactive">Interactive: the sample-by-sample noise lab</h3>
+<p>This is the actual discrete loop run in your browser: real noise is injected at each physical node every reference tick, the five-line recursion shapes it, and the output PSD + integrated jitter come out the other end. Toggle each source on/off and watch the loop high-pass the VCO and low-pass the reference/DTC/MMD/SPD. With all sources on it lands near the frequency-domain budget (~88 fs), an independent confirmation by a completely different method. <span class="tag t-derive">model (port of time_domain_noise_model.py)</span></p>
+<div id="td-lab"></div>
+
 <h3>State-update equations</h3>
 <p>Each reference tick $k$ runs five lines; together they <em>are</em> the loop. The core is the VCO accumulator:</p>
 $$\varphi_{out}[k] \;=\; \underbrace{\varphi_{out}[k-1]}_{\text{prior phase}} \;+\; \underbrace{K_v\,\text{ctrl}}_{\text{frequency this step}} \;+\; \underbrace{\text{vco\_step}[k]}_{\text{VCO noise increment}}$$
@@ -235,7 +239,11 @@ That two completely different computational paths land within 0.08 dB is strong 
 <script src="assets/vendor/prism/prism-core.min.js"></script>
 <script src="assets/vendor/prism/prism-clike.min.js"></script>
 <script src="assets/vendor/prism/prism-python.min.js"></script>
-
+<script src="assets/vendor/plotly/plotly.min.js"></script>
+<script src="assets/app/pll.js"></script>
+<script src="assets/app/pll_ext.js"></script>
+<script src="assets/app/widgets.js"></script>
+<script src="assets/app/widgets_ext.js"></script>
 <script src="assets/app/site.js"></script>
 </body>
 </html>
