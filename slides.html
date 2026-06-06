@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slide-by-slide Map · DTC-Assisted Frac-N PLL</title>
+<meta name="description" content="Per-slide analysis table (p.1-42) mapping each slide to its formulas, calibrations, models, and parameters.">
+<meta property="og:title" content="Slide-by-slide Map · DTC-Assisted Fractional-N PLL">
+<meta property="og:description" content="Per-slide analysis table (p.1-42) mapping each slide to its formulas, calibrations, models, and parameters.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism-tomorrow.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar"><button class="ham" aria-label="Open menu">&#9776;</button><span class="ttl">Slide-by-slide Map</span></div>
+<div class="scrim"></div>
+<div class="wrap">
+<nav class="side" aria-label="Site sections">
+<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>
+<div class="sub">Interactive study of slides 1–42</div>
+<a class="" href="index.html"><span class="n">1</span>Home</a>
+<a class="" href="lab.html"><span class="n">2</span>Interactive Lab</a>
+<a class="" href="selftest.html"><span class="n">3</span>Self-Test</a>
+<a class="active" href="slides.html"><span class="n">4</span>Slide-by-slide Map</a>
+<a class="" href="architecture.html"><span class="n">5</span>Architecture</a>
+<a class="" href="blocks.html"><span class="n">6</span>Block Models</a>
+<a class="" href="calibrations.html"><span class="n">7</span>Calibrations</a>
+<a class="" href="frequency.html"><span class="n">8</span>Frequency-Domain</a>
+<a class="" href="loopdyn.html"><span class="n">9</span>Loop Dynamics & Lock</a>
+<a class="" href="timedomain.html"><span class="n">10</span>Time-Domain Noise</a>
+<a class="" href="spurs.html"><span class="n">11</span>Fractional Spurs</a>
+<a class="" href="system.html"><span class="n">12</span>System Impact</a>
+<a class="" href="codewalk.html"><span class="n">13</span>Code Walkthrough</a>
+<a class="" href="examples.html"><span class="n">14</span>Numerical Examples</a>
+<a class="" href="designex.html"><span class="n">15</span>Design Walkthrough</a>
+<a class="" href="problems.html"><span class="n">16</span>Design Problems</a>
+<a class="" href="dtctopologies.html"><span class="n">17</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">18</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">19</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">20</span>References</a>
+</nav>
+<main>
+<div class="article">
+<h1>Slide-by-slide Map</h1>
+<p class="lead">A complete index of the 42 in-scope slides of W. Wu's "DTC-Assisted High Performance Fractional-N PLLs" deck, with the equations, calibrations, transfer functions, and parameters extracted slide-by-slide.</p>
+
+<div class="note"><b>PDF page N = slide page N (verified).</b> The printed page number in the bottom-right corner of each rendered page matches the PDF page index with <b>no offset</b> (e.g. PDF p.3 prints "3", PDF p.42 prints "42") <span class="tag t-slide">slide_inventory.md</span>. Throughout this site both are written as "PDF p.X / slide p.X".</div>
+
+<h2>Scope</h2>
+<p>This study covers <b>slides 1 &rarr; 42</b> — the architecture, DTC circuit/noise, calibration, and noise-budget material. The deck is a <b>tutorial</b>, so it mixes (a) general PLL background, (b) a literature survey of DTC techniques from many groups, and (c) the author's own line of work (<i>W. Wu, JSSC 2019 / ISSCC 2021 / RFIC 2023</i>). The <b>proposed architecture</b> that the models implement is the <b>DTC-assisted analog sampling fractional-N PLL with a stack of background digital calibrations</b>, fully assembled on PDF p.39&ndash;40 <span class="tag t-slide">slide p.39-40</span>.</p>
+
+<div class="grid">
+  <div class="card">
+    <h4>The 4 proposed calibrations</h4>
+    <p>All background sign-LMS loops &mdash; but note the variant: the <b>K_DTC gain</b> cal is <b>sign-error LMS</b> (1-bit error &times; full-precision &Phi;<sub>e</sub>), while the <b>vco_dcc</b> and <b>ckref_dcc</b> duty cals are <b>sign-sign LMS</b> (&plusmn;1 regressor):</p>
+    <ol>
+      <li><b>DTC gain</b> (<code>K_DTC</code>) — p.26&ndash;28, p.39&ndash;40</li>
+      <li><b>CKREF duty-cycle</b> (<code>ckref_dcc</code>) — p.39&ndash;40</li>
+      <li><b>VCO duty-cycle</b> (<code>vco_dcc</code>) — p.35&ndash;37, p.39&ndash;40</li>
+      <li><b>Comparator/GM offset</b> (PHE zero-mean) via &Delta;V-DAC on <code>Vref_adj</code> — p.27&ndash;28, p.39&ndash;40</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h4>Two range-reduction techniques</h4>
+    <p>These make the DTC linear enough by shrinking its dynamic range:</p>
+    <ul>
+      <li><b>&frac12;-range</b> using two VCO phases — p.34 (proposed)</li>
+      <li><b>1/8-range</b> using 8 RO phases — p.38 (survey, [C. Hwang ISSCC 2022])</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Master analysis table (slide 1 &rarr; 42)</h2>
+<p>Legend for <b>Type</b>: <b>BG</b> = background/intro, <b>ARCH</b> = architecture, <b>DTC</b> = DTC circuit/noise, <b>CAL</b> = calibration, <b>RESULT</b> = sim/measured result. <span class="tag t-slide">slide_inventory.md</span></p>
+
+<table>
+<thead>
+<tr>
+<th class="num">PDF / slide p.</th>
+<th>Type</th>
+<th>Main topic</th>
+<th>Block / system</th>
+<th>Equations on page</th>
+<th>Calibration</th>
+<th>Model / transfer fn</th>
+<th>Sim/Meas target</th>
+<th>Useful parameters</th>
+<th>Assumptions we add</th>
+</tr>
+</thead>
+<tbody>
+<tr><td class="num">1</td><td>BG</td><td>Title</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td class="num">2</td><td>BG</td><td>Outline</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td class="num">3</td><td>BG</td><td>Demand for low-jitter frac-N</td><td>LO spec table</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>RMS jitter target &lt;100 fs</td><td>DSB-IPN vs QAM: 64-QAM &minus;30 dBc, 256-QAM &minus;33, 1k-QAM &minus;44, 4k-QAM &minus;47 dBc; jitter @29.5/40/43/47/7.125 GHz; integ. 1 kHz&rarr;100 MHz</td><td>none</td></tr>
+<tr><td class="num">4</td><td>BG</td><td>SoTA low-jitter frac-N PLLs</td><td>FoM_jitter survey</td><td>FoM = jitter/power benchmark (ref [1])</td><td>&mdash;</td><td>&mdash;</td><td>&lt;100 fs, FoM vs int-N</td><td>DTC-assisted PD &rarr; lower jitter, better FoM</td><td>FoM eq. only named, not shown &rarr; see derivations</td></tr>
+<tr><td class="num">5</td><td>ARCH</td><td>Major noise sources in any PLL</td><td>PFD/CP, LF, VCO, &divide;N, MMDIV+DSM</td><td>linear PLL phase-domain model &Phi;out = f(&Phi;ref,&Phi;VCO,&Phi;PD&hellip;); K_PD&middot;H_LF(s)&middot;K_VCO/s, 1/N</td><td>&mdash;</td><td>Linear s-domain PLL NTFs (THE freq-domain model)</td><td>SSB PN @6-GHz: VCO 51%, REF 39%, PD 4%, DIV 6%</td><td>K_PD, H_LF(s), K_VCO, N</td><td>values from p.42 example</td></tr>
+<tr><td class="num">6</td><td>BG</td><td>Extra challenges in frac-N</td><td>MMD+DSM, PD nonlinearity</td><td>MASH ranges: MASH1 &Phi;e&isin;[&minus;Tvco/2,+Tvco/2]; MASH1-1 [&minus;Tvco,+Tvco]; MASH1-1-1 [&minus;2Tvco,+2Tvco]</td><td>&mdash;</td><td>DSM quantization-error (QE) range model</td><td>fractional spurs, noise folding</td><td>DSM order vs &Phi;e range</td><td>MASH order &rarr; DTC DR</td></tr>
+<tr><td class="num">7</td><td>ARCH</td><td>Major PLL topologies</td><td>(a) analog PFD-CP (b) DPLL TDC (c) DTC-assisted PD</td><td>&mdash;</td><td>&mdash;</td><td>PD design metrics: noise, linearity over DR, Pdc, area</td><td>&mdash;</td><td>three topologies</td><td>DTC-assisted = focus</td></tr>
+<tr><td class="num">8</td><td>BG</td><td>Outline</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td class="num">9</td><td>ARCH</td><td>Advantages of DTC-assisted PD</td><td>DTC in ref path, &divide;N, DSM, PD, LF, VCO</td><td>K_DTC = Tvco/&Delta;t_DTC; &Phi;_QE[n] cancelled by DTC</td><td>(sets up K_DTC cal)</td><td>DTC cancels accumulated DSM QE &rarr; ~0 PD phase error (integer-N-like)</td><td>&Delta;t[n] staircase = Tvco&middot;(QE)</td><td>K_DTC, &Delta;t_DTC, Tvco, &Phi;_QE[n]</td><td>DTC code = K_DTC&middot;&Phi;e</td></tr>
+<tr><td class="num">10</td><td>ARCH</td><td>DTC-based digital PLL variants</td><td>digital sampling / ADPLL / bang-bang</td><td>&Phi;e = 1- or n-bit word</td><td>LMS K_DTC cal mentioned</td><td>BBPD gain linearization</td><td>&mdash;</td><td>refs: Tasca'11, Pavlovic'11, Gao'16</td><td>&mdash;</td></tr>
+<tr><td class="num">11</td><td>ARCH</td><td>DTC-based analog PLL variants</td><td>sampling PD (SPD) &amp; sub-sampling PD (SSPD)</td><td>K_PD high; &Phi;e(n) path</td><td>&mdash;</td><td>(sets up analog cal)</td><td>SPD = sample/hold; SSPD</td><td>refs: Raczkowski'15, Wu'19</td><td>SPD chosen as proposed</td></tr>
+<tr><td class="num">12</td><td>DTC</td><td>DTC vs TDC as PD</td><td>TDC delay-line vs DTC</td><td>TDC QN &Delta;t~8 ps (14 nm); DTC &Delta;t~100 fs (14 nm)</td><td>&mdash;</td><td>QN-limited inband noise</td><td>&mdash;</td><td>&tau; resolution</td><td>why DTC wins</td></tr>
+<tr><td class="num">13</td><td>BG</td><td>Outline (DTC section)</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td class="num">14</td><td>DTC</td><td>RC-delay variable-slope DTC</td><td>CKREF&rarr;buf&rarr;R,C_LSB(n-bit)&rarr;Vdly ramp&rarr;comparator</td><td>&Delta;t_cmp; K_DTC=Tvco/&Delta;t_DTC</td><td>&mdash;</td><td>DTC&rarr;IPN: RMS jitter, QN, NL&rarr;spurs/folding</td><td>&epsilon;qn/&epsilon;dtc/&epsilon;pd INL decomposition</td><td>R, C_LSB, n-bit, Vdly slope</td><td>&mdash;</td></tr>
+<tr><td class="num">15</td><td>DTC</td><td>DTC quantization noise</td><td>RC ramp + comparator</td><td>T_res = ln2&middot;R&middot;C_LSB; &Phi;_DTC,QN = (2&pi;&middot;T_res)&sup2;/12 &middot; f_ref</td><td>&mdash;</td><td>DTC QN PSD (input-referred at CKREF)</td><td>&minus;163 dBc/Hz</td><td>T_res=400 fs, f_ref=104 MHz &rarr; &minus;163 dBc/Hz; 10-bit &rarr; DR=400 ps, 2nd-order DSM, fvco&gt;5 GHz</td><td>single/double-sided 3-dB note</td></tr>
+<tr><td class="num">16</td><td>DTC</td><td>DTC thermal noise</td><td>delay stage + INV buffer</td><td>&#8466; &cong; 10log&#8321;&#8320;[ (1/2)(2&pi;f_ref/k_slew)&sup2; &middot; S_v^folded(fm) ], k_slew=1/(2RC) @VDD/2, S_v^folded&cong;(kT/C)/(fout/2); &rarr; &#8466;&cong;10log&#8321;&#8320;[2kT&middot;f_ref&middot;(2&pi;/ln2)&sup2;&middot;2&#8319;T_res&sup2;/C_LSB]</td><td>&mdash;</td><td>DTC thermal-noise PSD</td><td>&lt;&minus;171 dBc/Hz (PN floor)</td><td>C_LSB&ge;2 fF; INV-buffer width 100s of &micro;m</td><td>&mdash;</td></tr>
+<tr><td class="num">17</td><td>DTC</td><td>DTC NL — static distortion</td><td>cap array + comparator</td><td>code/slope-dependent &Delta;t_cmp &rarr; INL</td><td>(motivates NLC)</td><td>static INL model (parabolic)</td><td>INL: fixed cap &rarr; &lt;2 LSB; DEM &rarr; DNL &plusmn;0.2 LSB (10-bit)</td><td>C_LSB&ge;2 fF</td><td>parabolic INL shape</td></tr>
+<tr><td class="num">18</td><td>DTC</td><td>DTC NL — dynamic distortion</td><td>supply settling, memory effect</td><td>code-dependent supply settling &rarr; INL, memory</td><td>(motivates regulator/reset)</td><td>dynamic INL w/ memory</td><td>INL &plusmn;0.6 LSB scatter (meas)</td><td>per-cycle supply dip</td><td>hard to model exactly</td></tr>
+<tr><td class="num">19</td><td>DTC</td><td>High-perf DTC design example</td><td>master-slave regulator, bleeding current, prog. R</td><td>&mdash;</td><td>DTC code reset to "1" each cycle</td><td>regulator settling vs bleed-I</td><td>0.3 LSB variation over temp; INL vs bleed-I</td><td>bleeding current 0&ndash;800 &micro;A</td><td>&mdash;</td></tr>
+<tr><td class="num">20</td><td>ARCH</td><td>DTC-assisted PD in analog PLL (SPD)</td><td>DTC&rarr;SPD(sample/hold)&rarr;GM&rarr;LF&rarr;VCO&rarr;MMD&rarr;DSM</td><td>Vsmp = ZOH &rarr; 1st-order IIR; K_SPD = K_slope/(2&pi;&middot;f_ref); K_slope=6 GV/s &rarr; K_SPD=57/2&pi; &asymp; 9.2 V/rad</td><td>&mdash;</td><td>SPD = 1st-order IIR; K_SPD&gg;K_PD(PFD-CP)</td><td>&lt;&minus;170 dBc/Hz</td><td>K_slope=6 GV/s, f_ref=104 MHz, C_I,2&asymp;200 fF</td><td>GM &micro;A-level</td></tr>
+<tr><td class="num">21</td><td>DTC</td><td>Constant-slope DTC (I/C)</td><td>IDAC, RDAC, CL</td><td>&Delta;t_DTC = &int;dV&middot;CL(V)/(K&middot;I) (const slope)</td><td>&mdash;</td><td>const-slope nonlinearity sources</td><td>&mdash;</td><td>needs high VDD (1.5 V)</td><td>survey [Ru'15]</td></tr>
+<tr><td class="num">22</td><td>DTC</td><td>Inverse-constant-slope (ICS) DTC</td><td>coarse-fine, DFF+mux @fvco</td><td>&Delta;t_DTC = &int; CL(V)dV/(K&middot;I_G(V)) &rarr; immune to I_G(V),C(V)</td><td>&mdash;</td><td>ICS linearity</td><td>&mdash;</td><td>needs fine DTC</td><td>survey [Dartizio'23]</td></tr>
+<tr><td class="num">23</td><td>DTC</td><td>Pseudo-differential DTC</td><td>two half-range DTCs</td><td>even-symmetric INL cancels</td><td>&mdash;</td><td>INL cancellation</td><td>&mdash;</td><td>&mdash;</td><td>survey [Xu'24]</td></tr>
+<tr><td class="num">24</td><td>BG</td><td>Digital-assisted linear-DTC menu</td><td>NLC / reverse-concavity / range reduction</td><td>&mdash;</td><td>(forward pointer)</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td class="num">25</td><td>BG</td><td>Outline (calibration section)</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td class="num">26</td><td>CAL</td><td>Adaptive (LMS) filter for cal</td><td>DPLL: TDC, DLF, DCO, MMD, DSM, LMS</td><td>LMS: h(k+1)=h(k)+&micro;&middot;e(k)&middot;x(k); integrator &micro;&middot;Z&#8315;&sup1;/(1&minus;Z&#8315;&sup1;)</td><td>DTC gain (K_DTC)</td><td>LMS system-ID mapping: x=&Phi;e, e=PHE, y=CKDTC phase, d=CKFB phase, h=K_DTC</td><td>&mdash;</td><td>&micro; step size</td><td>LMS = system identification</td></tr>
+<tr><td class="num">27</td><td>CAL</td><td>DTC gain CAL in analog SPD PLL [1]</td><td>SPD, GM, comparator</td><td>e[k]=sign(PHE); offsets V_Gm_os, V_cmp_os</td><td>K_DTC (sign-LMS)</td><td>offset shifts mean of e[k] &rarr; bias</td><td>shows e[k] waveform vs offset sign</td><td>V_Gm_os, V_cmp_os</td><td>sign-LMS needs zero-mean e[k]</td></tr>
+<tr><td class="num">28</td><td>CAL</td><td>DTC gain CAL [2] + offset cal</td><td>+ &Delta;V-DAC on Vref1</td><td>adjust Vref1 to zero-mean e[k]; 1-bit &Delta;V-DAC</td><td>K_DTC + offset cal</td><td>offset-cancel LMS</td><td>&mdash;</td><td>1-bit &Delta;V-DAC</td><td>[Wu'19] proposed</td></tr>
+<tr><td class="num">29</td><td>CAL</td><td>POC-DTC zero-mean PHE [1]</td><td>PFD-CP + DTC + coarse-fine DTC</td><td>&Delta;Tof varies w/ PVT; Error_Sign[k] zero-mean</td><td>phase-offset-cal DTC</td><td>POC-DTC tracks &Delta;Tof</td><td>&mdash;</td><td>coarse+fine DTC, 1-b TDC</td><td>survey [Renukaswamy'23]</td></tr>
+<tr><td class="num">30</td><td>CAL</td><td>POC-DTC zero-mean PHE [2]</td><td>(same, detail)</td><td>(same)</td><td>(same)</td><td>(same)</td><td>&mdash;</td><td>&mdash;</td><td>survey</td></tr>
+<tr><td class="num">31</td><td>CAL</td><td>DTC NLC — polynomial CAL</td><td>LMS on g1,g2,g3</td><td>D_DCW = g1&middot;D_AQ + g2&middot;D_AQ&sup2; + g3&middot;D_AQ&sup3;; D_AQ=accum DSM phase</td><td>NLC (g1,g2,g3 LMS)</td><td>polynomial pre-distortion</td><td>max INL 50 fs (after NLC)</td><td>g1=K_DTC,g2,g3</td><td>survey [Park'21]; we model concept</td></tr>
+<tr><td class="num">32</td><td>CAL</td><td>Reverse-concavity variable-slope DTC</td><td>change R_U via voltage DAC</td><td>adaptation loop finds DAC code</td><td>NL cal via R_U</td><td>reverse-concavity INL cancel</td><td>&mdash;</td><td>R_U DAC</td><td>survey [Rossoni'24]</td></tr>
+<tr><td class="num">33</td><td>DTC</td><td>DTC range-reduction tradeoffs (recap)</td><td>&mdash;</td><td>DR=2&#8319;&middot;t_res=2&#8319;&middot;ln2&middot;R&middot;C_LSB; QN&prop;t_res&sup2;; &#8466;&cong;10log&#8321;&#8320;[2kT&middot;f_ref&middot;(2&pi;)&sup2;/ln2&middot;DR&middot;R]; power&prop;DR&sup2;</td><td>&mdash;</td><td>DR vs noise/power/linearity</td><td>&mdash;</td><td>n bits, DR</td><td>DR&darr; &rArr; better all-round</td></tr>
+<tr><td class="num">34</td><td>CAL</td><td>&frac12;-DTC-range with 2 VCO phases</td><td>modified MMD+DSM, SEL_CKFB, &divide;2</td><td>switching CKFB1&rarr;CKFB2 = +&frac12;Tvco delay; modified DSM &frac12;-range QE</td><td>DTC range reduction (proposed)</td><td>modified-DSM &frac12;-range model; MASH1/MASH1-1 SEL_CKFB &amp; &Phi;e(n) waveforms</td><td>&mdash;</td><td>SEL_CKFB &plusmn;1; &Phi;e&isin;[0,0.5Tvco]</td><td>[Wu ISSCC'21] proposed</td></tr>
+<tr><td class="num">35</td><td>CAL</td><td>VCO duty-cycle error disrupts K_DTC</td><td>MMD, DFF1/2, MUX, inverter &Delta;t_inv</td><td>&Delta;t_err = &Delta;t &minus; Tvco/2; ideal &Delta;t=Tvco/2=83 ps@6 GHz</td><td>(motivates VCO DCC)</td><td>duty-error model on CKFB2</td><td>K_DTC drifts w/ 12% duty error</td><td>&Delta;t1,&Delta;t2,&Delta;t_inv</td><td>[Wu ISSCC'21]</td></tr>
+<tr><td class="num">36</td><td>CAL</td><td>VCO duty-cycle calibration</td><td>sign-LMS, &alpha;&middot;Z&#8315;&sup1;/(1&minus;Z&#8315;&sup1;)</td><td>vco_dcc: SEL_CKFB=+1&rarr;push CKDTC by &Delta;t_err/2; =&minus;1&rarr;pull-in &Delta;t_err/2</td><td>VCO DCC (sign-LMS, proposed)</td><td>sign-LMS on SEL_CKFB&times;e[k]</td><td>&mdash;</td><td>&alpha; step size</td><td>[Wu ISSCC'21] proposed</td></tr>
+<tr><td class="num">37</td><td>RESULT</td><td>Simulated K_DTC CAL &amp; DTC code</td><td>&mdash;</td><td>&mdash;</td><td>K_DTC + range red.</td><td>convergence</td><td>K_DTC converges &lt;30 &micro;s even w/ 12% VCO duty error; DTC code range halved; FCAL 23 &micro;s, FLL 91 &micro;s</td><td>&mdash;</td><td>sim cross-check target</td></tr>
+<tr><td class="num">38</td><td>CAL</td><td>1/8-DTC-range using 8 RO phases</td><td>8:1 MUX, window gen, QTM-PS, 1st-order &Delta;&Sigma;M</td><td>DR reduced by 1/8</td><td>DTC gain + RO phase mismatch (DRPEC) LMS</td><td>RO phase-error calibrator (RPEC)</td><td>&mdash;</td><td>8 RO phases SOUT[7:0]</td><td>survey [Hwang ISSCC'22]</td></tr>
+<tr><td class="num">39</td><td>ARCH</td><td>Low-jitter sampling analog PLL example (full system)</td><td>DTC, SPD, slope-gen, GM, dual-core VCO, MMD, modified-DSM, all cals</td><td>(assembles all)</td><td>K_DTC + VCO DCC + CKREF DCC + offset(&Delta;V-DAC)</td><td>complete proposed system block diagram</td><td>14 nm FinFET, core 0.31 mm&sup2;; power: VCO 12 mW, DTC 1.2 mW, MMD 0.5 mW, rest 0.5 mW</td><td>&alpha;1,&alpha;2; Vref_adj; &frac12;-range DSM</td><td>[Wu ISSCC'21] proposed</td></tr>
+<tr><td class="num">40</td><td>RESULT/CAL</td><td>Simulated background calibration</td><td>full cal block diagram (&micro;1,&micro;2,&micro;3)</td><td>sign-LMS&times;3 + offset</td><td>all 4 cals together</td><td>complete digital cal block diagram</td><td>all converge &lt;30 &micro;s; 20 ps VCO duty err, 32 mV cmp offset, 1 ns (57%) CKREF duty err; robust int &amp; frac</td><td>&micro;1(vco_dcc),&micro;2(K_DTC),&micro;3(ckref_dcc)</td><td>sim cross-check target</td></tr>
+<tr><td class="num">41</td><td>RESULT</td><td>Measured frac-N spurs &amp; jitter</td><td>&mdash;</td><td>fVCO=35&times;153.6 MHz+&Delta;f</td><td>(effect of cals)</td><td>&mdash;</td><td>frac spurs &minus;70&hellip;&minus;85 dBc; RMS jitter ~80&ndash;120 fs vs fVCO 5&ndash;7 GHz; with/without range-red &amp; VCO DCC</td><td>&mdash;</td><td>[Wu ISSCC'21] meas</td></tr>
+<tr><td class="num">42</td><td>RESULT</td><td>PN contributors in low-jitter DTC PLL</td><td>&mdash;</td><td>&mdash;</td><td>(post-cal budget)</td><td>noise-budget pie / PN plot</td><td>@LO 6720 MHz, REF 104 MHz: TOTAL 87.5 fs (&minus;51.7 dBc); VCO 51%, REF(+DTC) 39%, MMDIV 6%, SPD+GM 4%, &Sigma;&Delta;M QE ~0%</td><td>fout=6.72 GHz, fref=104 MHz</td><td>the validation target</td></tr>
+</tbody>
+</table>
+
+<div class="note">The right-hand "validation" anchors: the linear NTF model (p.5) and the post-cal budget (p.42) drive <code>models/frequency_domain_model.py</code>; the cross-checked numbers are <b>f_out = 6.72 GHz</b> <span class="tag t-slide">slide p.42</span>, <b>f_ref = 104 MHz</b> <span class="tag t-slide">slide p.42</span>, <b>N &asymp; 64.62</b> = 6720/104 <span class="tag t-derive">derived [A3]</span>, and <b>TOTAL = 87.6 fs</b> <span class="tag t-derive">model</span> &asymp; 87.5 fs <span class="tag t-slide">slide p42</span> / IPN &minus;51.6 dBc <span class="tag t-derive">model</span> &asymp; &minus;51.7 dBc <span class="tag t-slide">slide p42</span>.
+<div class="assume">Loop BW <b>f_c = 1.5 MHz</b> <span class="tag t-assume">assumption [A1]</span> and <b>PM = 60&deg;</b> <span class="tag t-assume">assumption [A2]</span> are <b>assumptions we add</b> (slide 42 gives no number); the model lands at a measured 1.501 MHz under [A1].</div></div>
+
+<h2>Detailed notes on the key slides</h2>
+<p>These are the technically rich slides where the equations, models, and calibrations actually live. Each summarizes the per-slide deep notes from the inventory and shows the slide image.</p>
+
+<h3>p.5 / slide 5 — Linear PLL phase-domain model (the frequency-domain backbone)</h3>
+<p>The canonical phase-domain block diagram: $|\Phi_{ref}| \rightarrow (\Sigma) \rightarrow K_{PD}(s) \rightarrow H_{LF}(s) \rightarrow K_{VCO}/s \rightarrow |\Phi_{out}|$, with feedback $\div N$ returning $\Phi_{div,n}$. Noise injections are drawn at the summing node ($\Phi_{ref,n}$, $\Phi_{PD,n}$, $\Phi_{VCO,n}$, $\Phi_{div,n}$) plus the DSM $\Delta\Sigma$ quantization error $QE$ into the MMDIV. This is the type-II charge-pump-style <span class="tag t-std">textbook (Gardner / Razavi linear PLL)</span> model and is the basis of <code>models/frequency_domain_model.py</code>. The bar example (SSB PN at a low-jitter 6-GHz PLL) shows <b>VCO 51%, REF 39%, PD 4%, DIV 6%</b> — VCO and REF dominate <span class="tag t-slide">slide p.5</span>.</p>
+<figure class="slide"><img src="assets/slides/slide_05.png" alt="slide 05"><figcaption>PDF p.5 / slide p.5 — Major noise sources and the linear phase-domain PLL model.</figcaption></figure>
+
+<h3>p.9 / slide 9 — DTC-assisted PD principle</h3>
+<p>The DTC sits in the <b>reference path</b> and adds a programmable delay $\Delta t[n] = K_{DTC}^{-1} \cdot \Phi_{QE}[n]$ — a staircase that tracks the <i>accumulated</i> DSM quantization error $\Phi_{QE}$. Because the divider's CKFB edge in a frac-N PLL wanders by up to $\pm(\text{order})\cdot T_{vco}/2$ relative to CKREF, delaying CKREF by exactly that amount makes the PD see <b>&asymp;0 phase error after lock — just like integer-N</b>. Key relation: $K_{DTC} = T_{vco}/\Delta t_{DTC}$ (codes per VCO period). This enables a high-gain, small-dynamic-range PD &rarr; lower inband noise, better linearity, lower power <span class="tag t-slide">slide p.9</span>.</p>
+<figure class="slide"><img src="assets/slides/slide_09.png" alt="slide 09"><figcaption>PDF p.9 / slide p.9 — DTC cancels accumulated DSM QE for integer-N-like operation.</figcaption></figure>
+
+<h3>p.15 / slide 15 — DTC quantization noise</h3>
+<p>Verbatim formulas: the unit delay is $T_{res} = \ln 2 \cdot R \cdot C_{LSB}$, and the input-referred (at CKREF) phase-noise PSD is</p>
+$$\Phi_{DTC,QN} = \frac{(2\pi \cdot T_{res})^2}{12} \cdot f_{ref}.$$
+<p>Worked number: $T_{res} = 400$ fs, $f_{ref} = 104$ MHz $\Rightarrow$ <b>&minus;163 dBc/Hz</b> (reproduced numerically in <code>derivations.md</code>, matching the $/12$ convention <span class="tag t-derive">derived</span>). A 10-bit DTC gives total <b>DR = 400 ps</b>, supporting a 2nd-order DSM with $f_{vco} &gt; 5$ GHz <span class="tag t-slide">slide p.15</span>.</p>
+<figure class="slide"><img src="assets/slides/slide_15.png" alt="slide 15"><figcaption>PDF p.15 / slide p.15 — DTC quantization noise of the RC-ramp + comparator.</figcaption></figure>
+
+<h3>p.16 / slide 16 — DTC thermal noise</h3>
+<p>Starting from the slew-rate-referred jitter,</p>
+$$\mathcal{L} \cong 10\log_{10}\!\left[\tfrac{1}{2}\left(\frac{2\pi f_{ref}}{k_{slew}}\right)^2 S_v^{folded}(f_m)\right],$$
+<p>with $k_{slew} = 1/(2RC)$ evaluated at $VDD/2$ and $S_v^{folded}(f_m) \cong (kT/C)/(f_{out}/2)$. At mid-code this simplifies to</p>
+$$\mathcal{L} \cong 10\log_{10}\!\left[2kT \cdot f_{ref}\left(\frac{2\pi}{\ln 2}\right)^2 \frac{2^n T_{res}^2}{C_{LSB}}\right].$$
+<p>Needs $C_{LSB} \ge 2$ fF for a PN floor $&lt; -171$ dBc/Hz; INV-buffer thermal noise dominates if the buffer width is too large <span class="tag t-slide">slide p.16</span>.</p>
+<figure class="slide"><img src="assets/slides/slide_16.png" alt="slide 16"><figcaption>PDF p.16 / slide p.16 — DTC thermal noise of the delay stage and inverter buffer.</figcaption></figure>
+
+<h3>p.20 / slide 20 — Sampling PD (SPD) gain &amp; dynamics</h3>
+<p>The sampled voltage $V_{smp}$ is a <b>zero-order hold</b>, so the SPD behaves as a <b>1st-order IIR filter</b> inside the loop. Its gain is</p>
+$$K_{SPD} = \frac{K_{slope}}{2\pi \cdot f_{ref}}.$$
+<p>With $K_{slope} = 6$ GV/s and $f_{ref} = 104$ MHz this gives $K_{SPD} = 57/(2\pi) \approx 9.2$ V/rad $\gg K_{PD}$ of a PFD-CP. The GM stage can be &micro;A-level because its noise is suppressed by the high $K_{SPD}$; with $C_{I,2} \approx 200$ fF the contribution is $&lt; -170$ dBc/Hz <span class="tag t-slide">slide p.20</span>.</p>
+<figure class="slide"><img src="assets/slides/slide_20.png" alt="slide 20"><figcaption>PDF p.20 / slide p.20 — DTC-assisted sampling PD in the analog PLL.</figcaption></figure>
+
+<h3>p.26&ndash;28 / slide 26&ndash;28 — DTC gain calibration (LMS)</h3>
+<p>System-identification view (p.26): the unknown "plant" is the mapping from accumulated QE $\Phi_e$ to the residual phase error; the adaptive weight $h(k)$ <b>is</b> $K_{DTC}$. The update is an LMS integrator $\mu \cdot Z^{-1}/(1 - Z^{-1})$:</p>
+$$K_{DTC}[k+1] = K_{DTC}[k] + \mu \cdot e[k] \cdot x[k], \quad x[k] = \Phi_e[k].$$
+<p>p.27 shows that comparator/GM offsets <b>bias the mean of $e[k]$</b> (a sign-LMS converges only when $e[k]$ is zero-mean). p.28's fix: a <b>1-bit &Delta;V-DAC adjusts $V_{ref1}$</b> to null the offset, restoring zero-mean $\text{sign}(\text{PHE})$ <span class="tag t-slide">slide p.26-28</span>.</p>
+<div class="grid">
+<figure class="slide"><img src="assets/slides/slide_26.png" alt="slide 26"><figcaption>PDF p.26 / slide p.26 — LMS adaptive filter as system identification.</figcaption></figure>
+<figure class="slide"><img src="assets/slides/slide_27.png" alt="slide 27"><figcaption>PDF p.27 / slide p.27 — Offsets bias the mean of e[k].</figcaption></figure>
+<figure class="slide"><img src="assets/slides/slide_28.png" alt="slide 28"><figcaption>PDF p.28 / slide p.28 — &Delta;V-DAC offset cancellation [Wu'19].</figcaption></figure>
+</div>
+
+<h3>p.33 / slide 33 — DTC range-reduction tradeoffs (recap)</h3>
+<p>Pulls all the DR scaling laws together: $DR = 2^n \cdot t_{res} = 2^n \cdot \ln 2 \cdot R \cdot C_{LSB}$; quantization noise scales as $QN \propto t_{res}^2$; the thermal floor as $\mathcal{L} \cong 10\log_{10}[2kT \cdot f_{ref}(2\pi)^2/\ln 2 \cdot DR \cdot R]$; and power $\propto DR^2$. The takeaway: <b>reducing DR improves noise, linearity, and power simultaneously</b>, motivating the range-reduction techniques on p.34 and p.38 <span class="tag t-slide">slide p.33</span>.</p>
+<figure class="slide"><img src="assets/slides/slide_33.png" alt="slide 33"><figcaption>PDF p.33 / slide p.33 — DR vs noise / power / linearity tradeoffs.</figcaption></figure>
+
+<h3>p.34&ndash;37 / slide 34&ndash;37 — &frac12;-range + VCO duty-cycle calibration</h3>
+<ul>
+<li><b>&frac12;-range (p.34):</b> a modified MMD + DSM selects between two VCO phases (CKFB1, CKFB2 = CKFB1 delayed by $\tfrac{1}{2}T_{vco}$) via $SEL\_CKFB$, halving the residual QE range the DTC must cover ($\Phi_e \in [0, 0.5\,T_{vco}]$ instead of $[-T_{vco}/2, +T_{vco}/2]$). Smaller DR &rArr; more linear, lower-noise, lower-power DTC.</li>
+<li><b>Problem (p.35):</b> if the VCO duty cycle $\neq 50\%$, the two phases are not exactly $\tfrac{1}{2}T_{vco}$ apart: $\Delta t_{err} = \Delta t - T_{vco}/2 \neq 0$. This injects a $SEL\_CKFB$-correlated error that corrupts the K_DTC cal and re-introduces a spur (ideal $\Delta t = T_{vco}/2 = 83$ ps @ 6 GHz).</li>
+<li><b>Fix (p.36):</b> a sign-LMS correlates $e[k]$ with $SEL\_CKFB\,(\pm 1)$ to estimate $\Delta t_{err}$, producing <code>vco_dcc</code>. $SEL\_CKFB = +1$ pushes CKDTC back by $\Delta t_{err}/2$; $= -1$ pulls in by $\Delta t_{err}/2$. Added into the DTC code.</li>
+<li><b>Result (p.37):</b> K_DTC converges $&lt; 30$ &micro;s even with <b>12% VCO duty error</b>; the DTC code range is halved (FCAL 23 &micro;s, FLL 91 &micro;s) <span class="tag t-slide">slide p.34-37</span>.</li>
+</ul>
+<div class="grid">
+<figure class="slide"><img src="assets/slides/slide_34.png" alt="slide 34"><figcaption>PDF p.34 / slide p.34 — &frac12;-range using two VCO phases [Wu ISSCC'21].</figcaption></figure>
+<figure class="slide"><img src="assets/slides/slide_35.png" alt="slide 35"><figcaption>PDF p.35 / slide p.35 — VCO duty error disrupts K_DTC.</figcaption></figure>
+<figure class="slide"><img src="assets/slides/slide_36.png" alt="slide 36"><figcaption>PDF p.36 / slide p.36 — VCO duty-cycle sign-LMS calibration.</figcaption></figure>
+<figure class="slide"><img src="assets/slides/slide_37.png" alt="slide 37"><figcaption>PDF p.37 / slide p.37 — Simulated K_DTC convergence &amp; halved DTC code.</figcaption></figure>
+</div>
+
+<h3>p.39&ndash;40 / slide 39&ndash;40 — The complete proposed system + all calibrations</h3>
+<p><b>Signal chain (p.39):</b> $\text{CKREF} (\times 2 \rightarrow \text{CKREFX2}) \rightarrow \text{DTC} \rightarrow \text{CKDTC} \rightarrow \text{SPD (slope-gen + sample)} \rightarrow V_1/V_2 \rightarrow \text{GM} (V_{ref}) \rightarrow V_{ctrl,P}/V_{ctrl,I} \rightarrow \text{dual-core VCO} \rightarrow \text{CKVCO} \rightarrow \text{MMD} (\div N) \rightarrow \text{CKFB}$, with the modified $\Delta\Sigma$-modulator (&frac12;-range) driving $NDIV$ and $SEL\_CKFB$ <span class="tag t-slide">slide p.39</span>.</p>
+<p><b>Digital calibrations (p.40)</b> — three sign-LMS integrators sharing the 1-bit error $e[k] = \text{sign}(\text{PHE})$:</p>
+<ul>
+<li><b>$\mu_2$ branch (K_DTC):</b> $K_{DTC}[k+1] = K_{DTC}[k] + \mu_2 \cdot e[k] \cdot \Phi_e[k-n]$. DTC code main term $= K_{DTC}\cdot\Phi_e[n]$.</li>
+<li><b>$\mu_3$ branch (ckref_dcc):</b> $even\_cycle\,(\pm 1)$ correlated with $(1-Z^{-1})e[k]$, integrated, multiplied by $even\_cycle$ &rarr; injected into the FCW path before the modified DSM (corrects the alternating-cycle error from a non-50% <i>reference</i> duty cycle).</li>
+<li><b>$\mu_1$ branch (vco_dcc):</b> $\text{Sign}(SEL\_CKFB)\,(\pm 1)$ correlated with $(1-Z^{-1})e[k]$, integrated, multiplied by $\text{Sign}(SEL\_CKFB)$ &rarr; added to the DTC code (corrects VCO duty error).</li>
+<li><b>offset / $V_{ref\_adj}$ branch:</b> a $\Delta\Sigma$-controlled &Delta;V-DAC keeps $e[k]$ zero-mean (cancels comparator + GM offset).</li>
+</ul>
+<p>Final: $\text{DTC code} = \text{quantize}(K_{DTC}\cdot\Phi_e[n] + vco\_dcc + offset)$ and $FCW' = FCW + ckref\_dcc$ into the modified DSM. <b>Sim (p.40):</b> all converge $&lt; 30$ &micro;s and track PVT for both integer and fractional channels, with <b>20 ps VCO duty error, 32 mV comparator offset, 1 ns (57%) CKREF duty error</b> injected <span class="tag t-slide">slide p.40</span>.</p>
+<div class="grid">
+<figure class="slide"><img src="assets/slides/slide_39.png" alt="slide 39"><figcaption>PDF p.39 / slide p.39 — Full proposed sampling analog PLL [Wu ISSCC'21].</figcaption></figure>
+<figure class="slide"><img src="assets/slides/slide_40.png" alt="slide 40"><figcaption>PDF p.40 / slide p.40 — Complete background calibration block diagram.</figcaption></figure>
+</div>
+
+<h3>p.42 / slide 42 — Post-calibration noise budget (the validation target)</h3>
+<p>At <b>LO = 6720 MHz, REF = 104.0 MHz</b>, after suppressing PD / DSM-QN / MMD noise, the integrated PN is dominated by CKREF and VCO. <b>TOTAL = 87.6 fs</b> <span class="tag t-derive">model</span> &asymp; <b>87.5 fs</b> <span class="tag t-slide">slide p42</span> (IPN &minus;51.6 dBc <span class="tag t-derive">model</span> &asymp; &minus;51.7 dBc <span class="tag t-slide">slide p42</span>), broken down as <b>VCO 51%, REF(+DTC thermal &amp; QN) 39%, MMDIV 6%, SPD+GM 4%, $\Sigma\Delta$M QE &asymp; 0%</b>. The PLL bandwidth is chosen to trade off REF vs VCO — common to all PLLs. These numbers anchor the <code>frequency_domain_model.py</code> jitter-contribution table and the time-domain cross-check <span class="tag t-slide">slide p.42</span>.</p>
+<div class="kpi">
+  <div class="box"><div class="v">87.6 fs</div><div class="l">TOTAL RMS jitter (model)</div></div>
+  <div class="box"><div class="v">&minus;51.6 dBc</div><div class="l">IPN (SSB)</div></div>
+  <div class="box"><div class="v">51.8%</div><div class="l">VCO share</div></div>
+  <div class="box"><div class="v">~37.8%</div><div class="l">REF + DTC share</div></div>
+  <div class="box"><div class="v">6.2%</div><div class="l">MMD share</div></div>
+  <div class="box"><div class="v">3.9%</div><div class="l">SPD + GM share</div></div>
+</div>
+<div class="derive">Model reproduces slide 42 within rounding: <b>87.6 fs (model)</b> <span class="tag t-derive">model</span> &asymp; <b>87.5 fs (slide 42)</b> <span class="tag t-slide">slide p42</span>; IPN <b>&minus;51.6 dBc (model)</b> <span class="tag t-derive">model</span> &asymp; <b>&minus;51.7 dBc</b> <span class="tag t-slide">slide p42</span> via $\mathrm{IPN}=10\log_{10}(\tfrac{1}{2}\sigma_\phi^2)$ (the &frac12; one-sideband factor, <code>utils.ipn_dbc</code> ssb=True). The time-domain vs frequency-domain cross-check agrees to <b>88.2 fs vs 87.4 fs (+0.08 dB)</b>, and Parseval's theorem matches <span class="tag t-derive">derived</span>.</div>
+<figure class="slide"><img src="assets/slides/slide_42.png" alt="slide 42"><figcaption>PDF p.42 / slide p.42 — Phase-noise contributors of the low-jitter DTC PLL (validation target).</figcaption></figure>
+<figure><img src="assets/figures/fd_jitter_pie.png" alt="jitter contribution pie"><figcaption>Model jitter-contribution pie reproducing the slide-42 budget — source: <code>models/frequency_domain_model.py</code> / slide p.42.</figcaption></figure>
+
+<h2>Out of scope: slides 43&ndash;57</h2>
+<div class="warn"><b>Not modeled.</b> Slides 43&ndash;57 (the 5G-NR LO chain example, VCO design details, and references) are <b>out of scope</b> by request and are not implemented in the models. Any 5G-NR / VCO-circuit / reference material shown in those pages is outside this study and is intentionally not reproduced here <span class="tag t-slide">slide_inventory.md</span>.</div>
+
+</div>
+<aside class="toc-rail" aria-label="On this page"></aside>
+<div class="btnrow"><div><a href="selftest.html">← Self-Test</a></div><div><a href="architecture.html">Architecture →</a></div></div>
+<div class="footer">
+  Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
+  (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
+  Provenance tags: <span class="tag t-slide">slide pX</span>
+  <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
+  <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
+</div>
+</main>
+</div>
+<button id="toTop" aria-label="Back to top">&#8593;</button>
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/prism/prism-core.min.js"></script>
+<script src="assets/vendor/prism/prism-clike.min.js"></script>
+<script src="assets/vendor/prism/prism-python.min.js"></script>
+
+<script src="assets/app/site.js"></script>
+</body>
+</html>

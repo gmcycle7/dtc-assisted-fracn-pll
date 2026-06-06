@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frequency-Domain · DTC-Assisted Frac-N PLL</title>
+<meta name="description" content="Open/closed-loop transfer functions, noise transfer functions, jitter budget, plus an interactive phase-noise explorer, pole-zero/root-locus, and a bandwidth optimizer.">
+<meta property="og:title" content="Frequency-Domain · DTC-Assisted Fractional-N PLL">
+<meta property="og:description" content="Open/closed-loop transfer functions, noise transfer functions, jitter budget, plus an interactive phase-noise explorer, pole-zero/root-locus, and a bandwidth optimizer.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism-tomorrow.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar"><button class="ham" aria-label="Open menu">&#9776;</button><span class="ttl">Frequency-Domain</span></div>
+<div class="scrim"></div>
+<div class="wrap">
+<nav class="side" aria-label="Site sections">
+<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>
+<div class="sub">Interactive study of slides 1–42</div>
+<a class="" href="index.html"><span class="n">1</span>Home</a>
+<a class="" href="lab.html"><span class="n">2</span>Interactive Lab</a>
+<a class="" href="selftest.html"><span class="n">3</span>Self-Test</a>
+<a class="" href="slides.html"><span class="n">4</span>Slide-by-slide Map</a>
+<a class="" href="architecture.html"><span class="n">5</span>Architecture</a>
+<a class="" href="blocks.html"><span class="n">6</span>Block Models</a>
+<a class="" href="calibrations.html"><span class="n">7</span>Calibrations</a>
+<a class="active" href="frequency.html"><span class="n">8</span>Frequency-Domain</a>
+<a class="" href="loopdyn.html"><span class="n">9</span>Loop Dynamics & Lock</a>
+<a class="" href="timedomain.html"><span class="n">10</span>Time-Domain Noise</a>
+<a class="" href="spurs.html"><span class="n">11</span>Fractional Spurs</a>
+<a class="" href="system.html"><span class="n">12</span>System Impact</a>
+<a class="" href="codewalk.html"><span class="n">13</span>Code Walkthrough</a>
+<a class="" href="examples.html"><span class="n">14</span>Numerical Examples</a>
+<a class="" href="designex.html"><span class="n">15</span>Design Walkthrough</a>
+<a class="" href="problems.html"><span class="n">16</span>Design Problems</a>
+<a class="" href="dtctopologies.html"><span class="n">17</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">18</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">19</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">20</span>References</a>
+</nav>
+<main>
+<div class="article">
+<h1>Frequency-Domain Analysis</h1>
+<p class="lead">A small-signal, s-domain model of the DTC-assisted fractional-N sampling PLL: open-loop gain, closed-loop noise transfer functions, the per-source jitter budget that reproduces slide 42 (87.6 fs rms / -51.6 dBc), and the sanity checks that confirm it all hangs together.</p>
+
+<div class="note">
+This page is the linear/LTI counterpart to the time-domain page. Everything here is computed by
+<code>models/frequency_domain_model.py</code> and exported to
+<code>site/assets/data/freq_domain.json</code>; the numbered slide tags point at the deck
+(W. Wu, Samsung), and the green <span class="tag t-derive">derived</span> tags point at
+<code>docs/derivations.md</code> §1, §2, §8. Read the open-loop section first, then the NTFs,
+then the budget.
+</div>
+
+<h2 id="interactive-explorer">Interactive phase-noise &amp; loop explorer</h2>
+<p>Drag the sliders to see how the loop bandwidth, phase margin and each noise floor reshape the
+output phase-noise budget and the integrated jitter — recomputed live in your browser by
+<code>assets/app/pll.js</code>, a direct port of <code>frequency_domain_model.py</code> that
+reproduces 87.6&nbsp;fs at the defaults <span class="tag t-derive">model</span>. Toggle
+<b>"DTC cancels DSM-QN"</b> off to see why a fractional-N PLL <i>without</i> a DTC is hopeless
+(jitter explodes to ~45&nbsp;ps), and press <b>"Switch to Bode view"</b> for the open-loop gain
+and phase margin.</p>
+<div id="freq-explorer"></div>
+<p class="small">Try this: lower the loop bandwidth and watch the VCO/REF crossover move down —
+less reference multiplication but more VCO noise in band. That REF-vs-VCO trade-off is exactly
+what slide 42 says sets the PLL bandwidth <span class="tag t-slide">slide p42</span>.</p>
+
+<h2>1. Why a frequency-domain model at all?</h2>
+<p>
+A PLL is a feedback loop, and feedback loops are easiest to reason about in the frequency domain.
+The phase-domain block diagram on <span class="tag t-slide">slide p5</span> is the canonical linear
+model <span class="tag t-std">textbook (Razavi/Gardner)</span>: a phase detector, a loop filter, a
+VCO modeled as an integrator <span class="tag t-derive">derived</span>, and a feedback divider
+$1/N$. Two questions follow immediately:
+</p>
+<ul>
+  <li><b>Stability &amp; speed.</b> How fast does the loop respond, and does it ring? &rarr; the
+      <i>open-loop gain</i> $G_\text{ol}(s)$, its crossover $f_c$, and its phase margin (PM).</li>
+  <li><b>Noise.</b> Every block injects noise at a different node. The loop low-passes some sources
+      and high-passes others. &rarr; the <i>closed-loop noise transfer functions</i> (NTFs) and the
+      integrated <i>jitter budget</i>.</li>
+</ul>
+
+<div class="kpi">
+  <div class="box"><div class="v">6.72 GHz</div><div class="l">f_out (LO)</div></div>
+  <div class="box"><div class="v">104 MHz</div><div class="l">f_ref</div></div>
+  <div class="box"><div class="v">64.62</div><div class="l">N = f_out / f_ref</div></div>
+  <div class="box"><div class="v">1.50 MHz</div><div class="l">loop BW f_c</div></div>
+  <div class="box"><div class="v">60&deg;</div><div class="l">phase margin</div></div>
+</div>
+<p style="font-size:0.9em;color:#666">
+Top-level numbers — <span class="tag t-slide">slide p42</span> for f_out, f_ref;
+<span class="tag t-assume">assumption</span> [A1]/[A2] for f_c, PM;
+<span class="tag t-derive">derived</span> $N=6.72\text{ GHz}/104\text{ MHz}=64.615$ (freq_domain.json).
+</p>
+
+<h2>2. Open-loop gain $G_\text{ol}(s)$ — a type-II loop</h2>
+
+<h3>2.1 The model</h3>
+<p>
+The proposed loop has <b>two poles at the origin</b>: one from the VCO (control voltage &rarr;
+<i>phase</i> is an integration, $K_\text{VCO}/s$) and one from the integral path of the loop filter
+(the $V_\text{ctrl,I}$ path on <span class="tag t-slide">slide p39</span>). Two integrators give
+$-180^\circ$ of phase at all frequencies, which would be marginally stable — so a <b>zero</b> (the
+proportional $V_\text{ctrl,P}$ path) is added to pull the phase back up near crossover, and a
+<b>high-frequency pole</b> cleans up ripple. That is a textbook <b>type-II second-order</b> loop
+<span class="tag t-std">textbook (Gardner, "Phaselock Techniques")</span>. The model in code uses the
+compact form <span class="tag t-derive">derived</span>:
+</p>
+$$ G_\text{ol}(s) \;=\; K_\text{loop}\,\frac{1 + s/\omega_z}{s^{2}\,\bigl(1 + s/\omega_p\bigr)} $$
+<p>
+The $s^2$ in the denominator is the two origin poles; $\omega_z$ is the stabilizing zero; $\omega_p$
+is the HF pole. Forward gain is $K_\text{PD}\,H_\text{LF}(s)\,K_\text{VCO}/s$ and the open loop folds in
+the $1/N$ feedback <span class="tag t-derive">derived (derivations §1)</span>:
+$G_\text{ol}(s) = K_\text{PD}\,H_\text{LF}(s)\,(K_\text{VCO}/s)\,(1/N)$.
+</p>
+
+<h3>2.2 The symmetric design recipe (f_c, PM &rarr; zero &amp; pole)</h3>
+<p>
+We do not pick $\omega_z$, $\omega_p$, $K_\text{loop}$ by hand; we <i>solve</i> for them from the two
+design targets. Place the zero and pole <b>symmetrically</b> (in log-frequency) about the crossover
+$\omega_c = 2\pi f_c$. For a symmetric type-II loop the phase margin is $\text{PM} = 2\arctan(k) - 90^\circ$
+<span class="tag t-derive">derived</span>, which inverts to:
+</p>
+$$ k \;=\; \tan\!\Bigl(\tfrac{\text{PM} + 90^\circ}{2}\Bigr),\qquad
+   \omega_z = \frac{\omega_c}{k},\qquad \omega_p = \omega_c\, k . $$
+<p>
+Then the gain constant $K_\text{loop}$ is fixed by forcing $|G_\text{ol}(j\omega_c)| = 1$ (unity gain at
+crossover). With $f_c = 1.5$ MHz and PM $= 60^\circ$ this gives $k = \tan(75^\circ) \approx 3.73$, so
+(from freq_domain.json):
+</p>
+<div class="kpi">
+  <div class="box"><div class="v">402 kHz</div><div class="l">f_z = &omega;_z/2&pi;</div></div>
+  <div class="box"><div class="v">5.60 MHz</div><div class="l">f_p = &omega;_p/2&pi;</div></div>
+  <div class="box"><div class="v">2.38e13</div><div class="l">K_loop</div></div>
+  <div class="box"><div class="v">100 MHz/V</div><div class="l">K_VCO [A4]</div></div>
+</div>
+<p style="font-size:0.9em;color:#666">
+$\omega_z = 2.525\times10^{6}$ rad/s &rarr; 402 kHz; $\omega_p = 3.517\times10^{7}$ rad/s &rarr; 5.60 MHz;
+$K_\text{loop} = 2.38\times10^{13}$ — all <span class="tag t-derive">derived</span> in
+<code>PLLParams._design_type2_loop()</code>. $K_\text{VCO}$ is <span class="tag t-assume">assumption</span> [A4].
+</p>
+
+<div class="derive">
+<b>Why symmetric placement?</b> The phase of $G_\text{ol}$ at $\omega_c$ is maximized when
+$\omega_c = \sqrt{\omega_z\,\omega_p}$ <span class="tag t-std">textbook (Gardner)</span>. Putting the
+zero a factor $k$ below $f_c$ and the pole a factor $k$ above $f_c$ gives exactly that geometric-mean
+crossover, so the chosen PM is the <i>maximum</i> phase margin for that zero/pole spacing — the most
+robust design for a given bandwidth. Check: $\sqrt{402\text{ kHz}\cdot 5.60\text{ MHz}} \approx 1.50$ MHz $= f_c$. ✓
+</div>
+
+<div class="derive">
+<b>Worked example — designing the loop from two targets.</b> The §2.2 recipe is just two formulas; here is every digit.
+<p><b>GIVEN.</b> $f_c = 1.5$ MHz <span class="tag t-assume">assumption [A1]</span>, $\text{PM}=60^\circ$ <span class="tag t-assume">assumption [A2]</span>. So $\omega_c = 2\pi f_c = 9.4248\times10^{6}$ rad/s.</p>
+<p><b>STEP 1 — spacing factor.</b> Invert $\text{PM}=2\arctan(k)-90^\circ$:</p>
+$$ k=\tan\!\Bigl(\tfrac{\text{PM}+90^\circ}{2}\Bigr)=\tan\!\Bigl(\tfrac{60^\circ+90^\circ}{2}\Bigr)=\tan(75^\circ)=3.7321. $$
+<p><b>STEP 2 — zero and pole, symmetric about $f_c$.</b></p>
+$$ f_z=\frac{f_c}{k}=\frac{1.5\text{ MHz}}{3.7321}=401.9\text{ kHz},\qquad
+   f_p=f_c\,k=1.5\text{ MHz}\times3.7321=5.598\text{ MHz}. $$
+<p style="font-size:0.9em;color:#666">(i.e. $\omega_z=2.5254\times10^{6}$, $\omega_p=3.5174\times10^{7}$ rad/s.)</p>
+<p><b>STEP 3 — gain constant from unity-gain-at-crossover.</b> Demand $|G_\text{ol}(j\omega_c)|=1$. The pure shape factor evaluated at $j\omega_c$ is</p>
+$$ \Bigl|\tfrac{1+j\omega_c/\omega_z}{(j\omega_c)^2\,(1+j\omega_c/\omega_p)}\Bigr| = 4.2015\times10^{-14},\qquad
+   K_\text{loop}=\frac{1}{4.2015\times10^{-14}}=2.380\times10^{13}. $$
+<p><b>SANITY CHECK.</b> Geometric-mean crossover $\sqrt{f_z f_p}=\sqrt{401.9\text{ kHz}\times5.598\text{ MHz}}=1.500$ MHz $=f_c$ ✓, and plugging back gives $|G_\text{ol}(j\omega_c)|=1.000$ with $\angle G_\text{ol}=-120^\circ$, so $\text{PM}=180^\circ-120^\circ=60^\circ$ ✓ — matching the numerically-extracted $f_c=1.501$ MHz / PM $=59.99^\circ$ in §6 <span class="tag t-derive">model</span>.</p>
+</div>
+
+<figure>
+  <img src="assets/figures/fd_bode.png" alt="Bode plot of the open-loop gain: magnitude crossing 0 dB at 1.5 MHz and phase showing 60 degrees of margin">
+  <figcaption>
+    Open-loop gain $G_\text{ol}(j2\pi f)$. Top: magnitude crosses 0 dB at the measured
+    $f_c = 1.501$ MHz (red line). Below the zero the slope is $-40$ dB/dec (two integrators); the
+    zero flattens it toward $-20$ dB/dec through crossover; the HF pole returns it to $-40$ dB/dec.
+    Bottom: phase dips toward $-180^\circ$, lifted by the zero so that at crossover the margin is
+    $59.99^\circ$. Model: <code>frequency_domain_model.py::open_loop</code>; design per
+    <span class="tag t-slide">slide p5/p39</span> + derivations §1.
+  </figcaption>
+</figure>
+
+<h3 id="type-compare-interactive">Interactive: type-I vs type-II — why two integrators (and a zero)</h3>
+<p>Overlay the closed-loop reference transfer \(|H_{\rm ref}/N|\) for the proposed <b>type-II</b> loop (two integrators + a stabilizing zero) against a <b>type-I</b> loop (single VCO integrator) at the same crossover. Type-II tracks a frequency ramp with zero steady-state error, but its zero makes it <b>peak</b> (~1.70 dB); type-I never peaks but cannot null a frequency error and has a much higher PM (no zero needed). Drag \(f_c\) and the type-II phase margin and watch the peak move. <span class="tag t-derive">model</span> <span class="tag t-std">textbook</span></p>
+<div id="type-compare"></div>
+
+<h2>3. Closed-loop noise transfer functions (NTFs)</h2>
+<p>
+Close the loop and two master transfer functions appear. With $G \equiv G_\text{ol}(s)$
+<span class="tag t-derive">derived (derivations §1)</span> <span class="tag t-std">textbook</span>:
+</p>
+<div class="grid">
+  <div class="card">
+    <h4>Reference &rarr; output (low-pass)</h4>
+    $$ H_\text{ref}(s) = \frac{\Phi_\text{out}}{\Phi_\text{ref}} = \frac{N\,G}{1+G} $$
+    <ul>
+      <li><b>LF</b> ($f\!\to\!0$, $G\!\to\!\infty$): $H_\text{ref}\to N$. The output phase tracks the
+          reference, scaled by the divide ratio. DC gain = $N = 64.62$.</li>
+      <li><b>HF</b> ($f\!\gg\!f_c$, $G\!\to\!0$): $H_\text{ref}\to 0$. The loop cannot follow fast
+          reference jitter — it is low-passed at $f_c$.</li>
+    </ul>
+    <p style="font-size:0.9em;color:#666">Anything that enters with the reference (CKREF noise, DTC
+    QN/thermal, calibration residual) shares this LP shape.</p>
+
+<div class="derive">
+<b>Worked example — why $H_\text{ref}(0)=N$ (a one-line limit, with the number).</b>
+<p><b>GIVEN.</b> $H_\text{ref}(s)=N\,G/(1+G)$ with $N=f_\text{out}/f_\text{ref}=6.72\text{ GHz}/104\text{ MHz}=64.615$ <span class="tag t-derive">derived</span>, and $G\equiv G_\text{ol}(s)$ the type-II open loop (two poles at the origin).</p>
+<p><b>STEP 1 — how big is $G$ at low offset?</b> The $s^{-2}$ from the two integrators makes $G$ huge in band. Evaluating the model:</p>
+$$ |G_\text{ol}(j2\pi\cdot100\text{ Hz})|=6.03\times10^{7},\qquad
+   |G_\text{ol}(j2\pi\cdot1\text{ kHz})|=6.03\times10^{5}. $$
+<p><b>STEP 2 — take the limit.</b> With $G\gg1$, $\dfrac{G}{1+G}\to1$, so</p>
+$$ H_\text{ref}(0)=N\cdot\lim_{G\to\infty}\frac{G}{1+G}=N\cdot1=64.615. $$
+<p><b>SANITY CHECK.</b> The model returns $|H_\text{ref}|=64.6154$ at 1, 10, 100, and 1000 Hz — flat to 5 digits and equal to $N$ <span class="tag t-derive">model</span>, exactly the §6 check “$H_\text{ref}(0)\to64.62$, pass.” Physically: in band the loop forces the output phase to track the reference, multiplied up by the divide ratio. By the same algebra $H_\text{vco}=1/(1+G)\to1/(6\times10^{7})\approx0$ at DC — the loop scrubs VCO noise inside $f_c$.</p>
+</div>
+
+  </div>
+  <div class="card">
+    <h4>VCO &rarr; output (high-pass)</h4>
+    $$ H_\text{vco}(s) = \frac{\Phi_\text{out}}{\Phi_\text{vco}} = \frac{1}{1+G} $$
+    <ul>
+      <li><b>LF</b> ($G\!\to\!\infty$): $H_\text{vco}\to 0$. Inside the loop bandwidth the feedback
+          <i>suppresses</i> VCO noise — the loop "cleans up" the oscillator.</li>
+      <li><b>HF</b> ($G\!\to\!0$): $H_\text{vco}\to 1$. Outside the bandwidth the VCO runs free; its
+          own phase noise passes straight to the output unattenuated.</li>
+    </ul>
+    <p style="font-size:0.9em;color:#666">This is the classic trade: widen $f_c$ to suppress more VCO
+    noise, but then more reference/DTC noise leaks in. The 1.5 MHz BW is the chosen compromise.</p>
+  </div>
+</div>
+
+<figure>
+  <img src="assets/figures/fd_ntf.png" alt="Closed-loop noise transfer functions: Href/N is low-pass, Hvco is high-pass, crossing near 1.5 MHz">
+  <figcaption>
+    The two NTFs, plotted as $|H_\text{ref}/N|$ (normalized so DC = 0 dB) and $|H_\text{vco}|$.
+    $H_\text{ref}/N$ is flat at 0 dB (i.e. $H_\text{ref}=N$) below $f_c$ then rolls off; $H_\text{vco}$
+    is $\approx -40$ dB/dec rising and reaches 0 dB above $f_c$. They cross near the loop bandwidth
+    (gray line, $f_c=1.5$ MHz) — exactly where reference suppression and VCO suppression hand off.
+    Model: <code>H_ref</code>, <code>H_vco</code>; derivations §1-§2.
+  </figcaption>
+</figure>
+
+<h2>4. Per-source noise transfer functions to output phase</h2>
+<p>
+Each noise source enters the loop at a different node, so each has its own NTF. The table below is
+the one in <code>docs/derivations.md</code> §2 <span class="tag t-derive">derived</span>
+<span class="tag t-std">textbook</span>, written in terms of $G \equiv G_\text{ol}(s)$.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Source</th><th>Enters at</th><th>NTF to &Phi;<sub>out</sub></th>
+      <th>LF (f&rarr;0)</th><th>HF (f&rarr;&infin;)</th><th>Character</th><th>Source</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Reference phase $\Phi_\text{ref}$</td><td>input</td>
+      <td>$N\,G/(1+G)$</td><td class="num">$\to N$</td><td class="num">$\to 0$</td>
+      <td>low-pass, &times;N</td><td><span class="tag t-std">std</span></td>
+    </tr>
+    <tr>
+      <td>PD / SPD input-referred</td><td>input (after &divide;N)</td>
+      <td>$N\,G/(1+G)$</td><td class="num">$\to N$</td><td class="num">$\to 0$</td>
+      <td>low-pass</td><td><span class="tag t-std">std</span></td>
+    </tr>
+    <tr>
+      <td>Divider phase $\Phi_\text{div}$</td><td>feedback</td>
+      <td>$-N\,G/(1+G)$</td><td class="num">$\to -N$</td><td class="num">$\to 0$</td>
+      <td>low-pass</td><td><span class="tag t-std">std</span></td>
+    </tr>
+    <tr>
+      <td>DSM quant. $Q_\text{DSM}$</td><td>feedback (&times;2&pi;)</td>
+      <td>$N\,G/(1+G)\cdot(1-z^{-1})^{m}$</td><td class="num">LP &times; HPF</td><td class="num">rolls off</td>
+      <td>band-pass-ish, <b>cancelled by DTC</b></td><td><span class="tag t-slide">p9</span> <span class="tag t-std">Riley'93</span></td>
+    </tr>
+    <tr>
+      <td><b>DTC QN / thermal</b></td><td>reference path</td>
+      <td>$N\,G/(1+G)$</td><td class="num">$\to N$</td><td class="num">$\to 0$</td>
+      <td>low-pass (inband)</td><td><span class="tag t-slide">p15/16</span></td>
+    </tr>
+    <tr>
+      <td>Loop-filter noise $V_\text{lf}$</td><td>after PD</td>
+      <td>$(K_\text{VCO}/s)/(1+G)$</td><td class="num">band-pass</td><td class="num">$\to 0$ fast</td>
+      <td>band-pass</td><td><span class="tag t-derive">derived</span></td>
+    </tr>
+    <tr>
+      <td>VCO phase $\Phi_\text{vco}$</td><td>output</td>
+      <td>$1/(1+G)$</td><td class="num">$\to 0$</td><td class="num">$\to 1$</td>
+      <td>high-pass</td><td><span class="tag t-std">std</span></td>
+    </tr>
+    <tr>
+      <td>Calibration residual $\Phi_\text{cal}$</td><td>reference path (DTC code)</td>
+      <td>$N\,G/(1+G)$</td><td class="num">$\to N$</td><td class="num">$\to 0$</td>
+      <td>low-pass</td><td><span class="tag t-derive">derived</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note">
+<b>Reading the table.</b> There are really only three shapes. Everything injected with the reference
+or at the PD/divider input shares the <b>low-pass</b> $N\,G/(1+G)$ shape (it competes with the
+reference and is tracked inside $f_c$). The VCO is the lone <b>high-pass</b> $1/(1+G)$ source. The
+loop-filter / post-PD noise is <b>band-pass</b> — high-passed by the integrator it has to drive,
+low-passed by the loop. Knowing the shape tells you where each source matters before you compute a
+single number.
+</div>
+
+<div class="derive">
+<b>The DSM quantization noise and its cancellation.</b> A MASH-$m$ modulator produces white
+quantization noise at the divider input shaped by $(1-z^{-1})^m$, with PSD (single-sided, cycles²/Hz)
+<span class="tag t-std">textbook (Riley, JSSC'93)</span>:
+$$ S_{Q_\text{DSM}}(f) = \frac{1}{12}\,\frac{1}{f_\text{ref}}\,\bigl[2\sin(\pi f/f_\text{ref})\bigr]^{2m}. $$
+Referred to output phase it is multiplied by $(2\pi)^2$ (cycles &rarr; rad) and passes through the
+loop's low-pass — giving the classic noise "hump" near $f_c$. The whole point of the DTC is to
+<b>cancel the in-band accumulated quantization error</b> <span class="tag t-slide">slide p9</span>:
+the DTC pre-distorts the reference edge by the DSM's known accumulated phase, so the residual is
+pushed to $\approx 0$ (slide 42 lists $\Sigma\Delta$M QE $\approx 0\%$). In the model this is an
+$\times 10^{-8}$ ($-80$ dB) residual, leaving only $0.3\%$ of the variance.
+</div>
+
+<h2>5. Jitter budget — reproducing slide 42</h2>
+<p>
+To get a single number we (a) multiply each source's input PSD by $|{\rm NTF}|^2$ to refer it to the
+output, (b) integrate over the band $1$ kHz &ndash; $100$ MHz to get a variance $\sigma_\phi^2$, and
+(c) convert to RMS jitter $\sigma_t = \sigma_\phi/(2\pi f_\text{out})$
+<span class="tag t-std">textbook (derivations §8)</span>. The input noise levels are
+<span class="tag t-assume">assumption</span> [A12]&ndash;[A15], deliberately back-solved to reproduce
+the slide-42 split. The result (from <code>freq_domain.json</code>):
+</p>
+
+<table>
+  <thead>
+    <tr><th>Source</th><th class="num">&sigma;<sub>&phi;</sub> [rad]</th><th class="num">Jitter [fs]</th><th class="num">% of variance</th><th>NTF shape</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>VCO</td><td class="num">2.662e-3</td><td class="num">63.06</td><td class="num">51.82%</td><td>high-pass</td></tr>
+    <tr><td>REF (CKREF)</td><td class="num">1.900e-3</td><td class="num">44.99</td><td class="num">26.38%</td><td>low-pass</td></tr>
+    <tr><td>DTC (QN+thermal)</td><td class="num">1.249e-3</td><td class="num">29.58</td><td class="num">11.40%</td><td>low-pass</td></tr>
+    <tr><td>MMD (divider)</td><td class="num">0.922e-3</td><td class="num">21.83</td><td class="num">6.21%</td><td>low-pass</td></tr>
+    <tr><td>SPD + GM</td><td class="num">0.732e-3</td><td class="num">17.34</td><td class="num">3.92%</td><td>low-pass</td></tr>
+    <tr><td>DSM-QN (cancelled)</td><td class="num">0.190e-3</td><td class="num">4.49</td><td class="num">0.26%</td><td>cancelled</td></tr>
+    <tr><td><b>TOTAL</b></td><td class="num"><b>3.699e-3</b></td><td class="num"><b>87.60</b></td><td class="num"><b>100%</b></td><td><b>IPN = &minus;51.6 dBc (SSB)</b></td></tr>
+  </tbody>
+</table>
+
+<div class="kpi">
+  <div class="box"><div class="v">87.6 fs</div><div class="l">TOTAL rms jitter</div></div>
+  <div class="box"><div class="v">&minus;51.6 dBc</div><div class="l">integrated PN (SSB)</div></div>
+  <div class="box"><div class="v">51.8%</div><div class="l">VCO share</div></div>
+  <div class="box"><div class="v">~37.8%</div><div class="l">REF + DTC share</div></div>
+  <div class="box"><div class="v">~0%</div><div class="l">DSM-QN (cancelled)</div></div>
+</div>
+
+<div class="note">
+<b>This reproduces <span class="tag t-slide">slide p42</span>.</b> The deck quotes TOTAL
+87.5 fs <span class="tag t-slide">slide p42</span> and a budget of roughly VCO 51% / REF+DTC ~39% /
+MMD 6% / SPD+GM 4% / $\Sigma\Delta$M QE ~0%. Our model gives 87.6 fs
+<span class="tag t-derive">model</span> &approx; 87.5 fs <span class="tag t-slide">slide p42</span>
+and 51.8% / (26.4+11.4 = 37.8)% / 6.2% / 3.9% / 0.3% — within rounding.
+The percentages are of <i>variance</i> (power), so they add to 100%; the fs numbers add in
+quadrature, not linearly (e.g. $\sqrt{63.06^2+44.99^2+\dots} = 87.6$ fs). The IPN is computed as
+$\mathrm{IPN}=10\log_{10}(\tfrac{1}{2}\sigma_\phi^2)$ (the ½ one-sideband factor; matches
+<code>utils.ipn_dbc</code> ssb=True) <span class="tag t-std">textbook (derivations §8)</span>, giving
+&minus;51.6 dBc <span class="tag t-derive">model</span> &asymp; &minus;51.7 dBc
+<span class="tag t-slide">slide p42</span>; note the $\pm 3$ dB SSB&harr;DSB ambiguity flagged below.
+</div>
+
+<div class="grid">
+  <div class="card">
+    <figure>
+      <img src="assets/figures/fd_phase_noise_budget.png" alt="Output phase-noise budget: stacked L(f) curves for VCO, REF, DTC, MMD, SPD+GM and the black total">
+      <figcaption>
+        Output $\mathcal{L}(f)$ at 6.72 GHz. The VCO (red) high-pass dominates the far-out region;
+        REF/DTC/MMD/SPD (low-pass) dominate inside $f_c$; black is the total. The shape that the
+        integral of these curves produces is the 87.6 fs <span class="tag t-derive">model</span> budget, reproducing slide 42&rsquo;s 87.5 fs <span class="tag t-slide">slide p42</span>.
+        Model: <code>output_contributions</code>.
+      </figcaption>
+    </figure>
+  </div>
+  <div class="card">
+    <figure>
+      <img src="assets/figures/fd_jitter_pie.png" alt="Pie chart of the jitter budget with VCO at about half and REF the next largest">
+      <figcaption>
+        The same budget as a pie of variance shares — the at-a-glance version of slide 42. VCO is
+        about half; REF the next largest; DSM-QN is a sliver because the DTC cancels it. Model:
+        <code>jitter_budget</code>.
+      </figcaption>
+    </figure>
+  </div>
+</div>
+
+<h3>5.1 Where the DTC numbers come from</h3>
+<p>
+The DTC contributes via two white floors injected on the reference path
+<span class="tag t-slide">slides p15, p16</span>:
+</p>
+<ul>
+  <li><b>Quantization noise.</b> $\mathcal{L}_\text{DTC,QN} = \dfrac{(2\pi\,T_\text{res})^2}{12}\,f_\text{ref}$
+      with $T_\text{res} = 400$ fs and $f_\text{ref} = 104$ MHz gives $-162.6$ dBc/Hz
+      <span class="tag t-derive">derived (derivations §3)</span>; the slide rounds to $-163$ dBc/Hz.</li>
+  <li><b>Thermal floor.</b> $-171$ dBc/Hz <span class="tag t-slide">slide p16</span>, set by the
+      sampled $kT/C$ converted to timing through the slew rate.</li>
+</ul>
+<p>
+Both are low-passed by $H_\text{ref}$, so they only matter inside $f_c$.
+
+<div class="derive">
+<b>Worked example — building the DTC row of the budget number-by-number.</b>
+<p><b>GIVEN.</b> Two flat floors injected on the reference path: DTC QN $=-163$ dBc/Hz <span class="tag t-slide">slide p15</span> and DTC thermal $=-171$ dBc/Hz <span class="tag t-slide">slide p16</span>. Band $1\text{ kHz}\!-\!100\text{ MHz}$ <span class="tag t-assume">assumption [A16]</span>. $f_\text{out}=6.72$ GHz, $N=64.615$.</p>
+<p><b>STEP 1 — dBc/Hz → phase PSD</b> (with $\mathcal{L}=10\log_{10}(\tfrac12 S_\phi)$, so $S_\phi=2\cdot10^{\mathcal{L}/10}$) <span class="tag t-std">textbook (IEEE-1139)</span>:</p>
+$$ S_{\phi,\text{QN}}=2\cdot10^{-16.3}=1.002\times10^{-16},\quad S_{\phi,\text{th}}=2\cdot10^{-17.1}=1.589\times10^{-17}, $$
+$$ S_{\phi,\text{DTC}}=1.161\times10^{-16}\ \text{rad}^2/\text{Hz (flat)}. $$
+<p><b>STEP 2 — refer to output and integrate.</b> The DTC sees the low-pass $H_\text{ref}$, so $\sigma_\phi^2=\int S_{\phi,\text{DTC}}\,|H_\text{ref}|^2\,df = S_{\phi,\text{DTC}}\,N^2\!\int|H_\text{ref}/N|^2\,df$. The shape integral is an effective noise bandwidth $\text{ENBW}=3.218$ MHz $(\approx2.14\,f_c)$ <span class="tag t-derive">model</span>:</p>
+$$ \sigma_\phi^2 = (1.161\times10^{-16})\,(64.615^2)\,(3.218\times10^{6})=1.560\times10^{-6}\ \text{rad}^2, $$
+$$ \sigma_\phi=1.249\times10^{-3}\ \text{rad}. $$
+<p><b>STEP 3 — convert to jitter and to dBc:</b></p>
+$$ \sigma_t=\frac{\sigma_\phi}{2\pi f_\text{out}}=\frac{1.249\times10^{-3}}{2\pi\cdot6.72\times10^{9}}=29.6\ \text{fs},\qquad
+   \text{IPN}=10\log_{10}\!\bigl(\tfrac12\sigma_\phi^2\bigr)=-61.1\ \text{dBc}. $$
+<div class="kpi">
+  <div class="box"><div class="v">1.249e−3</div><div class="l">&sigma;_&phi; [rad]</div></div>
+  <div class="box"><div class="v">29.6 fs</div><div class="l">DTC jitter</div></div>
+  <div class="box"><div class="v">&minus;61.1 dBc</div><div class="l">DTC IPN (SSB)</div></div>
+</div>
+<p><b>SANITY CHECK.</b> This is exactly the DTC row of the §5 table (29.58 fs, 11.4% of variance) <span class="tag t-derive">model</span>. Round-trip: $2\pi f_\text{out}\sigma_t=2\pi\cdot6.72\text{ GHz}\cdot29.58\text{ fs}=1.249\times10^{-3}$ rad recovers $\sigma_\phi$ ✓. Every other low-pass row (REF, MMD, SPD+GM) is the same three steps with its own flat floor; the VCO row uses $|H_\text{vco}|^2$ on a sloped PSD instead.</p>
+</div>
+ This is why DR (dynamic range)
+reduction matters: $\text{DTC QN}\propto T_\text{res}^2$ and $T_\text{res}\propto \text{DR}$, so the ½- and
+1/8-range techniques (slides 34, 38) cut this contribution directly
+<span class="tag t-slide">slide p33</span> <span class="tag t-derive">derived (derivations §5)</span>.
+</p>
+
+<div class="warn">
+<b>Open ambiguity (carried from derivations §3, §8): the SSB / DSB factor of 2.</b> Whether a flat
+quantization PSD is spread over $f_\text{ref}$ (double-sided) or $f_\text{ref}/2$ (single-sided), and
+whether IPN is quoted SSB or DSB, is a 3 dB choice. We adopt the slide's convention
+($(2\pi T_\text{res})^2/12\cdot f_\text{ref}$, which reproduces $-163$ dBc/Hz) and report IPN as SSB.
+Slide 42's "$\approx$87.5 fs / $-51.7$ dBc" is consistent with our 87.6 fs / $-51.6$ dBc within exactly
+this 3 dB ambiguity. <span class="tag t-need">needs citation</span> for the exact convention.
+</div>
+
+<h2>6. Sanity checks (derivations §H) — all pass</h2>
+<p>
+The model is only trustworthy if it satisfies the structural checks that any correct PLL model must.
+These are verified in <code>tests/test_frequency_domain.py</code>
+<span class="tag t-derive">derived (derivations §1, §H)</span>:
+</p>
+<table>
+  <thead><tr><th>Check</th><th>Expectation</th><th>Result</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>DC gain of $H_\text{ref}$</td><td>$H_\text{ref}(0)\to N$</td><td class="num">$\to 64.62$</td><td>pass</td></tr>
+    <tr><td>VCO HP suppression</td><td>$H_\text{vco}\to 0$ at LF, $\to 1$ at HF</td><td class="num">monotone, &rarr;1</td><td>pass</td></tr>
+    <tr><td>Crossover $f_c$ extracted</td><td>target 1.5 MHz</td><td class="num">1.501 MHz</td><td>pass</td></tr>
+    <tr><td>Phase margin extracted</td><td>target 60&deg;</td><td class="num">59.99&deg;</td><td>pass</td></tr>
+    <tr><td>Monotonic intuition</td><td>$|G_\text{ol}|$ falls through crossover; LP/HP cross at $f_c$</td><td class="num">confirmed</td><td>pass</td></tr>
+    <tr><td>Time&harr;freq cross-check</td><td>same $\sigma_t$ both ways</td><td class="num">88.2 vs 87.4 fs (+0.08 dB)</td><td>pass</td></tr>
+  </tbody>
+</table>
+<p>
+The crossover and PM are extracted <i>numerically</i> from the computed $G_\text{ol}$ (not from the
+design formulas), so getting 1.501 MHz / 59.99&deg; back is an independent confirmation that the
+symmetric-design recipe in §2.2 was implemented correctly. The time&harr;frequency cross-check
+(88.2 fs from the time-domain std vs 87.4 fs from integrating the PSD, agreeing to +0.08 dB, with
+Parseval matching) ties this page to the time-domain page <span class="tag t-derive">derived (derivations §9)</span>.
+</p>
+
+<div class="cite">
+<b>Provenance recap.</b> Topology and budget: deck slides 5, 9, 15, 16, 20, 39, 42 (W. Wu, Samsung).
+Transfer-function derivations and the symmetric type-II recipe: <code>docs/derivations.md</code> §1&ndash;§3, §5, §8&ndash;§9.
+Noise levels: <code>docs/assumptions.md</code> [A1]&ndash;[A15], back-solved to the slide-42 split.
+All numbers above are emitted by <code>models/frequency_domain_model.py</code> into
+<code>site/assets/data/freq_domain.json</code> and checked by <code>tests/test_frequency_domain.py</code>.
+</div>
+
+<h2 id="self-check">Self-check</h2>
+<div class="quiz"><div class="q">Q1. The open-loop gain is written $G_\text{ol}(s) = K_\text{loop}\,(1+s/\omega_z)/[s^2(1+s/\omega_p)]$. What makes this a <i>type-II</i> loop, and where do the two integrations physically come from?</div><details><summary>Show answer</summary><div class="ans">Type-II means there are <b>two poles at the origin</b> — the $s^2$ in the denominator. One integration comes from the VCO (control voltage &rarr; phase is $K_\text{VCO}/s$) and the other from the integral path of the loop filter (the $V_\text{ctrl,I}$ path). Two integrators give $-180^\circ$ of phase, so a stabilizing zero $\omega_z$ (the proportional $V_\text{ctrl,P}$ path) is added to recover phase margin. <span class="tag t-slide">slide p39</span> <span class="tag t-derive">derived</span></div></details></div>
+
+<div class="quiz"><div class="q">Q2. As $f\!\to\!0$, what does $H_\text{ref}(s)=NG/(1+G)$ approach, and what does $H_\text{vco}(s)=1/(1+G)$ approach? Give the actual DC value of $H_\text{ref}$.</div><details><summary>Show answer</summary><div class="ans">At DC, $G\!\to\!\infty$, so $H_\text{ref}\to N = 64.62$ — the output phase tracks the reference scaled by the divide ratio (low-pass, $\times N$). Meanwhile $H_\text{vco}\to 0$: inside the loop bandwidth the feedback <b>suppresses</b> VCO noise. At high frequency the roles flip ($H_\text{ref}\to 0$ low-pass, $H_\text{vco}\to 1$ high-pass). DC gain $N=64.62$ is confirmed by the sanity check $H_\text{ref}(0)\to 64.62$. <span class="tag t-derive">derived (derivations §1)</span> <span class="tag t-slide">slide p5</span></div></details></div>
+
+<div class="quiz"><div class="q">Q3. In the 87.6 fs budget, which source dominates and why does the loop bandwidth $f_c$ set up a REF-vs-VCO trade-off?</div><details><summary>Show answer</summary><div class="ans">The <b>VCO dominates at 51.8%</b> of the variance (63.06 fs of the 87.60 fs total), because it is the lone high-pass source ($H_\text{vco}=1/(1+G)\to 1$ above $f_c$) and runs free outside the loop bandwidth. Widening $f_c$ suppresses more VCO noise (lowers the 51.8% share), but the low-pass REF+DTC sources (37.8%) then leak in more — so $f_c = 1.5$ MHz is the chosen compromise. The fs numbers add in quadrature: $\sqrt{63.06^2+44.99^2+\dots}=87.6$ fs. <span class="tag t-slide">slide p42</span> <span class="tag t-derive">model</span></div></details></div>
+
+</div>
+<aside class="toc-rail" aria-label="On this page"></aside>
+<div class="btnrow"><div><a href="calibrations.html">← Calibrations</a></div><div><a href="loopdyn.html">Loop Dynamics & Lock →</a></div></div>
+<div class="footer">
+  Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
+  (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
+  Provenance tags: <span class="tag t-slide">slide pX</span>
+  <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
+  <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
+</div>
+</main>
+</div>
+<button id="toTop" aria-label="Back to top">&#8593;</button>
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/prism/prism-core.min.js"></script>
+<script src="assets/vendor/prism/prism-clike.min.js"></script>
+<script src="assets/vendor/prism/prism-python.min.js"></script>
+<script src="assets/vendor/plotly/plotly.min.js"></script>
+<script src="assets/app/pll.js"></script>
+<script src="assets/app/pll_ext.js"></script>
+<script src="assets/app/widgets.js"></script>
+<script src="assets/app/widgets_ext.js"></script>
+<script src="assets/app/site.js"></script>
+</body>
+</html>

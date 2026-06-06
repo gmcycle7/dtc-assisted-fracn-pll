@@ -1,0 +1,231 @@
+/* ============================================================
+   DTC-Assisted Fractional-N PLL — teaching site stylesheet
+   Engineer-friendly light theme, sidebar nav, KaTeX + Prism.
+   ============================================================ */
+:root{
+  --bg:#f7f8fa; --panel:#ffffff; --ink:#1f2733; --muted:#5b6776;
+  --line:#e3e7ee; --accent:#c8442b; --accent2:#1f6feb; --accent3:#0a8f5b;
+  --code-bg:#1e2430; --warn:#b26a00; --warn-bg:#fff6e6; --ok:#0a8f5b;
+  --sidebar:280px; --maxw:980px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang TC","Microsoft JhengHei",sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.62;font-size:16px}
+
+/* layout */
+.wrap{display:flex;min-height:100vh}
+nav.side{width:var(--sidebar);background:var(--panel);border-right:1px solid var(--line);
+  padding:18px 16px;position:fixed;top:0;bottom:0;overflow-y:auto}
+nav.side .brand{font-weight:700;font-size:15px;color:var(--accent);line-height:1.3;margin-bottom:4px}
+nav.side .sub{font-size:12px;color:var(--muted);margin-bottom:16px}
+nav.side a{display:block;color:var(--ink);text-decoration:none;padding:7px 10px;border-radius:7px;
+  font-size:14px;margin:2px 0}
+nav.side a .n{color:var(--muted);font-variant-numeric:tabular-nums;margin-right:8px;font-size:12px}
+nav.side a:hover{background:#eef1f6}
+nav.side a.active{background:var(--accent);color:#fff}
+nav.side a.active .n{color:#ffd9cf}
+main{margin-left:var(--sidebar);flex:1;padding:34px 40px 90px;max-width:calc(var(--maxw) + 80px)}
+@media (max-width:900px){nav.side{position:static;width:100%;height:auto;border-right:none;border-bottom:1px solid var(--line)}
+  .wrap{flex-direction:column}main{margin-left:0;padding:20px}}
+
+/* typography */
+h1{font-size:30px;line-height:1.2;margin:0 0 6px;border-bottom:3px solid var(--accent);padding-bottom:10px}
+h2{font-size:23px;margin:38px 0 12px;color:#16202c;border-left:4px solid var(--accent2);padding-left:10px}
+h3{font-size:18px;margin:26px 0 8px;color:#23303d}
+h4{font-size:15px;margin:18px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+p{margin:10px 0}
+a{color:var(--accent2)}
+.lead{font-size:18px;color:var(--muted);margin:6px 0 18px}
+ul,ol{margin:10px 0 10px 4px;padding-left:22px}
+li{margin:5px 0}
+hr{border:none;border-top:1px solid var(--line);margin:30px 0}
+small,.small{font-size:13px;color:var(--muted)}
+
+/* panels / callouts */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:16px 0;
+  box-shadow:0 1px 2px rgba(20,30,50,.04)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.note,.assume,.derive,.cite,.warn{border-radius:10px;padding:12px 15px;margin:14px 0;font-size:14.5px}
+.note{background:#eef4ff;border:1px solid #cdddff}
+.assume{background:var(--warn-bg);border:1px solid #ffe1ad}
+.assume::before{content:"⚙ ASSUMPTION ";font-weight:700;color:var(--warn);font-size:12px;letter-spacing:.05em}
+.derive{background:#eafaf1;border:1px solid #b9ecd0}
+.derive::before{content:"∑ DERIVED ";font-weight:700;color:var(--ok);font-size:12px;letter-spacing:.05em}
+.cite{background:#f3f0fb;border:1px solid #ddd2f3}
+.cite::before{content:"📖 SOURCE ";font-weight:700;color:#6b46c1;font-size:12px;letter-spacing:.05em}
+.warn{background:#fff0ef;border:1px solid #ffc9c2}
+.warn::before{content:"⚠ OPEN QUESTION ";font-weight:700;color:var(--accent);font-size:12px;letter-spacing:.05em}
+
+/* tags */
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;
+  vertical-align:middle;margin:0 3px;letter-spacing:.03em}
+.t-slide{background:#fde7e1;color:#a8341d}.t-derive{background:#d8f5e6;color:#0a7a4c}
+.t-std{background:#e3edff;color:#1857c4}.t-assume{background:#ffeccc;color:#9a5b00}
+.t-need{background:#eee;color:#555}
+
+/* tables */
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.8px;background:var(--panel);
+  display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:#f0f3f8;font-weight:600;position:sticky;top:0}
+tr:nth-child(even) td{background:#fafbfd}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* figures */
+figure{margin:18px 0;text-align:center}
+figure img{max-width:100%;border:1px solid var(--line);border-radius:10px;background:#fff}
+figure.slide img{max-width:560px}
+figcaption{font-size:13px;color:var(--muted);margin-top:7px}
+.figrow{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:760px){.figrow{grid-template-columns:1fr}}
+
+/* code */
+pre[class*="language-"]{border-radius:10px;font-size:13px;margin:14px 0;border:1px solid #2b3342}
+:not(pre)>code{background:#eef1f6;color:#b3361f;padding:1.5px 5px;border-radius:5px;font-size:13.5px}
+.walk{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:0;border:1px solid var(--line);
+  border-radius:10px;overflow:hidden;margin:16px 0}
+.walk .ln{background:var(--code-bg);color:#e6edf3;padding:10px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:12.5px;white-space:pre-wrap;border-bottom:1px solid #2b3342}
+.walk .ex{padding:10px 14px;font-size:13.5px;border-bottom:1px solid var(--line);background:#fff}
+.walk .ex b{color:var(--accent2)}
+@media (max-width:760px){.walk{grid-template-columns:1fr}}
+
+/* misc */
+.kpi{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0}
+.kpi .box{flex:1;min-width:130px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;text-align:center}
+.kpi .box .v{font-size:24px;font-weight:700;color:var(--accent2)}
+.kpi .box .l{font-size:12px;color:var(--muted)}
+.pill{display:inline-block;background:#eef1f6;border-radius:6px;padding:1px 7px;font-size:12px;color:var(--muted);font-family:ui-monospace,monospace}
+.toc{columns:2;font-size:14px}
+@media (max-width:760px){.toc{columns:1}}
+.eqbox{overflow-x:auto;padding:6px 0}
+.footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.crumb{font-size:13px;color:var(--muted);margin-bottom:6px}
+.btnrow{display:flex;justify-content:space-between;margin-top:40px}
+.btnrow a{text-decoration:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:14px}
+.roadmap{counter-reset:step;list-style:none;padding-left:0}
+.roadmap li{counter-increment:step;position:relative;padding:8px 0 8px 42px;border-bottom:1px dashed var(--line)}
+.roadmap li::before{content:counter(step);position:absolute;left:0;top:8px;width:28px;height:28px;border-radius:50%;
+  background:var(--accent2);color:#fff;text-align:center;line-height:28px;font-weight:700;font-size:14px}
+
+/* ============================================================
+   v2 additions: TOC rail, back-to-top, hamburger, details/quiz,
+   interactive widgets, print
+   ============================================================ */
+
+/* main becomes a 2-col grid: article + sticky TOC rail (desktop) */
+main{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:34px;align-items:start}
+main > .article{min-width:0}
+@media (max-width:1150px){ main{grid-template-columns:1fr} aside.toc-rail{display:none} }
+
+aside.toc-rail{position:sticky;top:24px;font-size:12.5px;max-height:calc(100vh - 48px);overflow-y:auto;
+  border-left:1px solid var(--line);padding-left:14px}
+aside.toc-rail .toc-title{font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;
+  font-size:11px;margin-bottom:8px}
+aside.toc-rail a{display:block;color:var(--muted);text-decoration:none;padding:3px 0;border-left:2px solid transparent;
+  margin-left:-2px;padding-left:8px;line-height:1.35}
+aside.toc-rail a.h3{padding-left:18px;font-size:12px}
+aside.toc-rail a:hover{color:var(--ink)}
+aside.toc-rail a.current{color:var(--accent);border-left-color:var(--accent);font-weight:600}
+
+/* span footer/btnrow across both columns */
+main > .footer, main > .btnrow{grid-column:1 / -1}
+
+/* mobile top bar + hamburger */
+.topbar{display:none}
+@media (max-width:900px){
+  .topbar{display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50;background:var(--panel);
+    border-bottom:1px solid var(--line);padding:10px 14px}
+  .topbar .ham{font-size:22px;background:none;border:none;cursor:pointer;color:var(--ink)}
+  .topbar .ttl{font-weight:700;color:var(--accent);font-size:14px}
+  nav.side{position:fixed;z-index:60;left:0;top:0;bottom:0;width:78%;max-width:320px;transform:translateX(-100%);
+    transition:transform .2s ease;box-shadow:2px 0 12px rgba(0,0,0,.15)}
+  nav.side.open{transform:translateX(0)}
+  .scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:55}
+  .scrim.show{display:block}
+}
+
+/* back-to-top */
+#toTop{position:fixed;right:18px;bottom:18px;width:42px;height:42px;border-radius:50%;border:1px solid var(--line);
+  background:var(--panel);color:var(--accent2);font-size:20px;cursor:pointer;display:none;z-index:40;
+  box-shadow:0 2px 8px rgba(20,30,50,.12)}
+#toTop.show{display:block}
+
+/* expandable derivations */
+details.deriv{border:1px solid var(--line);border-radius:10px;padding:6px 14px;margin:14px 0;background:#fbfcfe}
+details.deriv > summary{cursor:pointer;font-weight:600;color:var(--accent2);padding:6px 0;list-style:none}
+details.deriv > summary::-webkit-details-marker{display:none}
+details.deriv > summary::before{content:"▸ ";color:var(--accent2)}
+details.deriv[open] > summary::before{content:"▾ "}
+
+/* self-check quiz */
+.quiz{border:1px solid #cdddff;background:#f3f8ff;border-radius:10px;padding:14px 16px;margin:16px 0}
+.quiz .q{font-weight:600;margin-bottom:6px}
+.quiz .q::before{content:"❓ ";}
+.quiz details{margin-top:6px}
+.quiz summary{cursor:pointer;color:var(--accent2);font-size:14px}
+.quiz .ans{margin-top:8px;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid var(--line);font-size:14.5px}
+
+/* auto-graded self-test */
+.st-score{position:sticky;top:8px;z-index:5;background:#1f2733;color:#fff;border-radius:10px;padding:10px 16px;margin:12px 0;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.st-score button{background:#fff;color:#1f2733;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:inherit;font-weight:600}
+.stq{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:14px 0;background:#fff}
+.stq .st-topic{font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.04em}
+.stq .qq{font-weight:600;margin:4px 0 8px}
+.stq .opt{display:block;width:100%;text-align:left;border:1px solid #cdddff;background:#f7faff;border-radius:8px;padding:8px 12px;margin:5px 0;cursor:pointer;font:inherit;color:inherit}
+.stq .opt:hover:not(:disabled){background:#e9f1ff}
+.stq .opt:disabled{cursor:default}
+.stq .opt.correct{background:#e6f7ec;border-color:#0a8f5b;color:#0a5b3b;font-weight:600}
+.stq .opt.wrong{background:#fdecea;border-color:#c8442b;color:#9b2d1b}
+.stq .ex{margin-top:8px;font-size:14px;color:#333;background:#fbfcfe;border-left:3px solid var(--accent2);padding:7px 11px;border-radius:4px;display:none}
+.stq.done .ex{display:block}
+
+/* interactive widgets */
+.widget{border:1px solid var(--line);border-radius:12px;padding:16px;margin:18px 0;background:var(--panel)}
+.widget .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px 22px;margin-bottom:12px}
+.widget .ctl{font-size:13px}
+.widget .ctl label{display:flex;justify-content:space-between;color:var(--muted);margin-bottom:2px}
+.widget .ctl label b{color:var(--accent2);font-variant-numeric:tabular-nums}
+.widget input[type=range]{width:100%;accent-color:var(--accent)}
+.widget .plot{width:100%;min-height:360px}
+.widget .readout{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:13px}
+.widget .readout .b{background:#eef1f6;border-radius:8px;padding:6px 12px}
+.widget .readout .b b{color:var(--accent2);font-size:16px}
+.widget .toggles{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0;font-size:13px}
+.widget .btn{background:var(--accent2);color:#fff;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-size:13px}
+.widget .btn.sec{background:#eef1f6;color:var(--ink)}
+
+/* native SVG diagrams */
+figure.diagram svg{max-width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:10px}
+
+/* ---- overflow / mobile-readability fixes ----
+   Root causes of horizontal scroll on phones: oversized slide images, wide KaTeX display
+   equations, and wide tables/code. Constrain them all to the viewport. */
+img, svg, video, canvas { max-width: 100%; height: auto; }
+figure img { max-width: 100%; }
+figure.slide img { max-width: min(560px, 100%); }   /* desktop cap, but never wider than screen */
+figure.diagram svg { max-width: 100%; }
+.katex-display { max-width: 100%; overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+:not(pre) > code { overflow-wrap: anywhere; }
+table { max-width: 100%; }
+pre[class*="language-"] { max-width: 100%; }
+.widget, .widget .plot, .js-plotly-plot, .plot-container { max-width: 100%; }
+/* backstop: the article column itself never scrolls the page sideways
+   (inner tables / equations / code keep their own internal scroll) */
+main > .article { overflow-x: clip; }
+/* hide KaTeX's off-screen MathML a11y layer from layout width (it can escape clip) */
+.katex-mathml { position: absolute; clip: rect(1px,1px,1px,1px); width: 1px; height: 1px; overflow: hidden; }
+/* final mobile backstop: no sideways page scroll once the TOC rail is gone */
+@media (max-width: 1150px){ html, body { overflow-x: hidden; } }
+
+/* print */
+@media print{
+  nav.side,.topbar,#toTop,aside.toc-rail,.btnrow,.widget .controls,.widget .toggles{display:none!important}
+  main{margin:0;grid-template-columns:1fr;padding:0;max-width:100%}
+  body{background:#fff;font-size:11pt}
+  .card,.note,.assume,.derive,.cite,.warn{break-inside:avoid}
+  figure,table{break-inside:avoid}
+  a{color:#000;text-decoration:none}
+  h1,h2{break-after:avoid}
+}

@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fractional Spurs · DTC-Assisted Frac-N PLL</title>
+<meta name="description" content="How DTC INL and duty errors become fractional spurs: the Fourier theory, noise folding, spur-in-budget, and an interactive spur explorer.">
+<meta property="og:title" content="Fractional Spurs · DTC-Assisted Fractional-N PLL">
+<meta property="og:description" content="How DTC INL and duty errors become fractional spurs: the Fourier theory, noise folding, spur-in-budget, and an interactive spur explorer.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism-tomorrow.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar"><button class="ham" aria-label="Open menu">&#9776;</button><span class="ttl">Fractional Spurs</span></div>
+<div class="scrim"></div>
+<div class="wrap">
+<nav class="side" aria-label="Site sections">
+<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>
+<div class="sub">Interactive study of slides 1–42</div>
+<a class="" href="index.html"><span class="n">1</span>Home</a>
+<a class="" href="lab.html"><span class="n">2</span>Interactive Lab</a>
+<a class="" href="selftest.html"><span class="n">3</span>Self-Test</a>
+<a class="" href="slides.html"><span class="n">4</span>Slide-by-slide Map</a>
+<a class="" href="architecture.html"><span class="n">5</span>Architecture</a>
+<a class="" href="blocks.html"><span class="n">6</span>Block Models</a>
+<a class="" href="calibrations.html"><span class="n">7</span>Calibrations</a>
+<a class="" href="frequency.html"><span class="n">8</span>Frequency-Domain</a>
+<a class="" href="loopdyn.html"><span class="n">9</span>Loop Dynamics & Lock</a>
+<a class="" href="timedomain.html"><span class="n">10</span>Time-Domain Noise</a>
+<a class="active" href="spurs.html"><span class="n">11</span>Fractional Spurs</a>
+<a class="" href="system.html"><span class="n">12</span>System Impact</a>
+<a class="" href="codewalk.html"><span class="n">13</span>Code Walkthrough</a>
+<a class="" href="examples.html"><span class="n">14</span>Numerical Examples</a>
+<a class="" href="designex.html"><span class="n">15</span>Design Walkthrough</a>
+<a class="" href="problems.html"><span class="n">16</span>Design Problems</a>
+<a class="" href="dtctopologies.html"><span class="n">17</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">18</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">19</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">20</span>References</a>
+</nav>
+<main>
+<div class="article">
+<h1>Fractional Spurs — the deck's central quantitative result</h1>
+<p class="lead">A fractional-N PLL deliberately wanders its divide ratio every reference cycle; the residue of that wander is a <b>structured, periodic</b> error. When the DTC that cancels it is even slightly nonlinear, that periodicity collapses into <b>discrete tones (spurs)</b> in the output spectrum — and because they are coherent, a single −40&nbsp;dBc spur can carry more jitter than the entire 87.6&nbsp;fs budget. This page builds the spur story from accumulator residue → INL Fourier theory → noise folding → jitter budget → the three cures that take the measured spurs to −70…−85&nbsp;dBc.</p>
+
+<div class="note">
+<b>Why spurs deserve their own page.</b> Random phase noise spreads over a band and you fight it with averaging. A spur is a <b>single coherent line</b>: it survives integration, sits at a fixed offset \(\alpha f_{\rm ref}\) you cannot filter without killing the loop, and in a receiver it down-converts an adjacent blocker straight onto your signal (reciprocal mixing). The whole DTC-assist architecture exists to <i>cancel</i> the error that produces these spurs <span class="tag t-slide">slide p9</span>; the calibrations exist to keep that cancellation honest <span class="tag t-slide">slide p40</span>. So the spur level is the single number that tells you whether the architecture is working.
+</div>
+
+<hr>
+
+<h2 id="qe-origin">1. Where the quantization error comes from</h2>
+
+<h3>Intuition: a fractional ratio cannot be made from integer cycles</h3>
+<p>The multi-modulus divider (MMD) can only divide by an <b>integer</b>. To realize an average ratio \(N=64.62\) <span class="tag t-derive">derived</span> the ΔΣ modulator (DSM) dithers the instantaneous divide value between integers (…64, 65, 64, 65, 66…) so the <i>long-term average</i> equals 64.62. Each cycle that the divider is "wrong by an integer", the feedback edge <code>CKFB</code> lands early or late relative to <code>CKREF</code>. The running sum of those integer errors is the <b>accumulated quantization error</b> \(\Phi_{\rm QE}[n]\) — measured in VCO periods, because each integer divide error displaces the feedback edge by one \(T_{\rm vco}\).</p>
+
+<details class="deriv"><summary><b>Worked example — follow a 1st-order accumulator by hand: why dithering averages to a fraction</b></summary>
+<div style="padding:.2em">
+<p>Take a tiny 4-bit accumulator (\(2^4=16\)) with \(\text{FCW}=10\), i.e. \(\alpha=10/16=0.625\). Each reference cycle does \(\text{acc}\leftarrow(\text{acc}+10)\bmod 16\), and a <b>carry</b> fires (divide = \(N{+}1\) instead of \(N\)) whenever the running sum reaches 16:</p>
+<table class="num">
+<thead><tr><th>cycle \(n\)</th><th>acc + FCW</th><th>carry → divide</th><th>new acc \((=\Phi_{\rm QE}\cdot16)\)</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>0+10=10</td><td>0 → \(N\)</td><td>10</td></tr>
+<tr><td>2</td><td>10+10=20</td><td><b>1 → \(N{+}1\)</b></td><td>4</td></tr>
+<tr><td>3</td><td>4+10=14</td><td>0 → \(N\)</td><td>14</td></tr>
+<tr><td>4</td><td>14+10=24</td><td><b>1 → \(N{+}1\)</b></td><td>8</td></tr>
+<tr><td>5</td><td>8+10=18</td><td><b>1 → \(N{+}1\)</b></td><td>2</td></tr>
+<tr><td>6</td><td>2+10=12</td><td>0 → \(N\)</td><td>12</td></tr>
+<tr><td>7</td><td>12+10=22</td><td><b>1 → \(N{+}1\)</b></td><td>6</td></tr>
+<tr><td>8</td><td>6+10=16</td><td><b>1 → \(N{+}1\)</b></td><td>0</td></tr>
+</tbody>
+</table>
+<p>Carries over the 8-cycle period: \(0,1,0,1,1,0,1,1\) — exactly <b>5 carries in 8 cycles</b>, so the divide is \(N{+}1\) five-eighths of the time and \(N\) the rest: the average divide is \(N+\tfrac58 = N+0.625 = N+\alpha\). <b>That is the whole trick — the overflow rate equals \(\alpha\).</b> <span class="tag t-derive">derived</span> <span class="tag t-std">textbook (accumulator = 1st-order ΔΣ)</span></p>
+<p>The real design is identical with \(L=24,\ \text{FCW}=10{,}324{,}441\) (\(\alpha=0.6154\)): the carry now averages 0.6154, so the MMD averages \(64.6154\). The leftover residue (the last column \(\div 2^L\), in \(T_{\rm vco}\)) is precisely the \(\Phi_{\rm QE}[n]\) the DTC cancels — and for a 1st-order accumulator it sweeps the full \([0,1)\,T_{\rm vco}\) sawtooth, the "1&nbsp;\(T_{\rm vco}\)" MASH-1 range below. Watch it live in the <a href="architecture.html#accumulator-interactive">accumulator widget →</a>. <span class="tag t-derive">model</span></p>
+</div>
+</details>
+
+<p>The DTC's job is to delay <code>CKREF</code> by exactly \(\Phi_{\rm QE}[n]\) each cycle so the phase detector sees ≈0 error — the fractional PLL then behaves like an integer-N PLL <span class="tag t-slide">slide p9</span>:</p>
+$$\Delta t[n] \;=\; \frac{1}{K_{\rm DTC}}\,\Phi_{\rm QE}[n],\qquad K_{\rm DTC}=\frac{T_{\rm vco}}{\Delta t_{\rm DTC}}=\frac{148.8\,\text{ps}}{400\,\text{fs}}=372\ \ \text{[codes per }T_{\rm vco}\text{]} \quad\text{\small slide p9}$$
+
+<div class="derive">
+<b>The key structural fact.</b> \(\Phi_{\rm QE}[n]\) is <b>not</b> white noise — it is a <i>bounded, structured, quasi-periodic</i> sequence. Its <b>peak-to-peak range IS the DTC dynamic range you must cancel</b>, and that range is set entirely by the DSM order. Higher order → whiter (better-shaped) noise but <i>larger</i> excursions → a wider, harder-to-linearize DTC. That is the central tension of the whole architecture.
+</div>
+
+<h3>Math: MASH order sets the QE range</h3>
+<p>A MASH-\(1^m\) modulator (cascade of \(m\) first-order stages) produces a quantization error whose instantaneous phase residue \(\Phi_e\) is bounded by <span class="tag t-slide">slide p6</span>:</p>
+
+<table class="num">
+<thead><tr><th>Modulator</th><th>\(\Phi_e\) range</th><th>QE range (DTC must cover)</th><th>NTF shaping</th></tr></thead>
+<tbody>
+<tr><td>MASH-1</td><td>\([-T_{\rm vco}/2,\,+T_{\rm vco}/2]\)</td><td>\(1\,T_{\rm vco}\)</td><td>\((1-z^{-1})^1\)</td></tr>
+<tr><td>MASH-1-1</td><td>\([-T_{\rm vco},\,+T_{\rm vco}]\)</td><td>\(2\,T_{\rm vco}\)</td><td>\((1-z^{-1})^2\)</td></tr>
+<tr><td>MASH-1-1-1</td><td>\([-2T_{\rm vco},\,+2T_{\rm vco}]\)</td><td>\(4\,T_{\rm vco}\)</td><td>\((1-z^{-1})^3\)</td></tr>
+</tbody>
+</table>
+<p style="margin-top:-0.4em"><span class="tag t-slide">slide p6</span> — the QE range is \(1/2/4\,T_{\rm vco}\) for MASH-1 / 1-1 / 1-1-1.</p>
+
+<details class="deriv"><summary><b>Worked example — which integers each MASH order emits, and why that sets the DTC range</b></summary>
+<div style="padding:.2em">
+<p>For orders &gt; 1 the DSM doesn't just toggle \(N/N{+}1\): the MASH combiner sums several differenced carries, so the instantaneous divide spans more integers. With 1st-order carries \(c_i\in\{0,1\}\) and combiner \(y=c_1+(1-z^{-1})c_2+(1-z^{-1})^2c_3+\dots\):</p>
+<table class="num">
+<thead><tr><th>MASH</th><th>combiner</th><th>divide offsets \(y[n]\)</th><th>residue range</th></tr></thead>
+<tbody>
+<tr><td>MASH-1</td><td>\(c_1\)</td><td>\(\{0,1\}\)</td><td>\(1\,T_{\rm vco}\)</td></tr>
+<tr><td><b>MASH-1-1</b></td><td>\(c_1+\Delta c_2\)</td><td>\(\{-1,0,1,2\}\)</td><td>\(2\,T_{\rm vco}\)</td></tr>
+<tr><td>MASH-1-1-1</td><td>\(c_1+\Delta c_2+\Delta^2 c_3\)</td><td>\(\{-3,\dots,4\}\)</td><td>\(4\,T_{\rm vco}\)</td></tr>
+</tbody>
+</table>
+<p>So for the proposed 2nd-order (MASH-1-1) design the divide ratio is not just 64/65 — it ranges over \(\{63,64,65,66\}\), and the accumulated residue the DTC must absorb spans <b>2&nbsp;\(T_{\rm vco}\)</b> peak-to-peak <span class="tag t-slide">slide p6</span>. Each extra order doubles that span (and the DTC range) while steepening the noise shaping — the trade quantified just below. <span class="tag t-derive">derived</span></p>
+</div>
+</details>
+
+<p>This is the trade in one line: each extra DSM stage steepens the noise shaping by one factor of \((1-z^{-1})\) (pushing quantization noise to higher frequency where the loop filters it), but <b>doubles</b> the DTC range, which — by the slide-33 scaling — costs DTC quantization noise (\(\propto t_{\rm res}^2\)), thermal noise (\(\propto\) DR), power (\(\propto\) DR\(^2\)) and linearity. The proposed design therefore uses a <b>modified low-order DSM plus range-reduction tricks</b> rather than brute-forcing a high order <span class="tag t-slide">slides p33–34</span>.</p>
+
+<figure><img src="assets/figures/dsm_mash.png" alt="Accumulated MASH quantization error for orders 1, 2, 3"><figcaption>Accumulated ΔΣ quantization error \(\Phi_{\rm QE}[n]\) (in \(T_{\rm vco}\)) for MASH-1, 1-1, 1-1-1 at fractional input 0.123. The peak-to-peak span (≈1 / 2 / 4 \(T_{\rm vco}\)) is exactly what the DTC must cancel <span class="tag t-slide">slide p6</span>. — model <code>mash_qe()</code> in <code>models/extras.py</code>.</figcaption></figure>
+
+<h3>Interactive: watch the residue, its range, and its PSD</h3>
+<p>Change the fractional setting and the DSM order; the widget runs the same MASH simulator as the Python model (<code>simMASH</code> in <code>assets/app/pll_ext.js</code>, mirroring <code>extras.py:mash_qe</code>). The <b>top panel</b> is the time-domain residue \(\Phi_{\rm QE}[n]\) and its peak-to-peak range in \(T_{\rm vco}\); the <b>bottom panel</b> is the <b>PSD of the divide-ratio dither</b> (the modulus sequence), which is what the loop actually shapes <span class="tag t-derive">model</span>. The blue "shaped floor" is a smoothed trend over the raw periodogram.</p>
+<div id="dsm-explorer"></div>
+
+<div class="note">
+<b>Two things to read off the PSD <span class="tag t-derive">model</span>.</b>
+(1) <b>Noise shaping.</b> The floor rises toward Nyquist with a slope of <b>≈ \(20m\) dB/decade</b> for a MASH-\(1^m\) — \(\propto f^{m}\) in amplitude, the \((1-z^{-1})^m\) high-pass NTF of §2. Toggle MASH-1 → 1-1 → 1-1-1 and watch the low-frequency floor drop (steeper shaping pushes quantization energy out of band, where the loop filters it) while the time-domain range <i>doubles</i> — the central trade of the whole architecture.
+(2) <b>Spurs vs. noise.</b> Set a near-rational FCW (e.g. 0.10 = 1/10) and the residue becomes a short, obviously <b>periodic</b> sawtooth — the PSD collapses into a few <b>tall discrete lines</b> (these are the fractional spurs of §2). Set an "ugly" irrational-looking FCW and the lines smear into a continuous shaped floor. Spurs are worst exactly when the residue is most periodic.
+</div>
+
+<hr>
+
+<h2 id="inl-fourier">2. From DTC INL to fractional-spur Fourier theory</h2>
+
+<h3>Intuition: a perfect DTC has no spurs; a bent one does</h3>
+<p>Suppose the residue you must cancel is the simplest periodic case — a sawtooth \(\operatorname{frac}(n\alpha)\) with \(\alpha\) the fractional part of the channel. An <b>ideal linear DTC</b> reproduces it perfectly and the phase error is zero: no spur. But a real DTC has <b>integral nonlinearity (INL)</b> <span class="tag t-slide">slides p17–18</span> — its delay-vs-code curve is slightly bent. Feeding a sawtooth through a bent curve produces a <i>periodic</i> error, and a periodic error is, by Fourier, a <b>sum of discrete tones</b>. Those tones land at multiples of the sawtooth's fundamental, \(\alpha f_{\rm ref}\) — the fractional spurs.</p>
+
+<h3>Math: the INL polynomial and the spur it makes</h3>
+<p>Model the static INL as a low-order polynomial in the normalized code \(u\in[-1,1]\) <span class="tag t-slide">slide p17 (parabolic INL)</span>, and convert the timing error to an output phase via the carrier <span class="tag t-slide">slide p14 (K_DTC=T_vco/Δt)</span>:</p>
+
+$$u[n] = 2\,\operatorname{frac}(n\alpha)-1,\qquad \delta t[n] = t_{\rm res}\big(g_2\,u^2 + g_3\,u^3\big)\quad\text{\small (INL model, extras.py)}$$
+$$\phi[n] = 2\pi f_{\rm out}\,\delta t[n]\qquad\Longrightarrow\qquad \boxed{\ \text{spur level (dBc)} = 20\log_{10}\!\frac{\phi_{\rm pk}}{2}\ }$$
+
+<p>The first equation is the bent DTC; the second turns a residual <i>time</i> error into a residual <i>phase</i> error at the 6.72&nbsp;GHz output; the boxed result is the single-tone level for a peak phase deviation \(\phi_{\rm pk}\) <span class="tag t-derive">derived (matches <code>spur_spectrum</code>)</span>. The \(g_2\) (parabolic) term dominates because it is the natural shape of cap-array + comparator INL <span class="tag t-slide">slide p17</span>.</p>
+
+<details class="deriv"><summary>Show the algebra: why a periodic δt becomes discrete tones at \(k\,\alpha f_{\rm ref}\)</summary>
+<p>The sawtooth \(\operatorname{frac}(n\alpha)\) has period \(1/\alpha\) reference cycles (for rational \(\alpha\)); any memoryless function of it, including \(\delta t[n]=t_{\rm res}(g_2u^2+g_3u^3)\), is therefore also periodic with the same period. A periodic discrete sequence expands as a Fourier series:</p>
+$$\delta t[n] = \sum_{k} c_k\, e^{\,j 2\pi k \alpha n},\qquad \text{tone } k \text{ at offset frequency } f_k = k\,\alpha\,f_{\rm ref}.$$
+<p>For small \(\phi\), the narrowband-FM/PM approximation gives a single sideband of relative amplitude \(\phi_{\rm pk,k}/2\) for each Fourier component \(k\), hence \(\text{dBc}_k = 20\log_{10}(\phi_{\rm pk,k}/2)\). Squaring the <i>sawtooth</i> \(u\) gives a parabola-wave whose harmonics fall as \(1/k^2\), so the \(g_2u^2\) term is dominated by the <b>fundamental</b> at \(\alpha f_{\rm ref}\), with weaker tones at \(2\alpha f_{\rm ref},3\alpha f_{\rm ref},\dots\) (the "squaring makes a 2nd harmonic" intuition holds for a <i>sinusoid</i>, not a sawtooth); the cubic \(g_3u^3\) adds odd harmonics. In code this is just an FFT of \(\phi[n]=2\pi f_{\rm out}\delta t[n]\) (Hann-windowed, single-sided, normalized), then read off the tallest bin <span class="tag t-derive">derived</span>:</p>
+<pre><code class="language-python">u   = (2*((n*alpha) % 1.0) - 1) * redux        # sawtooth residue, range-scaled
+inl = g2*u**2 + g3*u**3                          # static DTC INL (slide 17)
+phi = 2*np.pi*p.f_out * (inl*t_res)              # output phase error  (boxed eqn)
+X   = np.fft.rfft(phi*np.hanning(N))             # tones at k*alpha*f_ref
+dbc = 20*np.log10( (2*np.abs(X)/N/0.5)/2 )       # 20log10(phi_pk/2) per bin</code></pre>
+<p>(from <code>spur_spectrum</code> in <code>models/extras.py</code>; the same routine multiplies each bin by the loop's \(|H_{\rm ref}(f)|/N\) so spurs inside the loop bandwidth are passed and out-of-band ones are filtered.)</p>
+</details>
+
+<div class="kpi">
+  <div class="box"><div class="v">±0.6 LSB</div><div class="l">measured dynamic INL <span class="tag t-slide">slide p18</span></div></div>
+  <div class="box"><div class="v">±0.1 LSB</div><div class="l">cubic INL term (model)</div></div>
+  <div class="box"><div class="v">−56 dBc</div><div class="l">worst spur, full range (model)</div></div>
+  <div class="box"><div class="v">\(k\,\alpha f_{\rm ref}\)</div><div class="l">spur offset frequencies</div></div>
+</div>
+<p>With INL ±0.6/0.1 LSB and fractional offset \(\alpha=0.02\), the worst spur is about <b>−56&nbsp;dBc at full DTC range</b> <span class="tag t-derive">model (extras.py)</span> — far above the −70…−85&nbsp;dBc the silicon actually achieves, which is precisely why the range-reduction and NLC of §5 exist
+
+<div class="derive">
+<b>Worked example - from an INL coefficient to a spur in dBc.</b> Take the §2 model: \(t_{\rm res}=400\) fs, INL \(g_2{=}0.6,\,g_3{=}0.1\) LSB, fractional offset \(\alpha{=}0.02\), <b>full DTC range</b> (\(\text{redux}{=}1\)) <span class="tag t-assume">assumption [A1]</span>, output \(f_{\rm out}=6.72\) GHz <span class="tag t-slide">slide p42</span>.
+<ol style="margin:.3em 0 .2em 1.1em">
+<li><b>Peak timing error</b> of the bent curve at the sawtooth peak \(u{=}{+}1\): \(\delta t_{\rm pk}=t_{\rm res}(g_2{+}g_3)=400\,\text{fs}\times0.7=280\) fs (this is the static excursion; the spur lives in its <i>periodic Fourier content</i>, not this peak directly).</li>
+<li><b>Run the FFT model</b> (\(\phi[n]=2\pi f_{\rm out}\,\delta t[n]\), Hann-windowed, single-sided, loop-shaped) and read the tallest in-band bin: the dominant tone is the <b>fundamental</b> at \(\alpha f_{\rm ref}=(0.02)(104\,\text{MHz})=2.08\) MHz, at <b>\(-55.9\) dBc</b> (squaring the sawtooth gives harmonics \(\propto 1/k^2\), so \(k{=}1\) wins; the \(2\alpha f_{\rm ref}\) tone is ~19 dB lower) <span class="tag t-derive">model (extras.py)</span>.</li>
+<li><b>Invert the boxed formula</b> to recover the residual peak phase: \(\phi_{\rm pk}=2\cdot10^{L/20}=2\cdot10^{-55.9/20}=3.20\times10^{-3}\) rad \((=0.183^\circ)\), i.e. a residual timing jitter on the tone of \(\phi_{\rm pk}/(2\pi f_{\rm out})=76\) fs peak <span class="tag t-derive">derived</span>.</li>
+</ol>
+$$\boxed{\ \text{spur}=20\log_{10}\!\frac{\phi_{\rm pk}}{2}=20\log_{10}\!\frac{3.20\times10^{-3}}{2}=-55.9\ \text{dBc}\ }$$
+<b>Sanity check:</b> ~0.05% of a full \(T_{\rm vco}\) of INL (76 fs vs 148.8 ps) makes a \(-56\) dBc tone - tiny in time, lethal in dBc. That is the whole reason this page exists. <span class="tag t-derive">model</span>
+</div>
+.</p>
+
+<hr>
+
+<h2 id="folding">3. Noise folding — why cancellation eventually saturates</h2>
+
+<h3>Intuition: squaring shaped noise un-shapes it</h3>
+<p>The DSM works by pushing its quantization noise to <b>high</b> frequency, where the loop filter removes it — that is the whole point of noise shaping. But a <b>nonlinearity</b> does not respect that shaping. A square-law term \(y=x+a_2x^2\) <b>multiplies the high-frequency noise by itself</b>, and a product in time is a <i>convolution</i> in frequency. Convolving a high-pass spectrum with itself drags energy back down to <b>DC / low frequency</b> — straight into the loop bandwidth, where it raises the in-band floor. This is "noise folding," and it is the reason you cannot cancel spurs to arbitrary depth: past a point, the residual is folded broadband noise, not a tone you can null.</p>
+
+<h3>Math: autoconvolution of the shaped QN spectrum</h3>
+<p>For a memoryless second-order nonlinearity acting on the shaped quantization noise \(x\) (PSD \(S_x\)) <span class="tag t-std">textbook (Wiener/Volterra, memoryless squarer)</span>:</p>
+$$y = x + a_2\,x^2 \quad\Longrightarrow\quad S_{\rm fold}(f)\ \approx\ a_2^2\,\big(S_x \star S_x\big)(f) \qquad\text{\small derived}$$
+<p>where \(\star\) is convolution. The shaped DSM noise is \(S_x(f)=S_{Q\rm dsm}(f)=\tfrac{1}{12 f_{\rm ref}}\,[2\sin(\pi f/f_{\rm ref})]^{2m}\) <span class="tag t-std">textbook (Riley JSSC'93)</span>, which is small near DC and large near \(f_{\rm ref}/2\). Its self-convolution has a <b>non-zero value at \(f=0\)</b> — a flat in-band floor that did not exist before the nonlinearity. The folded floor scales as \(a_2^2\), so halving the INL gives ~6&nbsp;dB; but it never reaches zero with finite INL.</p>
+
+<div class="derive">
+<b>Why this caps the spur cancellation.</b> The discrete-tone part of the INL error (§2) you <i>can</i> cancel — NLC pre-distorts the DTC code so the tones null. The <b>folded broadband part is not a tone</b>; it has no fixed phase to subtract. So as you drive the spurs down with NLC, you eventually hit the folded floor and further INL reduction only helps as \(\sqrt{}\)(power), not as a vanishing line. This is the mechanism behind slide 42's "ΣΔM QE ≈ 0%" being <i>nearly</i> but never exactly zero <span class="tag t-slide">slide p42</span> <span class="tag t-derive">derived</span>.
+</div>
+
+<hr>
+
+<h2 id="budget">4. A spur in the jitter budget — how many femtoseconds is −40 dBc?</h2>
+
+<h3>Math: a coherent tone adds a fixed variance</h3>
+<p>A single spur at level \(L\) (dBc) contributes a deterministic, double-sideband phase variance <span class="tag t-derive">derived (model)</span>:</p>
+$$\sigma_{\phi,\rm spur}^2 \;=\; 2\cdot 10^{L/10}\quad\text{[rad}^2\text{, DSB]},\qquad \sigma_{t,\rm spur}=\frac{\sigma_{\phi,\rm spur}}{2\pi f_{\rm out}}.$$
+<p>The factor 2 counts both sidebands; equivalently \(\phi_{\rm pk}=2\cdot10^{L/20}\) and \(\sigma^2=\phi_{\rm pk}^2/2\) — consistent with the boxed spur-level formula of §2.</p>
+
+<div class="derive">
+<b>Worked example — convert a −40 dBc spur to fs at \(f_{\rm out}=6.72\) GHz <span class="tag t-slide">slide p42</span>:</b>
+$$\sigma_{\phi,\rm spur}^2 = 2\cdot10^{-40/10} = 2\times10^{-4}\ \text{rad}^2,\qquad \sigma_{\phi,\rm spur}=1.41\times10^{-2}\ \text{rad}\ (=0.81^\circ)$$
+$$\sigma_{t,\rm spur} = \frac{1.41\times10^{-2}}{2\pi\cdot6.72\times10^{9}} = \boxed{335\ \text{fs RMS}}$$
+</div>
+
+<div class="warn">
+<b>This is the punchline of the page.</b> A single −40&nbsp;dBc spur is <b>335&nbsp;fs</b> all by itself — almost <b>4×</b> the entire 87.6&nbsp;fs jitter budget <span class="tag t-derive">model ≈ 87.5&nbsp;fs (slide p42)</span>. You simply cannot have −40&nbsp;dBc spurs in a sub-100&nbsp;fs PLL. To keep a spur "in the noise" (a few fs, negligible vs 87.6&nbsp;fs) you need it down around −70&nbsp;dBc or better — which is exactly the measured target. Spurs are budgeted in <i>linear power</i>: they add in quadrature with the random sources
+
+<div class="derive">
+<b>Worked example - the real cost of a spur, combined with the budget.</b> The model's random budget is <b>87.6 fs</b> <span class="tag t-derive">model ≈ 87.5 fs (slide p42)</span>. A single spur adds <i>in quadrature</i>: \(\sigma_{t,\rm tot}=\sqrt{\sigma_{t,\rm random}^2+\sigma_{t,\rm spur}^2}\). Using \(\sigma_{t,\rm spur}=\sqrt{2\cdot10^{L/10}}/(2\pi f_{\rm out})\) from §4:</p>
+<table class="num">
+<thead><tr><th>Spur \(L\)</th><th>\(\sigma_{t,\rm spur}\)</th><th>total with 87.6 fs</th><th>budget cost</th></tr></thead>
+<tbody>
+<tr><td>-56 dBc (full range)</td><td>53.1 fs</td><td>\(\sqrt{87.6^2{+}53.1^2}=102.4\) fs</td><td><b>+14.8 fs</b> - blows the budget</td></tr>
+<tr><td>-70 dBc (measured edge)</td><td>10.6 fs</td><td>\(\sqrt{87.6^2{+}10.6^2}=88.2\) fs</td><td>+0.6 fs - visible</td></tr>
+<tr><td>-85 dBc (measured deep)</td><td>1.9 fs</td><td>\(\sqrt{87.6^2{+}1.9^2}=87.6\) fs</td><td>+0.02 fs - negligible</td></tr>
+</tbody>
+</table>
+<p><b>Threshold:</b> to keep a spur under <b>5%</b> of the budget (\(0.05\times87.6=4.4\) fs) you need</p>
+$$L < 10\log_{10}\!\frac{(4.4\times10^{-15}\cdot2\pi f_{\rm out})^2}{2} = -77.7\ \text{dBc}.$$
+<b>Sanity check:</b> the measured -70...-85 dBc band <span class="tag t-slide">slide p41</span> straddles this -78 dBc line - the deep channels are negligible, the worst (-70 dBc) adds a still-tolerable 0.6 fs, and the un-cured -56 dBc full-range spur would have made the PLL miss spec by itself. <span class="tag t-derive">derived</span>
+</div>
+, \(\sigma_{t,\rm total}^2=\sigma_{t,\rm random}^2+\sum_i\sigma_{t,\rm spur,i}^2\) <span class="tag t-derive">derived</span>.
+</div>
+
+<table class="num">
+<thead><tr><th>Spur level</th><th>\(\sigma_{\phi}\) [rad]</th><th>\(\sigma_t\) @6.72 GHz</th><th>vs 87.6 fs budget</th></tr></thead>
+<tbody>
+<tr><td>−40 dBc</td><td>1.41e−2</td><td>335 fs</td><td>3.8× over — fatal</td></tr>
+<tr><td>−56 dBc (full range)</td><td>2.24e−3</td><td>53 fs</td><td>dominant — must reduce</td></tr>
+<tr><td>−70 dBc (measured best edge)</td><td>4.47e−4</td><td>11 fs</td><td>small but visible</td></tr>
+<tr><td>−85 dBc (measured deep)</td><td>7.96e−5</td><td>1.9 fs</td><td>negligible</td></tr>
+</tbody>
+</table>
+<p style="margin-top:-0.4em">All rows: \(\sigma_t=\sqrt{2\cdot10^{L/10}}/(2\pi\cdot6.72\,\text{GHz})\) <span class="tag t-derive">derived</span>; measured edge values from <span class="tag t-slide">slide p41</span>.</p>
+
+<hr>
+
+<h2 id="cures">5. Killing spurs — range reduction, NLC, and VCO-duty cal</h2>
+
+<p>Three independent levers, attacking the spur at three points of the chain. They <b>compound</b>: range reduction makes the DTC operate over a small, near-linear segment; NLC pre-distorts away whatever curvature remains; duty-cycle cal removes a separate alternating-cycle spur that the first two cannot touch.</p>
+
+<h3>5.1 Range reduction — use less of the bent curve</h3>
+<p>INL is the <i>integral</i> of the small DNL bumps, so its excursion grows with how much of the transfer curve you sweep. The proposed <b>½-range</b> (two VCO phases, <code>SEL_CKFB</code>) <span class="tag t-slide">slide p34</span> and survey <b>1/8-range</b> (eight RO phases) <span class="tag t-slide">slide p38</span> techniques restrict the DTC to a small, locally-linear segment by handing the coarse \(T_{\rm vco}\) (or \(T_{\rm vco}/8\)) steps to a phase mux. In the model this is the <code>redux</code> factor scaling \(u\); the spur drops fast <span class="tag t-derive">model</span>:</p>
+
+<div class="kpi">
+  <div class="box"><div class="v">−56 dBc</div><div class="l">full range</div></div>
+  <div class="box"><div class="v">−68 dBc</div><div class="l">½ range (2φ) <span class="tag t-slide">p34</span></div></div>
+  <div class="box"><div class="v">−92 dBc</div><div class="l">1/8 range (8φ) <span class="tag t-slide">p38</span></div></div>
+  <div class="box"><div class="v">≈ +12 dB</div><div class="l">improvement per range halving (\(g_2u^2\))</div></div>
+</div>
+<p>Because the dominant term is quadratic (\(g_2u^2\)), halving the range cuts the spur amplitude ~4× (≈12&nbsp;dB) — the model's −56 → −68 → −92&nbsp;dBc as range goes full → ½ → 1/8
+
+<details class="deriv"><summary>Worked example - prove the "+12 dB per range halving" from the model output</summary>
+<p>The dominant spur comes from the quadratic INL \(g_2u^2\). Range reduction scales the sawtooth \(u\to r\,u\), so the quadratic content scales as \(r^2\) and the spur amplitude in dB by \(20\log_{10}r^2=40\log_{10}r\). Each <b>halving</b> (\(r:1\to\tfrac12\)) is therefore</p>
+$$\Delta L = 40\log_{10}\tfrac12 = -12.04\ \text{dB}\quad\text{per halving.}$$
+<p>Run <code>spur_spectrum</code> at the three ranges (full \(r{=}1\), ½ \(r{=}0.5\), 1/8 \(r{=}0.125\)) and read the worst tone <span class="tag t-derive">model (extras.py)</span>:</p>
+<div class="kpi">
+  <div class="box"><div class="v">-55.9 dBc</div><div class="l">full range</div></div>
+  <div class="box"><div class="v">-67.9 dBc</div><div class="l">½ range (1 halving)</div></div>
+  <div class="box"><div class="v">-92.0 dBc</div><div class="l">1/8 range (3 halvings)</div></div>
+</div>
+<p>full → ½ = <b>-12.0 dB</b> (one halving); ½ → 1/8 = <b>-24.0 dB</b> over two halvings = <b>-12.0 dB each</b> <span class="tag t-derive">model</span>. The model reproduces the \(40\log_{10}r\) law to 0.02 dB.</p>
+<p><b>Sanity check:</b> from full range, 1/8 is three halvings, so predicted \(3\times(-12.04)=-36.1\) dB; measured \(-91.96-(-55.92)=-36.0\) dB. The slide-quoted endpoints (-68 dBc at ½ <span class="tag t-slide">slide p34</span>, -92 dBc at 1/8 <span class="tag t-slide">slide p38</span>) sit right on this line. <span class="tag t-derive">derived</span></p>
+</details>
+ <span class="tag t-derive">model (extras.py)</span>.</p>
+
+<h3>5.2 Nonlinearity correction (NLC) — pre-distort the code</h3>
+<p>NLC adds an inverse-INL polynomial to the DTC code so the cascade is linear <span class="tag t-slide">slide p31</span>:</p>
+$$D_{\rm DCW}=g_1 D_{\rm AQ}+g_2 D_{\rm AQ}^2+g_3 D_{\rm AQ}^3,\qquad D_{\rm AQ}=\text{accumulated DSM phase}\quad\text{\small slide p31}$$
+<p>Three parallel LMS loops adapt \(g_1{=}K_{\rm DTC},g_2,g_3\). In the model, ½-range + NLC drives the worst tone below the −135&nbsp;dBc plot floor ("cancelled") <span class="tag t-derive">model</span>. One subtlety worth flagging: the naive monomial regressors \([D,D^2,D^3]\) are <b>correlated</b> (ill-conditioned \(R\), wide eigenvalue spread → slow/coupled convergence); using <b>Legendre</b> \(P_1,P_2,P_3\), which are orthogonal on \([-1,1]\), decouples the loops and converges cleaner <span class="tag t-std">textbook (orthogonal polynomials / LMS eigenvalue spread)</span> — see the calibrations page and <code>legendre_vs_monomial()</code>.</p>
+
+<h3>5.3 VCO duty-cycle calibration — a separate spur source</h3>
+<p>The ½-range trick assumes the two VCO phases are exactly \(T_{\rm vco}/2\) apart. If the VCO duty cycle ≠ 50%, \(\Delta t_{\rm err}=\Delta t-T_{\rm vco}/2\neq0\) injects a <code>SEL_CKFB</code>-correlated (alternating-cycle) error <span class="tag t-slide">slide p35</span> — a spur the static NLC cannot see, because it is keyed to the phase-select sequence, not to the code. The sign-LMS <code>vco_dcc</code> loop correlates \(e[k]\) with <code>SEL_CKFB</code> to null it <span class="tag t-slide">slide p36</span>. In the spur model, a <b>20&nbsp;ps VCO duty error</b> raises an alternating-cycle spur (at \(f_{\rm ref}/2\)) to ≈−64&nbsp;dBc with calibration off, and it disappears with calibration on <span class="tag t-derive">model (extras.py)</span> <span class="tag t-slide">slide p40 (20 ps duty err injected)</span>.</p>
+
+<figure><img src="assets/figures/spur_inl.png" alt="Fractional spurs vs DTC range reduction and NLC"><figcaption>Output fractional spurs vs cure (INL ±0.6/0.1 LSB, \(\alpha=0.02\)): full range −56&nbsp;dBc → ½-range −68&nbsp;dBc → 1/8-range −92&nbsp;dBc → ½+NLC cancelled (below floor). — model <code>spur_spectrum()</code> in <code>models/extras.py</code>; range-reduction per <span class="tag t-slide">slides p34, p38</span>, NLC per <span class="tag t-slide">slide p31</span>.</figcaption></figure>
+
+<h3>Interactive: drive the spur down yourself</h3>
+<p>Sweep the fractional offset \(\alpha\), the INL coefficients \(g_2,g_3\), the range-reduction factor, the NLC toggle, and the VCO duty error / duty-cal toggle. The widget runs <code>spurSpectrum</code> (the JS mirror of <code>extras.py:spur_spectrum</code>) and reports the worst-spur level live <span class="tag t-derive">model</span>. Try to reach the measured −70…−85&nbsp;dBc band.</p>
+<div id="spur-explorer"></div>
+
+<div class="cite">
+<b>Tie to silicon <span class="tag t-slide">slide p41</span>.</b> The measured fractional spurs of the proposed PLL (\(f_{\rm VCO}=35\times153.6\,\text{MHz}+\Delta f\)) are <b>−70 to −85&nbsp;dBc</b> across channels <span class="tag t-slide">slide p41</span>. By the §4 table that is ≈11&nbsp;fs at worst and ≈1.9&nbsp;fs at best — comfortably inside the 87.6&nbsp;fs budget. The full-range model (−56&nbsp;dBc, 53&nbsp;fs) would have <b>dominated</b> the budget; it is precisely the three cures above that close the gap to measurement. This is the page's thesis: spurs are an architecture problem solved by range-reduction + background calibration, not by filtering.
+</div>
+
+<hr>
+
+<h2 id="selfcheck">Self-check</h2>
+
+<div class="quiz"><div class="q">Q1. The accumulated ΔΣ residue \(\Phi_{\rm QE}[n]\) for a MASH-1-1-1 modulator swings over a 4&nbsp;\(T_{\rm vco}\) range, twice that of MASH-1-1. A junior engineer says "great, third order shapes the noise better, let's use it." Give the two-sided trade-off in terms the DTC actually feels.</div><details><summary>Show answer</summary><div class="ans"><b>Yes</b>, MASH-1-1-1 steepens the NTF to \((1-z^{-1})^3\), pushing more quantization noise out of band where the loop filters it. <b>But</b> the DTC now has to cancel a <b>4&nbsp;\(T_{\rm vco}\)</b> peak-to-peak residue instead of 2 <span class="tag t-slide">slide p6</span> — double the dynamic range. By the slide-33 scaling that costs DTC quantization noise (\(\propto t_{\rm res}^2\)), thermal noise (\(\propto\)DR), <b>power \(\propto\)DR\(^2\)</b>, and worse linearity → <b>larger INL → bigger spurs</b> (§2). The deck's answer is to keep the DSM order modest and instead <b>reduce the range</b> with the ½- and 1/8-phase tricks <span class="tag t-slide">slides p33–34, p38</span>. <span class="tag t-derive">derived</span></div></details></div>
+
+<div class="quiz"><div class="q">Q2. A static DTC INL of \(\delta t = t_{\rm res}\,g_2 u^2\) is fed a fractional sawtooth. (a) At what output offset frequencies do the resulting spurs appear, and which harmonic is strongest? (b) If you halve the DTC range (½-range trick), roughly how many dB does the dominant spur drop, and why?</div><details><summary>Show answer</summary><div class="ans"><b>(a)</b> A periodic-in-\(n\) error expands as a Fourier series with lines at \(k\,\alpha f_{\rm ref}\) <span class="tag t-derive">derived</span>. A <b>quadratic</b> INL squares the <i>sawtooth</i> \(u\), giving a parabola-wave with lines at all \(k\alpha f_{\rm ref}\) falling as \(1/k^2\) — so the strongest tone is the <b>fundamental</b> at \(\alpha f_{\rm ref}\) (the "2nd-harmonic" answer is the sinusoid case, which doesn't apply to a sawtooth). <b>(b)</b> Halving the range scales \(u\to u/2\), so \(u^2\to u^2/4\): the spur amplitude drops 4× ≈ <b>12&nbsp;dB</b>. That is the model's −56 → −68&nbsp;dBc step from full to ½ range <span class="tag t-derive">model (extras.py)</span>. (A cubic term would scale as \(1/8\) ≈ 18&nbsp;dB, even better — which is why 1/8-range reaches −92&nbsp;dBc.) <span class="tag t-slide">slides p34, p38</span></div></details></div>
+
+<div class="quiz"><div class="q">Q3. You have NLC adapting \(g_2,g_3\) and it has nulled every visible spur, yet the in-band noise floor will not go below a certain level no matter how accurate the INL fit. What physical mechanism sets that floor, and why can't NLC remove it?</div><details><summary>Show answer</summary><div class="ans"><b>Noise folding</b> (§3). A DTC nonlinearity acts like a memoryless squarer \(y=x+a_2x^2\); squaring is a convolution in frequency, so it self-convolves the <i>high-pass-shaped</i> DSM quantization noise and folds part of it back to <b>DC / in-band</b>: \(S_{\rm fold}\approx a_2^2(S_x\star S_x)\), which has a non-zero value at \(f=0\) <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>. NLC can cancel the <b>discrete tones</b> (they have a fixed phase to subtract) but the folded part is <b>broadband noise with no coherent phase</b> — there is nothing to null. It only falls as \(\sqrt{}\)(INL power), which is why spur cancellation <b>saturates</b> and slide 42's "ΣΔM QE" sits at ≈0% but never exactly zero <span class="tag t-slide">slide p42</span>. The fix is to make the INL physically small (range reduction), not to fit it ever more precisely. <span class="tag t-derive">derived</span></div></details></div>
+
+<div class="assume">
+<b>Assumptions on this page.</b> [A1] Static-INL polynomial model \(\delta t=t_{\rm res}(g_2u^2+g_3u^3)\) with \(g_2{=}0.6,g_3{=}0.1\) and \(\alpha{=}0.02\) (chosen to bracket the slide-18 measured ±0.6&nbsp;LSB dynamic INL; the slide gives the magnitude, not the polynomial split). [A2] The memoryless-squarer folding model \(S_{\rm fold}\approx a_2^2(S_x\star S_x)\) is the standard weak-nonlinearity (Volterra/Wiener) approximation, not a deck equation. [A3] Spur variance \(\sigma_{\phi,\rm spur}^2=2\cdot10^{L/10}\) uses the double-sideband convention consistent with the deck's IPN bookkeeping; a single-sideband reading is 3&nbsp;dB different. Model numbers (−56/−68/−92&nbsp;dBc, the 335/53/11/1.9&nbsp;fs conversions) are from <code>models/extras.py</code> and the §4 worked example; measured −70…−85&nbsp;dBc is <span class="tag t-slide">slide p41</span>; the 1/2/4&nbsp;\(T_{\rm vco}\) ranges are <span class="tag t-slide">slide p6</span>.
+</div>
+
+</div>
+<aside class="toc-rail" aria-label="On this page"></aside>
+<div class="btnrow"><div><a href="timedomain.html">← Time-Domain Noise</a></div><div><a href="system.html">System Impact →</a></div></div>
+<div class="footer">
+  Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
+  (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
+  Provenance tags: <span class="tag t-slide">slide pX</span>
+  <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
+  <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
+</div>
+</main>
+</div>
+<button id="toTop" aria-label="Back to top">&#8593;</button>
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/prism/prism-core.min.js"></script>
+<script src="assets/vendor/prism/prism-clike.min.js"></script>
+<script src="assets/vendor/prism/prism-python.min.js"></script>
+<script src="assets/vendor/plotly/plotly.min.js"></script>
+<script src="assets/app/pll.js"></script>
+<script src="assets/app/pll_ext.js"></script>
+<script src="assets/app/widgets.js"></script>
+<script src="assets/app/widgets_ext.js"></script>
+<script src="assets/app/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#c8442b"/>
+  <!-- reference square wave -->
+  <path d="M6 22 H14 V14 H22 V22 H30" fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+  <!-- locked sine (VCO) -->
+  <path d="M6 46 q5 -12 10 0 t10 0 t10 0 t10 0 t10 0" fill="none" stroke="#ffd9cf" stroke-width="3"/>
+  <!-- DTC delay arrow -->
+  <circle cx="46" cy="20" r="4" fill="#fff"/>
+  <path d="M40 30 L52 30" stroke="#fff" stroke-width="2"/>
+</svg>

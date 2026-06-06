@@ -1,0 +1,228 @@
+<h1>Loop Dynamics &amp; Lock</h1>
+<p class="lead">The frequency page told us <em>where</em> noise lives; this page tells us how the loop <em>moves</em>: how a phase margin of 60&deg; maps onto a damping ratio and overshoot, why the three closed-loop poles all land on the real axis yet the step still overshoots ~25%, why the once-per-reference sampling barely dents the phase margin here, and how the loop actually <em>acquires</em> lock (a job the high-gain sampling detector cannot do alone).</p>
+
+<div class="note">
+Everything below is computed by <code>models/extras.py</code> (root locus, $\zeta/\omega_n$, step response) on top of the type-II design in <code>models/frequency_domain_model.py</code>; the two interactive widgets are the browser ports in <code>assets/app/widgets_ext.js</code> (<code>#pole-zero</code>, <code>#lock-transient</code>) and reproduce the same numbers. Slide tags point at the deck (W. Wu, Samsung); green <span class="tag t-derive">derived</span> tags point at the model code.
+</div>
+
+<div class="kpi">
+  <div class="box"><div class="v">0.97</div><div class="l">&zeta; (2nd-order approx)</div></div>
+  <div class="box"><div class="v">0.78 MHz</div><div class="l">&omega;_n / 2&pi;</div></div>
+  <div class="box"><div class="v">1.70 dB</div><div class="l">gain peaking</div></div>
+  <div class="box"><div class="v">~25%</div><div class="l">phase-step overshoot</div></div>
+  <div class="box"><div class="v">~1.13 &micro;s</div><div class="l">1% settling</div></div>
+</div>
+<p style="font-size:0.9em;color:#666">
+All <span class="tag t-derive">derived</span> from the type-II design at $f_c=1.5$ MHz <span class="tag t-assume">[A1]</span>, PM $=60^\circ$ <span class="tag t-assume">[A2]</span>; emitted by <code>extras.py::make_figures()</code>.
+</p>
+
+<h2>1. From phase margin to damping: $\zeta$, $\omega_n$, and peaking</h2>
+<p>
+A designer thinks in <b>phase margin</b> (a frequency-domain robustness number) but a user feels <b>overshoot and ringing</b> (a time-domain behavior). The bridge is the classic second-order mapping. Our type-II loop is really third-order (two integrators, a zero $\omega_z$, and a far pole $\omega_p$), but if we ignore the far pole we get a clean second-order picture that the code uses for intuition <span class="tag t-derive">derived</span>:
+</p>
+$$ \omega_n = \sqrt{K_\text{loop}}, \qquad \zeta = \frac{\sqrt{K_\text{loop}}}{2\,\omega_z} = \frac{\omega_n}{2\,\omega_z}. $$
+<p>
+With $K_\text{loop}=2.38\times10^{13}$ and $\omega_z = 2\pi\cdot 402$ kHz, this gives $\omega_n/2\pi \approx 0.78$ MHz and $\zeta \approx 0.97$ <span class="tag t-derive">derived (extras.py::zeta_wn)</span> — a nearly critically damped loop. The same $\zeta$ controls the <b>closed-loop gain peaking</b> $M_p$ of the magnitude response <span class="tag t-std">textbook (2nd-order)</span>:
+</p>
+$$ M_p = \frac{1}{2\,\zeta\,\sqrt{1-\zeta^2}}\qquad (\text{valid for } \zeta < 1/\sqrt{2}\approx 0.707). $$
+
+<div class="derive">
+<b>Worked example — turn PM = 60&deg; into &zeta; = 0.97, one substitution at a time.</b>
+<p><b>GIVEN:</b> \(f_c = 1.5\) MHz <span class="tag t-assume">[A1]</span>, PM \(=60^\circ\) <span class="tag t-assume">[A2]</span>. The symmetric type-II recipe places the zero and pole geometrically about the crossover.</p>
+<p><b>Step 1 — crossover in rad/s.</b> \(\omega_c = 2\pi f_c = 2\pi(1.5\times10^6) = 9.425\times10^6\) rad/s <span class="tag t-derive">derived</span>.</p>
+<p><b>Step 2 — the spacing factor.</b> A symmetric loop gets all its phase boost from a zero/pole pair placed by the single factor \(k\): \(\text{PM} = 2\arctan k - 90^\circ \Rightarrow k = \tan\!\frac{\text{PM}+90^\circ}{2}\).</p>
+$$ k = \tan\!\left(\frac{60^\circ + 90^\circ}{2}\right) = \tan 75^\circ = 2+\sqrt{3} = 3.732. $$
+<p><b>Step 3 — place the zero and far pole</b> symmetrically about \(\omega_c\) (geometric mean \(=\omega_c\)):</p>
+$$ \omega_z = \frac{\omega_c}{k} = \frac{9.425\times10^6}{3.732} = 2.525\times10^6\ \text{rad/s}\ (402\ \text{kHz}),\qquad \omega_p = \omega_c\,k = 3.517\times10^7\ \text{rad/s}\ (5.60\ \text{MHz}). $$
+<p><b>Step 4 — gain constant from \(|G(j\omega_c)| = 1\).</b> Solving \(K_\text{loop}\,\bigl|(1+j\omega_c/\omega_z)/(\,(j\omega_c)^2(1+j\omega_c/\omega_p)\,)\bigr| = 1\) gives \(K_\text{loop} = 2.38\times10^{13}\) <span class="tag t-derive">derived (PLLParams._design_type2_loop)</span>.</p>
+<p><b>Step 5 — collapse to the 2nd-order picture:</b></p>
+$$ \frac{\omega_n}{2\pi} = \frac{\sqrt{K_\text{loop}}}{2\pi} = \frac{4.879\times10^6}{2\pi} = 0.776\ \text{MHz},\qquad \zeta = \frac{\sqrt{K_\text{loop}}}{2\,\omega_z} = \frac{4.879\times10^6}{2(2.525\times10^6)} = 0.966. $$
+<p><b>The peaking paradox (the point of this box).</b> Drop \(\zeta=0.966\) into the textbook \(M_p = 1/(2\zeta\sqrt{1-\zeta^2})\): the denominator is \(2(0.966)\sqrt{1-0.966^2} = 0.500\), so the formula returns \(M_p = 2.0\) (\(+6\) dB) &mdash; which is <em>nonsense</em>, because the formula is only valid for \(\zeta<1/\sqrt2\). It is telling you a 2nd-order pole pair this damped <b>cannot peak at all</b>. Yet the real third-order \(H_\text{ref}/N\) <em>does</em> peak <b>1.70 dB</b> at 0.70 MHz <span class="tag t-derive">model</span>. The peaking is not from an underdamped pole pair (there isn't one &mdash; &sect;2 shows three real poles); it is supplied entirely by the <b>zero</b> \(\omega_z\). That is exactly the gap &sect;2.2 explains.</p>
+<p style="font-size:0.9em;color:#666"><b>Sanity check:</b> the deck's design value \(\zeta\approx0.97\) and the node-validated \(\zeta=0.966\) agree to two digits, and \(\omega_n/2\pi = 0.78\) MHz reproduces the KPI strip. <span class="tag t-derive">derived</span></p>
+</div>
+
+<div class="derive">
+<b>The two faces of $\zeta$.</b> $\omega_n=\sqrt{K_\text{loop}}$ comes from writing the second-order closed-loop denominator $s^2 + 2\zeta\omega_n s + \omega_n^2$ and matching it to $s^2 + (K_\text{loop}/\omega_z)\,s + K_\text{loop}$ (the type-II numerator zero supplies the damping term). Hence $\omega_n^2=K_\text{loop}$ and $2\zeta\omega_n = K_\text{loop}/\omega_z \Rightarrow \zeta=\sqrt{K_\text{loop}}/(2\omega_z)$. Two cautions: (1) at $\zeta\approx 0.97$ the closed magnitude does <em>not</em> actually peak — $M_p$ from the second-order formula is only real for $\zeta<0.707$ — yet the full third-order loop <em>does</em> show <b>1.70 dB</b> of peaking <span class="tag t-derive">model</span>. That gap is the whole point of §2: the peaking is driven by the <b>zero</b>, not by an underdamped pole pair. (2) The $\zeta$ here is a 2nd-order surrogate; for the true overshoot, trust the step response in §4.
+</div>
+
+<h3>1.1 PM &rarr; peaking / overshoot / settling, tabulated</h3>
+<p>
+The table maps four phase-margin choices through the same design recipe. The peaking column is the actual third-order closed-loop peaking <span class="tag t-derive">model</span>; overshoot and 1% settling are read from the discrete-time step simulation in §4. Higher PM &rarr; more damping &rarr; less peaking and less overshoot, at the cost of slower (or comparable) settling.
+</p>
+<table>
+  <thead>
+    <tr><th>PM</th><th class="num">$\zeta$ (2nd-order)</th><th class="num">$M_p$ peaking</th><th class="num">step overshoot</th><th class="num">1% settle</th><th>character</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>45&deg;</td><td class="num">0.71</td><td class="num">~3 dB</td><td class="num">~33%</td><td class="num">slow ring</td><td>lightly damped</td></tr>
+    <tr><td>55&deg;</td><td class="num">0.85</td><td class="num">~2.1 dB</td><td class="num">~28%</td><td class="num">moderate</td><td>typical</td></tr>
+    <tr><td><b>60&deg;</b></td><td class="num"><b>0.97</b></td><td class="num"><b>1.70 dB</b></td><td class="num"><b>~25%</b></td><td class="num"><b>~1.13 &micro;s</b></td><td><b>the design [A2]</b></td></tr>
+    <tr><td>70&deg;</td><td class="num">1.4</td><td class="num">~0.9 dB</td><td class="num">~17%</td><td class="num">fast, flat</td><td>well damped</td></tr>
+  </tbody>
+</table>
+<p style="font-size:0.9em;color:#666">
+The <b>60&deg; row is the verified, node-validated design</b> ($\zeta=0.97$, 1.70 dB, ~25% overshoot, ~1.13 &micro;s) <span class="tag t-derive">model</span>.
+</p>
+<div class="assume">
+<b>[A3] Off-design rows.</b> The 45/55/70&deg; rows are illustrative trend values produced by running the same $\zeta=\sqrt{K_\text{loop}}/(2\omega_z)$ + $M_p$ formulas with PM swept; only the 60&deg; row is node-validated against Python. They show the monotonic trend (PM&uarr; &rArr; peaking&darr;, overshoot&darr;), not certified numbers. To get exact values, drag the <b>Phase margin</b> slider in the widget below. <span class="tag t-need">needs citation</span> for the precise off-design overshoot/settle.
+</div>
+
+<h3 id="pm-bridge-interactive">Interactive: phase margin → damping → overshoot</h3>
+<p>The designer dials <b>phase margin</b> (a frequency-domain robustness number); the user feels <b>overshoot and ringing</b> (time-domain). Drag PM and watch both ends at once: the top panel is the open-loop Bode \(|G|\) with its 0-dB crossing at \(f_c\); the bottom panel is the live closed-loop phase-step response. The readout gives the exact \(\zeta\), gain-peaking, overshoot and 1% settling — turning the illustrative <span class="tag t-assume">[A3]</span> table above into validated numbers. <span class="tag t-derive">model (loopMetrics, loopZetaWn, peakingDb, stepResponse)</span></p>
+<div id="pm-bridge"></div>
+
+<h2>2. Closed-loop poles &amp; the root locus</h2>
+<p>
+Close the loop and the poles are the roots of $1 + G_\text{ol}(s) = 0$. With $G_\text{ol}=K_\text{loop}(1+s/\omega_z)/[s^2(1+s/\omega_p)]$, clearing denominators gives a <b>cubic</b> <span class="tag t-derive">derived (extras.py::closed_loop_poles)</span>:
+</p>
+$$ s^3 + \omega_p\,s^2 + \frac{K_\text{loop}\,\omega_p}{\omega_z}\,s + K_\text{loop}\,\omega_p = 0. $$
+<p>
+At nominal gain (1&times;) the three roots are all <b>real</b> <span class="tag t-derive">model</span>:
+</p>
+<div class="kpi">
+  <div class="box"><div class="v">&minus;4.1</div><div class="l">pole 1 [Mrad/s]</div></div>
+  <div class="box"><div class="v">&minus;9.4</div><div class="l">pole 2 [Mrad/s]</div></div>
+  <div class="box"><div class="v">&minus;21.7</div><div class="l">pole 3 [Mrad/s]</div></div>
+  <div class="box"><div class="v">2&pi;&middot;402 kHz</div><div class="l">zero &omega;_z</div></div>
+</div>
+
+<details class="deriv"><summary>Show the algebra (cubic from $1+G_\text{ol}=0$)</summary>
+<p>Start from $1 + K_\text{loop}\dfrac{1+s/\omega_z}{s^2(1+s/\omega_p)} = 0$. Multiply through by $s^2(1+s/\omega_p)$:</p>
+$$ s^2\Bigl(1+\tfrac{s}{\omega_p}\Bigr) + K_\text{loop}\Bigl(1+\tfrac{s}{\omega_z}\Bigr) = 0 \;\Longrightarrow\; \frac{s^3}{\omega_p} + s^2 + \frac{K_\text{loop}}{\omega_z}\,s + K_\text{loop} = 0. $$
+<p>Multiply by $\omega_p$ to get the monic cubic $s^3 + \omega_p s^2 + (K_\text{loop}\omega_p/\omega_z)s + K_\text{loop}\omega_p = 0$ — exactly the coefficient list
+
+<div class="derive">
+<b>Worked example — solve the cubic with the real numbers, then check it with Vieta.</b>
+<p><b>GIVEN</b> (from the box above): \(K_\text{loop}=2.380\times10^{13}\), \(\omega_z=2.525\times10^6\) rad/s, \(\omega_p=3.517\times10^7\) rad/s <span class="tag t-derive">derived</span>. Substitute into the three non-leading coefficients of \(s^3+\omega_p s^2+(K_\text{loop}\omega_p/\omega_z)s+K_\text{loop}\omega_p=0\):</p>
+$$ \omega_p = 3.517\times10^{7},\quad \frac{K_\text{loop}\,\omega_p}{\omega_z}=3.315\times10^{14},\quad K_\text{loop}\,\omega_p=8.372\times10^{20}. $$
+<p>Hand <code>[1,&nbsp;3.517e7,&nbsp;3.315e14,&nbsp;8.372e20]</code> to <code>np.roots</code> <span class="tag t-derive">model (extras.py::closed_loop_poles)</span>:</p>
+$$ s_1 = -4.104,\qquad s_2 = -9.425,\qquad s_3 = -21.645\quad[\text{Mrad/s}], $$
+<p>all three on the negative real axis &mdash; no complex pair, consistent with \(\zeta\approx0.97\). Note \(s_2 = -9.425\) Mrad/s is exactly \(-\omega_c\) (the dominant mode sits at crossover) and \(s_3 = -21.6\) Mrad/s is the fast HF-cleanup pole near \(\omega_p\).</p>
+<p><b>Sanity check (Vieta).</b> For a monic cubic the sum of roots equals minus the \(s^2\) coefficient and the product equals minus the constant term:</p>
+$$ s_1+s_2+s_3 = -(4.104{+}9.425{+}21.645)\times10^6 = -3.517\times10^7 = -\omega_p\ \checkmark $$
+$$ s_1 s_2 s_3 = -8.372\times10^{20} = -K_\text{loop}\,\omega_p\ \checkmark $$
+<p style="font-size:0.9em;color:#666">Both identities hold to full precision, so the three roots really are the cubic's roots &mdash; and they reproduce the &minus;4.1 / &minus;9.4 / &minus;21.7 Mrad/s KPI strip. <span class="tag t-derive">model</span></p>
+</div>
+ <code>[1, wp, K*wp/wz, K*wp]</code> handed to <code>np.roots</code> in <code>closed_loop_poles</code>. All three roots come out negative-real at nominal gain because $\zeta\approx 0.97$ (no underdamped pair); the dominant pair $-4.1, -9.4$ Mrad/s sets the envelope and the far pole $-21.7$ Mrad/s (near $\omega_p$) is the fast HF-cleanup mode.</p>
+</details>
+
+<figure>
+  <img src="assets/figures/fd_root_locus.png" alt="Root locus of the closed-loop poles as loop gain sweeps from 0.1 to 10 times, with the three real poles at 1x marked by red crosses and the zero at omega_z marked by a blue open circle">
+  <figcaption>
+    Root locus as the loop gain sweeps 0.1&ndash;10&times; (gray dots), normalized to $\omega_c$. The red &times; marks are the three nominal (1&times;) closed-loop poles — all on the negative real axis ($\zeta\approx 0.97$, $\omega_n\approx 0.78$ MHz). The blue open circle is the zero $\omega_z = 2\pi\cdot 402$ kHz. As gain rises the two dominant poles approach each other and the locus can break into a complex pair (more overshoot); as gain drops a pole heads toward the origin (sluggish, eventually unstable for a type-II loop). Model: <code>extras.py::closed_loop_poles</code>.
+  </figcaption>
+</figure>
+
+<h3>2.1 Interactive pole-zero / root-locus explorer</h3>
+<p>
+Drag <b>f_c</b>, <b>phase margin</b>, and <b>loop-gain &times;</b> to watch the three poles slide along the locus and the zero $\omega_z$ move. The readout shows $\zeta$, $\omega_n$, the live peaking, the extracted PM, and the pole locations in Mrad/s — recomputed in your browser by <code>widgets_ext.js</code>.
+</p>
+<div id="pole-zero"></div>
+<p class="small">Try this: push <b>loop-gain &times;</b> up past ~3 and watch the two dominant real poles collide and split into a complex-conjugate pair — that is the loop becoming underdamped, and the step in §4 starts to ring. Drop <b>phase margin</b> to 45&deg; and the poles move toward the imaginary axis (less damping, more peaking).</p>
+
+<h3>2.2 All-real poles, yet ~25% overshoot — the zero is the culprit</h3>
+<p>
+This surprises people: a step response with three real poles "should" be monotonic (no overshoot). It overshoots ~25% anyway because of the closed-loop <b>zero at $\omega_z = 2\pi\cdot 402$ kHz</b> <span class="tag t-derive">model</span>. The reference&rarr;output transfer $H_\text{ref}=NG/(1+G)$ inherits the open-loop zero $(1+s/\omega_z)$ in its numerator. A left-half-plane zero adds a derivative-like term to the step response: the output gets a fast "kick" proportional to the derivative of the slow response, which pushes it <em>above</em> the final value before the poles pull it back. Because $\omega_z$ (402 kHz) sits <em>below</em> the dominant pole magnitudes (0.65&ndash;1.5 MHz), the zero is "fast" relative to the envelope and its kick is significant.
+</p>
+<div class="derive">
+<b>Why a low zero means overshoot.</b> For $H(s)=\dfrac{1+s/\omega_z}{(1+s/p_1)(1+s/p_2)\cdots}$, the step response is (step of the all-pole part) $+\;(1/\omega_z)\times$(impulse of the all-pole part). The second term is positive at early times and decays, so it bumps the response above 1 then vanishes — overshoot with no complex poles required. The closer $\omega_z$ is to the origin relative to the poles, the bigger the bump. Here $\omega_z<|p_\text{dom}|$, so ~25% overshoot is exactly what we see. This is also why the type-II loop has a small <b>1.70 dB</b> of magnitude peaking despite $\zeta\approx 1$. <span class="tag t-std">textbook</span> <span class="tag t-derive">model</span>
+</div>
+
+<h2>3. Sampled-loop stability: what the continuous model leaves out</h2>
+<p>
+Everything above used a <b>continuous-time</b> $G_\text{ol}(s)$. The real loop is sampled: the sampling phase detector compares phases <b>once per reference period</b> $T_\text{ref}=1/f_\text{ref}$ and holds (zero-order hold) until the next edge. Two effects are omitted by the continuous model.
+</p>
+<div class="grid">
+  <div class="card">
+    <h4>ZOH half-sample lag</h4>
+    <p>The once-per-$T_\text{ref}$ hold adds an extra phase lag of roughly <span class="tag t-std">textbook (ZOH)</span></p>
+    $$ \angle_\text{ZOH}(f) \approx -\pi\,\frac{f}{f_\text{ref}}\ \text{rad}, $$
+    <p>i.e. a half-sample delay. This is phase the continuous Bode plot never accounts for, so it <em>erodes</em> the true phase margin.</p>
+  </div>
+  <div class="card">
+    <h4>Gardner's $f_c < f_\text{ref}/10$ guideline</h4>
+    <p>Sampled loops stay close to their continuous approximation only when the crossover is well below the update rate — the rule of thumb is <span class="tag t-std">textbook (Gardner)</span></p>
+    $$ f_c \lesssim \frac{f_\text{ref}}{10}. $$
+    <p>Here $f_c/f_\text{ref} = 1.5/104 \approx 1/70$, far inside the guideline.</p>
+  </div>
+</div>
+<p>
+Plug $f=f_c$ into the lag: $\angle_\text{ZOH}(f_c)\approx -\pi\cdot(1/70) \approx -2.6^\circ$ <span class="tag t-derive">derived</span>. So the sampled loop's true phase margin is only about $60^\circ - 2.6^\circ \approx 57^\circ$ — a <b>small</b> erosion precisely because $f_c \ll f_\text{ref}$. This is why the continuous-time analysis on this page is trustworthy for <em>this</em> design; it would not be if someone pushed $f_c$ toward $f_\text{ref}/10 = 10.4$ MHz.
+</p>
+<div class="note">
+<b>One line on aliasing.</b> Because the detector samples at $f_\text{ref}$, any phase-noise or spur content above $f_\text{ref}/2 = 52$ MHz <b>folds (aliases)</b> back into the band $[0,\,f_\text{ref}/2]$. The loop cannot distinguish a high-offset component from its alias, so noise that the continuous model places out-of-band can reappear in-band; this is one more reason to keep the loop bandwidth a small fraction of $f_\text{ref}$ and to band-limit the reference path. <span class="tag t-std">textbook (sampled systems)</span>
+</div>
+
+<h3 id="zoh-interactive">Interactive: how much phase margin the sampling really eats</h3>
+<p>The open-loop phase with (dotted) and without (solid) the ZOH half-sample lag \(\angle_{\rm ZOH}=-\pi f/f_\text{ref}\). At the design \(f_c=1.5\) MHz the erosion is a harmless ~2.6°; push \(f_c\) toward \(f_\text{ref}/10\approx10\) MHz and the readout shows the sampled phase margin collapsing — exactly why the continuous-time design is only trustworthy while \(f_c\ll f_\text{ref}\). <span class="tag t-derive">model</span> <span class="tag t-std">textbook (ZOH)</span></p>
+<div id="zoh-erosion"></div>
+
+<h2>4. Step / transient response</h2>
+<p>
+The transient is simulated in discrete time at $f_\text{ref}$ with the proportional+integral coefficients of the type-II loop <span class="tag t-derive">derived (extras.py::step_response)</span>. For a unit <b>phase step</b> at the reference, the output overshoots ~25% and settles to within 1% in ~1.13 &micro;s.
+</p>
+<figure>
+  <img src="assets/figures/fd_step_response.png" alt="Normalized phase-step response of the PLL rising to about 1.25 then settling back to 1, with overshoot near 25 percent and one-percent settling near 1.13 microseconds">
+  <figcaption>
+    Phase-step response (normalized output phase vs time). The loop overshoots to ~1.25 (overshoot ~25%) and rings down to within 1% of the target (dashed line) in ~1.13 &micro;s, consistent with $\zeta\approx 0.97$ plus the low zero $\omega_z$ that supplies the overshoot. Model: <code>extras.py::step_response</code> (discrete-time, sampled at $f_\text{ref}$).
+  </figcaption>
+</figure>
+
+<h3>4.1 Interactive lock / transient explorer</h3>
+<p>
+Switch between a <b>phase step</b> and a <b>frequency step</b> (VCO yanked off-frequency), and sweep <b>f_c</b>, <b>phase margin</b>, and the <b>frequency-step size</b>. The readout reports overshoot, 1% settling, and the $\approx$ lock time ($\propto 1/f_c$).
+</p>
+<div id="lock-transient"></div>
+<p class="small">Try this: lower the phase margin toward 45&deg; and the overshoot grows and the ringing lasts longer; widen f_c and the loop settles faster (settling $\propto 1/f_c$) but you already know from the frequency page that this lets more reference/DTC noise in. That is the same gear-shifting trade-off discussed in §5.</p>
+
+<div class="derive">
+<b>Lock time scales as $1/f_c$.</b> The dominant closed-loop pole sits near $\omega_c$, so the envelope time constant is $\tau\approx 1/\omega_c = 1/(2\pi f_c)$. A 1% settle needs roughly $\ln(100)\approx 4.6$ time constants, i.e. $t_\text{settle}\approx 4.6/(2\pi f_c)$. With $f_c=1.5$ MHz that is ~0.49 &micro;s for a pure first-order envelope; the measured ~1.13 &micro;s is longer because of the ring from the zero and the second dominant pole. Either way, <b>lock time
+
+<details class="deriv"><summary><b>Worked example:</b> reconcile the 0.49 &micro;s envelope estimate with the simulated 1.13 &micro;s</summary>
+<p><b>GIVEN:</b> \(f_c=1.5\) MHz \(\Rightarrow \omega_c = 9.425\times10^6\) rad/s, and the three closed-loop poles \(-4.104,\,-9.425,\,-21.645\) Mrad/s from the cubic above <span class="tag t-derive">model</span>. A 1% settle needs \(\ln(100)=4.605\) time constants of the slowest surviving mode.</p>
+<p><b>Naive estimate &mdash; assume the envelope sits at the crossover \(\omega_c\):</b></p>
+$$ t_\text{settle} \approx \frac{\ln 100}{\omega_c} = \frac{4.605}{9.425\times10^6} = 0.489\ \mu\text{s}. $$
+<p>This is the number quoted just above &mdash; and it is more than 2&times; too fast versus the discrete-time simulation's <b>1.13 &micro;s</b>. Why?</p>
+<p><b>Corrected estimate &mdash; use the true dominant (slowest) pole.</b> The envelope is governed by the pole <em>closest to the origin</em>, \(|s_1| = 4.104\times10^6\) rad/s (\(=0.653\) MHz, well below \(\omega_c\)), not by \(\omega_c\) itself:</p>
+$$ t_\text{settle} \approx \frac{\ln 100}{|s_1|} = \frac{4.605}{4.104\times10^6} = 1.122\ \mu\text{s}. $$
+<p>Now it lands within 1% of the simulated 1.13 &micro;s. The remaining sliver is the ring contributed by the zero \(\omega_z\) and the second pole. <b>Lesson:</b> &ldquo;lock time \(\sim 1/f_c\)&rdquo; is the right <em>scaling</em>, but the right <em>prefactor</em> uses the dominant pole, which here is \(0.653/1.5 = 0.44\) of \(f_c\) &mdash; so the loop is roughly \(1.5/0.653 = 2.3\times\) slower than the crossover would suggest.</p>
+<p style="font-size:0.9em;color:#666"><b>Sanity check:</b> halving \(f_c\) halves every pole, so both \(t_\text{settle}\) estimates double &mdash; confirming the \(1/f_c\) law independent of which pole you use. <span class="tag t-derive">model</span> <span class="tag t-std">textbook</span></p>
+</details>
+ $\sim 1/f_c$</b> — halving the bandwidth roughly doubles the settling. <span class="tag t-derive">model</span> <span class="tag t-std">textbook</span>
+</div>
+
+<h2>5. Acquisition: how the loop actually catches lock</h2>
+<p>
+The small-signal analysis above assumes the loop is <em>already</em> near lock. Getting there is a separate problem, and it exposes a weakness of the high-gain sampling detector.
+</p>
+<h3>5.1 The sampling PD has a tiny lock range</h3>
+<p>
+The sampling phase detector has a very large gain ($K_\text{SPD}\approx 9.18$ V/rad, slide 20) — excellent for suppressing comparator/GM noise once locked. But that same steep slope means its <b>linear range is tiny</b>: it only behaves like a phase detector for phase errors within a fraction of one reference cycle. If the VCO starts far off-frequency, the SPD output just slews and wraps; it cannot pull the loop in. So a high-gain sampling PD has essentially <b>no frequency-acquisition (capture) range</b> on its own. <span class="tag t-derive">derived</span> <span class="tag t-slide">slide p20</span>
+</p>
+<h3>5.2 A PFD&ndash;CP FLL does the initial capture</h3>
+<p>
+The fix on <span class="tag t-slide">slide p39</span> is a dual-mode architecture: a conventional <b>phase-frequency detector + charge pump (PFD&ndash;CP) frequency-locked loop (FLL)</b> runs first to drag the VCO to the right frequency (it has a wide pull-in range because the PFD encodes frequency error, not just phase), and only then does the high-gain sampling PD take over for low-noise <b>phase</b> lock. This is the standard "acquire with one detector, track with another" split. <span class="tag t-slide">slide p39</span>
+</p>
+<div class="kpi">
+  <div class="box"><div class="v">23 &micro;s</div><div class="l">FCAL (freq. calibration)</div></div>
+  <div class="box"><div class="v">91 &micro;s</div><div class="l">FLL_LOCK</div></div>
+  <div class="box"><div class="v">~1/f_c</div><div class="l">fine-lock settling</div></div>
+</div>
+<p style="font-size:0.9em;color:#666">
+Startup sequence durations from <span class="tag t-slide">slide p37</span>: FCAL 23 &micro;s, FLL_LOCK 91 &micro;s; the final fine (sampling-PD) settling is the $\sim 1/f_c$ transient of §4.
+</p>
+
+<h3>5.3 Gear-shifting the bandwidth</h3>
+<p>
+A single fixed bandwidth cannot be both fast and quiet, so the loop <b>gear-shifts</b>: start with a <b>wide</b> bandwidth (large $f_c$, fast pull-in and short lock time, since lock time $\sim 1/f_c$) to acquire quickly, then <b>narrow</b> the bandwidth (small $f_c$) for steady-state operation to minimize the reference/DTC noise that a wide loop would let through. It is the time-domain mirror of the REF-vs-VCO trade-off from the frequency page: wide for speed, narrow for noise. <span class="tag t-std">textbook</span>
+</p>
+<div class="warn">
+<b>What the slides pin vs. what is standard practice.</b> The PFD&ndash;CP FLL for capture (slide 39) and the FCAL 23 &micro;s / FLL_LOCK 91 &micro;s durations (slide 37) are <span class="tag t-slide">from the deck</span>. The "tiny lock range of a high-gain sampling PD," the $\sim 1/f_c$ lock-time scaling, and explicit "gear-shifting" are <span class="tag t-std">standard PLL/CDR practice</span> applied here, not numbers quoted on a slide — treat the specific FLL-vs-fine bandwidth ratio as <span class="tag t-need">needs citation</span>.
+</div>
+
+<h2 id="self-check">Self-check</h2>
+<div class="quiz"><div class="q">Q1. The three closed-loop poles ($-4.1, -9.4, -21.7$ Mrad/s) are all real, which usually means no overshoot — yet the phase-step response overshoots ~25%. What causes the overshoot, and why is it significant here?</div><details><summary>Show answer</summary><div class="ans">The closed-loop <b>zero at $\omega_z = 2\pi\cdot 402$ kHz</b>, inherited from the type-II numerator $(1+s/\omega_z)$ in $H_\text{ref}=NG/(1+G)$. A left-half-plane zero adds a derivative-like term: the step response equals the all-pole step plus $(1/\omega_z)\times$ its impulse, and that positive early-time bump pushes the output above 1 before the poles pull it back — overshoot with no complex poles needed. It is significant because $\omega_z$ (402 kHz) sits <em>below</em> the dominant pole magnitudes (0.65&ndash;1.5 MHz), so the zero is "fast" relative to the envelope and its kick is large. The same zero gives the 1.70 dB of magnitude peaking despite $\zeta\approx 0.97$. <span class="tag t-derive">model</span> <span class="tag t-std">textbook</span></div></details></div>
+
+<div class="quiz"><div class="q">Q2. The continuous-time Bode plot says PM $=60^\circ$, but the loop is actually sampled at $f_\text{ref}=104$ MHz. Estimate the phase-margin erosion from the once-per-$T_\text{ref}$ zero-order hold, and explain why it is small here.</div><details><summary>Show answer</summary><div class="ans">The ZOH adds a half-sample lag $\angle_\text{ZOH}(f)\approx -\pi f/f_\text{ref}$. At crossover, $\angle_\text{ZOH}(f_c)\approx -\pi\cdot(1.5/104) = -\pi/70 \approx -2.6^\circ$, so the true PM is about $60^\circ - 2.6^\circ \approx 57^\circ$. It is small because $f_c/f_\text{ref}\approx 1/70$, comfortably inside Gardner's $f_c < f_\text{ref}/10$ guideline ($f_\text{ref}/10 = 10.4$ MHz). If $f_c$ were pushed toward 10 MHz the lag would approach $-18^\circ$ and the continuous model would no longer be trustworthy; aliasing (folding of content above $f_\text{ref}/2 = 52$ MHz) would also matter. <span class="tag t-derive">derived</span> <span class="tag t-std">textbook (Gardner)</span></div></details></div>
+
+<div class="quiz"><div class="q">Q3. The high-gain sampling phase detector gives a quiet locked loop ($K_\text{SPD}\approx 9.18$ V/rad). Why can't it acquire lock by itself, and what does the architecture do instead (with the slide-37 timing)?</div><details><summary>Show answer</summary><div class="ans">A steep PD slope means a <b>tiny linear range</b>: the SPD only acts like a phase detector for errors within a fraction of one reference cycle, so a far-off VCO just makes it slew and wrap — it has essentially <b>no frequency-capture range</b>. The architecture (slide 39) uses a separate <b>PFD&ndash;CP frequency-locked loop</b> to pull the VCO to frequency first (FCAL 23 &micro;s, FLL_LOCK 91 &micro;s on slide 37), then hands off to the sampling PD for low-noise phase tracking, whose fine settling is the $\sim 1/f_c$ transient (~1.13 &micro;s). Gear-shifting from a wide acquire-bandwidth to a narrow noise-bandwidth ties this to the REF-vs-VCO trade-off. <span class="tag t-slide">slide p37/p39</span> <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span></div></details></div>

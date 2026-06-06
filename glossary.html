@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notation & Glossary · DTC-Assisted Frac-N PLL</title>
+<meta name="description" content="Every symbol, its definition, units, and where it is used across the models and pages.">
+<meta property="og:title" content="Notation & Glossary · DTC-Assisted Fractional-N PLL">
+<meta property="og:description" content="Every symbol, its definition, units, and where it is used across the models and pages.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism-tomorrow.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar"><button class="ham" aria-label="Open menu">&#9776;</button><span class="ttl">Notation & Glossary</span></div>
+<div class="scrim"></div>
+<div class="wrap">
+<nav class="side" aria-label="Site sections">
+<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>
+<div class="sub">Interactive study of slides 1–42</div>
+<a class="" href="index.html"><span class="n">1</span>Home</a>
+<a class="" href="lab.html"><span class="n">2</span>Interactive Lab</a>
+<a class="" href="selftest.html"><span class="n">3</span>Self-Test</a>
+<a class="" href="slides.html"><span class="n">4</span>Slide-by-slide Map</a>
+<a class="" href="architecture.html"><span class="n">5</span>Architecture</a>
+<a class="" href="blocks.html"><span class="n">6</span>Block Models</a>
+<a class="" href="calibrations.html"><span class="n">7</span>Calibrations</a>
+<a class="" href="frequency.html"><span class="n">8</span>Frequency-Domain</a>
+<a class="" href="loopdyn.html"><span class="n">9</span>Loop Dynamics & Lock</a>
+<a class="" href="timedomain.html"><span class="n">10</span>Time-Domain Noise</a>
+<a class="" href="spurs.html"><span class="n">11</span>Fractional Spurs</a>
+<a class="" href="system.html"><span class="n">12</span>System Impact</a>
+<a class="" href="codewalk.html"><span class="n">13</span>Code Walkthrough</a>
+<a class="" href="examples.html"><span class="n">14</span>Numerical Examples</a>
+<a class="" href="designex.html"><span class="n">15</span>Design Walkthrough</a>
+<a class="" href="problems.html"><span class="n">16</span>Design Problems</a>
+<a class="" href="dtctopologies.html"><span class="n">17</span>DTC Topologies</a>
+<a class="active" href="glossary.html"><span class="n">18</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">19</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">20</span>References</a>
+</nav>
+<main>
+<div class="article">
+<h1>Notation &amp; Glossary</h1>
+<p class="lead">Every symbol used across this site, in one place: its meaning, its units, a typical value drawn from the model or the slides, and where it comes from. Skim the units cheat-sheet first if the dimensions ever feel slippery, then use the tables as a reference while you read the other pages.</p>
+
+<div class="note">
+<b>How to read the source tags.</b> Each "typical value" carries a provenance tag so you always know whether a number is on the deck or something we added:
+<span class="tag t-slide">slide pX</span> verbatim from the deck ·
+<span class="tag t-derive">derived</span> computed in this work from slide content ·
+<span class="tag t-std">textbook</span> standard PLL/DSP theory ·
+<span class="tag t-assume">assumption [A#]</span> a number we chose to make the model runnable (see the Assumptions page) ·
+<span class="tag t-need">needs citation</span> standard but not pinned to an exact source.
+Anchors you can trust everywhere: $f_\text{out}=6.72$ GHz, $f_\text{ref}=104$ MHz, $N=64.62$, $f_c\approx1.5$ MHz, $\text{PM}=60^\circ$.
+</div>
+
+<h2>Units cheat-sheet</h2>
+<p>The single most common source of confusion in PLL math is mixing up <b>phase</b> (radians or cycles), <b>time</b> (seconds), and <b>frequency</b> (hertz). They are all linked by the same two conversions, so keep these on a sticky note:</p>
+
+<div class="card">
+<ul>
+  <li><b>Phase &harr; time.</b> A phase error of $\varphi$ rad on a clock of frequency $f$ corresponds to a time error $\Delta t = \dfrac{\varphi}{2\pi f}$. Going the other way, $\varphi = 2\pi f\,\Delta t$. <span class="tag t-std">textbook</span></li>
+  <li><b>Phase &harr; cycles.</b> $1\ \text{cycle} = 2\pi\ \text{rad}$. The DSM emits quantization noise in <i>cycles</i><sup>2</sup>/Hz; multiply by $(2\pi)^2$ to get rad<sup>2</sup>/Hz. <span class="tag t-derive">derived</span></li>
+  <li><b>PSD &harr; dBc/Hz.</b> Single-sided phase PSD $S_\varphi(f)$ is in rad<sup>2</sup>/Hz; the log-scale phase noise is $\mathcal{L}(f)=10\log_{10}\!\big(\tfrac12 S_\varphi\big)$ dBc/Hz. The factor $\tfrac12$ is the single-sideband (SSB) convention used throughout. <span class="tag t-std">textbook</span> <span class="tag t-assume">[A19]</span></li>
+  <li><b>PSD &harr; jitter.</b> Integrating the PSD gives a variance $\sigma_\varphi^2=\int S_\varphi\,df$ (rad<sup>2</sup>); divide the RMS phase by $2\pi f_\text{out}$ to get RMS jitter in seconds: $\sigma_t=\dfrac{\sigma_\varphi}{2\pi f_\text{out}}$. <span class="tag t-std">textbook</span></li>
+  <li><b>VCO gain.</b> Datasheets quote $K_\text{VCO}$ in Hz/V; the phase-domain gain is $2\pi K_\text{VCO}[\text{Hz/V}]/s$ (rad/s/V over $s$). Always check which one a formula expects. <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span></li>
+  <li><b>$s$ and $\omega$.</b> In all transfer functions $s=j\omega$ and $\omega=2\pi f$. Phases are in rad, times in s, frequencies in Hz. <span class="tag t-std">textbook</span></li>
+</ul>
+</div>
+
+<h2>Frequencies &amp; timing</h2>
+<p>The fixed coordinates of the design: the reference and output frequencies, their periods, and the divide ratio that links them.</p>
+
+<table>
+<thead>
+  <tr><th>Symbol</th><th>Name</th><th>Units</th><th class="num">Typical value</th><th>Where used / source</th></tr>
+</thead>
+<tbody>
+  <tr><td>$f_\text{out}$</td><td>VCO / LO output frequency</td><td>Hz</td><td class="num">6.72 GHz</td><td>Everywhere; jitter denominator <span class="tag t-slide">slide p42</span></td></tr>
+  <tr><td>$f_\text{ref}$</td><td>Reference (sampling/update) frequency</td><td>Hz</td><td class="num">104 MHz</td><td>Loop update rate; DTC QN scale <span class="tag t-slide">slide p42</span></td></tr>
+  <tr><td>$N$</td><td>Divide ratio ($=f_\text{out}/f_\text{ref}$, fractional)</td><td>&mdash;</td><td class="num">64.62</td><td>Feedback $\div N$; $H_\text{ref}(0)=N$ <span class="tag t-derive">derived</span> <span class="tag t-assume">[A3]</span></td></tr>
+  <tr><td>$T_\text{vco}$</td><td>VCO period ($=1/f_\text{out}$)</td><td>s</td><td class="num">148.8 ps</td><td>QE range; $K_\text{DTC}=T_\text{vco}/\Delta t_\text{DTC}$ <span class="tag t-derive">derived</span> <span class="tag t-slide">slide p9</span></td></tr>
+  <tr><td>$T_\text{ref}$</td><td>Reference period ($=1/f_\text{ref}$)</td><td>s</td><td class="num">9.615 ns</td><td>DTC updates once per $T_\text{ref}$ <span class="tag t-derive">derived</span></td></tr>
+</tbody>
+</table>
+
+<h3>Anchor values</h3>
+<div class="kpi">
+  <div class="box"><div class="v">6.72 GHz</div><div class="l">f_out (LO)</div></div>
+  <div class="box"><div class="v">104 MHz</div><div class="l">f_ref</div></div>
+  <div class="box"><div class="v">64.62</div><div class="l">N = f_out / f_ref</div></div>
+  <div class="box"><div class="v">148.8 ps</div><div class="l">T_vco</div></div>
+  <div class="box"><div class="v">9.615 ns</div><div class="l">T_ref</div></div>
+</div>
+
+<h2>DTC (digital-to-time converter)</h2>
+<p>The reference-path delay element that pre-cancels the divider's fractional jitter. These symbols describe its resolution, its RC implementation, its range/power tradeoff, and its quantization-noise floor <span class="tag t-slide">slide p14&ndash;17</span> <span class="tag t-slide">slide p33</span>.</p>
+
+<table>
+<thead>
+  <tr><th>Symbol</th><th>Name</th><th>Units</th><th class="num">Typical value</th><th>Where used / source</th></tr>
+</thead>
+<tbody>
+  <tr><td>$K_\text{DTC}$</td><td>DTC gain (codes per VCO period)</td><td>codes / cycle</td><td class="num">$T_\text{vco}/\Delta t_\text{DTC}$</td><td>$\text{DTC code}=K_\text{DTC}\,\Phi_e[n]$; cal target <span class="tag t-slide">slide p9</span> <span class="tag t-slide">slide p40</span></td></tr>
+  <tr><td>$\Delta t_\text{DTC}$</td><td>DTC delay step (= unit delay)</td><td>s</td><td class="num">&asymp; T_res</td><td>$K_\text{DTC}=T_\text{vco}/\Delta t_\text{DTC}$ <span class="tag t-slide">slide p9</span> <span class="tag t-slide">slide p14</span></td></tr>
+  <tr><td>$T_\text{res}$</td><td>DTC resolution (unit delay $=\ln2\cdot R\,C_\text{LSB}$)</td><td>s</td><td class="num">400 fs</td><td>QN &amp; thermal formulas; $\sigma_t=T_\text{res}/\sqrt{12}=115$ fs <span class="tag t-slide">slide p15</span></td></tr>
+  <tr><td>$R$</td><td>RC-delay series resistance</td><td>&Omega;</td><td class="num">&asymp; 289 &Omega;</td><td>Sets $T_\text{res}$ &amp; thermal noise <span class="tag t-slide">slide p14</span> <span class="tag t-assume">[A7]</span></td></tr>
+  <tr><td>$C_\text{LSB}$</td><td>Per-LSB capacitance of the cap array</td><td>F</td><td class="num">2 fF</td><td>$T_\text{res}=\ln2\,R\,C_\text{LSB}$; $kT/C$ noise <span class="tag t-slide">slide p15&ndash;16</span> <span class="tag t-assume">[A7]</span></td></tr>
+  <tr><td>$\text{DR}$</td><td>DTC dynamic range ($=2^{n}\,T_\text{res}$)</td><td>s</td><td class="num">409.6 ps</td><td>$2^{10}\times400$ fs (≈400 ps nominal); range/power/linearity tradeoff <span class="tag t-slide">slide p15</span> <span class="tag t-slide">slide p33</span></td></tr>
+  <tr><td>$n$</td><td>DTC resolution in bits</td><td>bits</td><td class="num">10</td><td>$\text{DR}=2^{n}T_\text{res}$ <span class="tag t-slide">slide p15</span></td></tr>
+  <tr><td>$k_\text{slew}$</td><td>Comparator ramp slew rate ($=1/2RC$ at $V_\text{DD}/2$)</td><td>V/s</td><td class="num">&mdash;</td><td>Converts $\sigma_v$ to timing jitter <span class="tag t-slide">slide p16</span></td></tr>
+  <tr><td>$\text{INL}$</td><td>Integral nonlinearity (static + dynamic)</td><td>LSB</td><td class="num">&plusmn;0.6 LSB</td><td>Source of frac spurs / folding <span class="tag t-slide">slide p17&ndash;18</span> <span class="tag t-assume">[A8]</span></td></tr>
+  <tr><td>$\text{DNL}$</td><td>Differential nonlinearity (after DEM)</td><td>LSB</td><td class="num">&plusmn;0.2 LSB</td><td>10-bit DEM target <span class="tag t-slide">slide p17</span></td></tr>
+  <tr><td>$\Phi_{\text{DTC,QN}}$</td><td>DTC quantization-noise PSD $=\dfrac{(2\pi T_\text{res})^2}{12}f_\text{ref}$</td><td>rad<sup>2</sup>/Hz</td><td class="num">&minus;163 dBc/Hz</td><td>In-band reference-path floor <span class="tag t-slide">slide p15</span> (&minus;162.6 <span class="tag t-derive">derived</span>)</td></tr>
+</tbody>
+</table>
+
+<div class="cite">
+<b>On the slide vs. our R/C split.</b> Slide 15 gives $T_\text{res}=400$ fs, $n=10$, $\text{DR}=400$ ps directly. Slide 16 requires $C_\text{LSB}\ge 2$ fF for the thermal floor, so we set $C_\text{LSB}=2$ fF and back-solve $R\approx289\ \Omega$ from $T_\text{res}=\ln2\cdot R\,C_\text{LSB}$ <span class="tag t-assume">[A7]</span>. The quantization-noise number is recomputed from the slide formula and lands at &minus;162.6 dBc/Hz, matching the slide's &minus;163 within the rounding of $K_\text{slope}$ <span class="tag t-derive">derived</span>.
+</div>
+
+<div class="warn">
+<b>Single- vs double-sided 3 dB caveat.</b> Whether $\Phi_{\text{DTC,QN}}$ spreads the timing variance over $f_\text{ref}$ (full Nyquist span) or $f_\text{ref}/2$ is a factor-of-2 (3 dB) convention choice. We adopt the slide's $\big(/12\big)\cdot f_\text{ref}$ form that reproduces &minus;163 dBc/Hz, and flag the exact convention as <span class="tag t-need">needs citation</span>.
+</div>
+
+<h2>Phase detector &amp; loop</h2>
+<p>The sampling phase detector (SPD) gain and the linear $s$-domain loop: open-loop gain, the two closed-loop noise transfer functions, and the parameters that set bandwidth and phase margin <span class="tag t-slide">slide p5</span> <span class="tag t-slide">slide p20</span>.</p>
+
+<table>
+<thead>
+  <tr><th>Symbol</th><th>Name</th><th>Units</th><th class="num">Typical value</th><th>Where used / source</th></tr>
+</thead>
+<tbody>
+  <tr><td>$K_\text{SPD}$</td><td>Sampling-PD gain $=K_\text{slope}/(2\pi f_\text{ref})$</td><td>V/rad</td><td class="num">9.18 V/rad</td><td>$K_\text{PD}$ of the SPD path <span class="tag t-slide">slide p20</span> <span class="tag t-assume">[A9]</span></td></tr>
+  <tr><td>$K_\text{slope}$</td><td>SPD slope-generator ramp rate</td><td>V/s</td><td class="num">6 GV/s</td><td>Sets $K_\text{SPD}$ <span class="tag t-slide">slide p20</span></td></tr>
+  <tr><td>$K_\text{VCO}$</td><td>VCO tuning gain (phase: $2\pi K_\text{VCO}/s$)</td><td>Hz/V (rad/s/V)</td><td class="num">100 MHz/V</td><td>Forward path $K_\text{VCO}/s$ <span class="tag t-slide">slide p5</span> <span class="tag t-assume">[A4]</span></td></tr>
+  <tr><td>$G_\text{ol}(s)$</td><td>Open-loop gain $=K_\text{PD}H_\text{LF}(s)\dfrac{K_\text{VCO}}{s}\dfrac{1}{N}$</td><td>&mdash;</td><td class="num">$|G_\text{ol}(j\omega_c)|=1$</td><td>Sets $f_c$, PM <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span></td></tr>
+  <tr><td>$H_\text{ref}(s)$</td><td>Reference&rarr;output TF (low-pass, $=N\,G/(1{+}G)$)</td><td>&mdash;</td><td class="num">$\to N$ at DC</td><td>Shapes REF/DTC/MMD/SPD noise <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span></td></tr>
+  <tr><td>$H_\text{vco}(s)$</td><td>VCO&rarr;output TF (high-pass, $=1/(1{+}G)$)</td><td>&mdash;</td><td class="num">$\to 1$ at HF</td><td>Shapes VCO noise <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span></td></tr>
+  <tr><td>$\omega_c\,/\,f_c$</td><td>Loop unity-gain (cross-over) frequency</td><td>rad/s, Hz</td><td class="num">1.5 MHz</td><td>Loop bandwidth (target 1.50, meas 1.501) <span class="tag t-assume">[A1]</span></td></tr>
+  <tr><td>$\omega_z$</td><td>Loop-filter zero ($=1/R_zC_z$); sets PM</td><td>rad/s</td><td class="num">402 kHz</td><td>$f_z=\omega_z/2\pi$ <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span></td></tr>
+  <tr><td>$\omega_p$</td><td>Loop-filter pole; cleans HF ripple</td><td>rad/s</td><td class="num">5.60 MHz</td><td>$f_p=\omega_p/2\pi$ <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span></td></tr>
+  <tr><td>$\text{PM}$</td><td>Phase margin $=180^\circ+\angle G_\text{ol}(j\omega_c)$</td><td>deg</td><td class="num">60&deg;</td><td>Damping / peaking <span class="tag t-assume">[A2]</span> (meas 60.0&deg;)</td></tr>
+</tbody>
+</table>
+
+<h3>Loop knobs (as designed)</h3>
+<div class="kpi">
+  <div class="box"><div class="v">1.50 MHz</div><div class="l">loop BW f_c [A1]</div></div>
+  <div class="box"><div class="v">60&deg;</div><div class="l">phase margin [A2]</div></div>
+  <div class="box"><div class="v">402 kHz</div><div class="l">f_z = &omega;_z/2&pi;</div></div>
+  <div class="box"><div class="v">5.60 MHz</div><div class="l">f_p = &omega;_p/2&pi;</div></div>
+  <div class="box"><div class="v">9.18 V/rad</div><div class="l">K_SPD</div></div>
+</div>
+
+<h2>Calibration</h2>
+<p>The four background sign-LMS loops share one 1-bit error $e[k]=\text{sign}(\text{PHE})$ and each correlates it with a different regressor to isolate one impairment <span class="tag t-slide">slide p26&ndash;28</span> <span class="tag t-slide">slide p35&ndash;40</span>. These are the symbols that appear in the calibration update equations.</p>
+
+<table>
+<thead>
+  <tr><th>Symbol</th><th>Name</th><th>Units</th><th class="num">Typical value</th><th>Where used / source</th></tr>
+</thead>
+<tbody>
+  <tr><td>$\Phi_e$</td><td>Accumulated DSM quantization error (residual phase)</td><td>rad (or cycles)</td><td class="num">$\in[0,0.5\,T_\text{vco}]$</td><td>DTC drive &amp; $K_\text{DTC}$ regressor <span class="tag t-slide">slide p9</span> <span class="tag t-slide">slide p34</span></td></tr>
+  <tr><td>$e[k]$</td><td>1-bit loop error $=\text{sign}(\text{PHE})$</td><td>&plusmn;1</td><td class="num">zero-mean (after offset cal)</td><td>Shared by all four LMS loops <span class="tag t-slide">slide p27</span> <span class="tag t-slide">slide p40</span></td></tr>
+  <tr><td>$\text{SEL\_CKFB}$</td><td>VCO-phase select (&frac12;-range, alternating $\pm1$)</td><td>&plusmn;1</td><td class="num">&plusmn;1</td><td>Regressor for $\text{vco\_dcc}$ <span class="tag t-slide">slide p34</span> <span class="tag t-slide">slide p36</span></td></tr>
+  <tr><td>$\text{even\_cycle}$</td><td>Alternating-cycle indicator (every $T_\text{ref}$)</td><td>&plusmn;1</td><td class="num">&plusmn;1</td><td>Regressor for $\text{ckref\_dcc}$ <span class="tag t-slide">slide p40</span></td></tr>
+  <tr><td>$\mu_1$</td><td>Sign-LMS step &mdash; VCO duty-cycle cal</td><td>&mdash;</td><td class="num">&tau;&asymp;5&ndash;8 &micro;s</td><td>$\text{vco\_dcc}$ update <span class="tag t-slide">slide p40</span> <span class="tag t-assume">[A17]</span></td></tr>
+  <tr><td>$\mu_2$</td><td>Sign-LMS step &mdash; DTC gain cal</td><td>&mdash;</td><td class="num">&tau;&asymp;5&ndash;8 &micro;s</td><td>$K_\text{DTC}$ update <span class="tag t-slide">slide p40</span> <span class="tag t-assume">[A17]</span></td></tr>
+  <tr><td>$\mu_3$</td><td>Sign-LMS step &mdash; CKREF duty-cycle cal</td><td>&mdash;</td><td class="num">&tau;&asymp;5&ndash;8 &micro;s</td><td>$\text{ckref\_dcc}$ update <span class="tag t-slide">slide p40</span> <span class="tag t-assume">[A17]</span></td></tr>
+  <tr><td>$\text{vco\_dcc}$</td><td>VCO duty-cycle correction ($\to\Delta t_\text{err}/2$)</td><td>codes / s</td><td class="num">converges $\Delta t_\text{err}/2$</td><td>Added to DTC code <span class="tag t-slide">slide p36</span> <span class="tag t-derive">derived</span></td></tr>
+  <tr><td>$\text{ckref\_dcc}$</td><td>CKREF duty-cycle correction (into FCW)</td><td>codes</td><td class="num">$\text{FCW}'{=}\text{FCW}{+}\text{ckref\_dcc}$</td><td>Corrects alternating-cycle error <span class="tag t-slide">slide p40</span> <span class="tag t-derive">derived</span></td></tr>
+  <tr><td>$V_\text{ref,adj}$</td><td>Comparator/GM offset cancel (&Delta;V-DAC)</td><td>V</td><td class="num">&Delta;&Sigma;-dithered 1-bit</td><td>Keeps $e[k]$ zero-mean <span class="tag t-slide">slide p28</span> <span class="tag t-slide">slide p40</span></td></tr>
+  <tr><td>$\Delta t_\text{err}$</td><td>VCO duty-cycle error $=\Delta t-T_\text{vco}/2$</td><td>s</td><td class="num">20 ps injected</td><td>What $\text{vco\_dcc}$ nulls <span class="tag t-slide">slide p35</span> <span class="tag t-slide">slide p40</span> <span class="tag t-assume">[A18]</span></td></tr>
+  <tr><td>$\Phi_{\text{DTC,QN}}$</td><td>(DTC residual after cal) accumulated-QE cancellation</td><td>rad<sup>2</sup>/Hz</td><td class="num">&asymp; 0% (cancelled)</td><td>$\Sigma\Delta$M QE &asymp; 0 after DTC <span class="tag t-slide">slide p9</span> <span class="tag t-slide">slide p42</span></td></tr>
+</tbody>
+</table>
+
+<div class="note">
+<b>LMS update shapes (for reference).</b> $K_\text{DTC}[k{+}1]=K_\text{DTC}[k]+\mu_2\,e[k]\,\Phi_e[k{-}n]$; $\text{vco\_dcc}[k{+}1]=\text{vco\_dcc}[k]+\mu_1\,\text{SEL\_CKFB}[k]\,(e[k]{-}e[k{-}1])$; $\text{ckref\_dcc}[k{+}1]=\text{ckref\_dcc}[k]+\mu_3\,\text{even\_cycle}[k]\,(e[k]{-}e[k{-}1])$; $V_\text{ref,adj}[k{+}1]=V_\text{ref,adj}[k]+\mu_\text{os}\,e[k]$. All converge in $<30\ \mu$s <span class="tag t-slide">slide p37</span> <span class="tag t-slide">slide p40</span>.
+</div>
+
+<h2>Noise &amp; jitter</h2>
+<p>The output-side noise quantities: the spectral density of phase, its log-scale and integrated forms, and the RMS jitter / integrated-phase-noise figures of merit that the whole design is judged on <span class="tag t-slide">slide p42</span> <span class="tag t-std">textbook</span>.</p>
+
+<table>
+<thead>
+  <tr><th>Symbol</th><th>Name</th><th>Units</th><th class="num">Typical value</th><th>Where used / source</th></tr>
+</thead>
+<tbody>
+  <tr><td>$\Phi_e$</td><td>Accumulated DSM quantization error (also a noise input)</td><td>rad</td><td class="num">cancelled in-band</td><td>DSM/DTC path <span class="tag t-slide">slide p9</span></td></tr>
+  <tr><td>$\Phi_\text{DTC,QN}$</td><td>DTC quantization noise (input-referred)</td><td>rad<sup>2</sup>/Hz</td><td class="num">&minus;163 dBc/Hz</td><td>REF+DTC bucket <span class="tag t-slide">slide p15</span></td></tr>
+  <tr><td>$m$</td><td>$\Delta\Sigma$ / DSM order (MASH)</td><td>&mdash;</td><td class="num">2</td><td>QE shaping $(1{-}z^{-1})^m$ <span class="tag t-slide">slide p15</span> <span class="tag t-assume">[A5]</span></td></tr>
+  <tr><td>$S_\varphi(f)$</td><td>Single-sided phase PSD</td><td>rad<sup>2</sup>/Hz</td><td class="num">per-source</td><td>NTF-shaped output spectrum <span class="tag t-std">textbook</span></td></tr>
+  <tr><td>$\mathcal{L}(f)$</td><td>Phase noise $=10\log_{10}(\tfrac12 S_\varphi)$</td><td>dBc/Hz</td><td class="num">budget plot</td><td>Output PN budget <span class="tag t-std">textbook</span> <span class="tag t-assume">[A19]</span></td></tr>
+  <tr><td>$\sigma_\varphi$</td><td>RMS integrated phase $=\sqrt{\int S_\varphi\,df}$</td><td>rad</td><td class="num">3.70&times;10<sup>&minus;3</sup></td><td>Over 1 kHz&ndash;100 MHz <span class="tag t-std">textbook</span> <span class="tag t-assume">[A16]</span></td></tr>
+  <tr><td>$\sigma_t$</td><td>RMS jitter $=\sigma_\varphi/(2\pi f_\text{out})$</td><td>s</td><td class="num">87.6 fs</td><td>The headline metric (slide 42: 87.5 fs) <span class="tag t-derive">derived</span> <span class="tag t-slide">slide p42</span></td></tr>
+  <tr><td>$\text{IPN}$</td><td>Integrated phase noise $=10\log_{10}(\tfrac12\sigma_\varphi^2)$ (SSB)</td><td>dBc</td><td class="num">&minus;51.6 dBc</td><td>Deck convention (slide 42: &minus;51.7) <span class="tag t-derive">derived</span> <span class="tag t-slide">slide p42</span></td></tr>
+</tbody>
+</table>
+
+<h3>The validation target (slide 42)</h3>
+<div class="kpi">
+  <div class="box"><div class="v">87.6 fs</div><div class="l">RMS jitter (slide: 87.5)</div></div>
+  <div class="box"><div class="v">&minus;51.6 dBc</div><div class="l">IPN, SSB (slide: &minus;51.7)</div></div>
+  <div class="box"><div class="v">51.8%</div><div class="l">VCO share</div></div>
+  <div class="box"><div class="v">37.8%</div><div class="l">REF + DTC share</div></div>
+  <div class="box"><div class="v">6.2%</div><div class="l">MMD share</div></div>
+</div>
+
+<div class="derive">
+<b>Worked conversion (closes slide 42).</b> With $\sigma_t=87.5$ fs and $f_\text{out}=6.72$ GHz: $\sigma_\varphi=2\pi f_\text{out}\sigma_t=3.69\times10^{-3}$ rad, so $\sigma_\varphi^2=1.365\times10^{-5}$ rad<sup>2</sup>. Then $\text{IPN}_\text{SSB}=10\log_{10}(\tfrac12\sigma_\varphi^2)=-51.66$ dBc, matching the deck's &minus;51.7 dBc; the total-variance convention $10\log_{10}(\sigma_\varphi^2)=-48.65$ dBc is exactly 3 dB higher <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>. Our frequency-domain model returns 87.6 fs / &minus;51.6 dBc in the same convention.
+</div>
+
+<div class="derive">
+<b>The same triangle, run backward (dBc &rarr; mrad &rarr; fs).</b> The box above goes <i>jitter&nbsp;&rarr;&nbsp;dBc</i>. Reading a budget plot usually hands you the opposite: a single IPN number, from which you want the RMS phase and the jitter. Invert the SSB definition $\text{IPN}=10\log_{10}\!\big(\tfrac12\sigma_\varphi^2\big)$ to get $\sigma_\varphi=\sqrt{2\cdot 10^{\,\text{IPN}/10}}$, then divide by $2\pi f_\text{out}$.
+
+<p style="margin:.5em 0 .2em"><b>Given.</b> The model's headline $\text{IPN}=-51.6$ dBc (SSB) <span class="tag t-derive">derived</span> &middot; $f_\text{out}=6.72$ GHz <span class="tag t-slide">slide p42</span>.</p>
+
+<p style="margin:.2em 0"><b>Step 1 &mdash; dBc &rarr; rad.</b> $\sigma_\varphi=\sqrt{2\cdot 10^{-51.6/10}}=\sqrt{2\cdot 6.92\times10^{-6}}=3.72\times10^{-3}\ \text{rad}=3.72\ \text{mrad}.$</p>
+
+<p style="margin:.2em 0"><b>Step 2 &mdash; rad &rarr; s.</b> $\sigma_t=\dfrac{\sigma_\varphi}{2\pi f_\text{out}}=\dfrac{3.72\times10^{-3}}{2\pi(6.72\times10^{9})}=8.81\times10^{-14}\ \text{s}=88.1\ \text{fs}.$</p>
+
+<div class="kpi">
+  <div class="box"><div class="v">&minus;51.6 dBc</div><div class="l">IPN in (SSB)</div></div>
+  <div class="box"><div class="v">3.72 mrad</div><div class="l">&sigma;_&phi; out</div></div>
+  <div class="box"><div class="v">88.1 fs</div><div class="l">&sigma;_t out</div></div>
+</div>
+
+<p style="margin:.4em 0 0"><b>Sanity check.</b> The recovered $88.1$ fs sits right on the model's stored $87.6$ fs (the $0.5$ fs gap is just the rounding of $-51.6$ vs.\ the model's exact $-51.65$ dBc), and $3.72$ mrad matches the forward box's $3.69$ mrad. Forward and reverse close on the same point, so the three columns &mdash; $-51.6$ dBc, $3.7$ mrad, $87.6$ fs &mdash; are one quantity in three units, exactly as the units cheat-sheet promises. <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span></p>
+</div>
+
+<h2>A tiny KaTeX legend</h2>
+<p>The recurring math notation, decoded once:</p>
+
+<div class="card">
+<ul>
+  <li>$s = j\omega$, $\omega = 2\pi f$ &mdash; Laplace variable on the imaginary axis; the model evaluates transfer functions at $s=j2\pi f$.</li>
+  <li>$z^{-1}$ &mdash; one-sample (one reference cycle) delay in the discrete-time cal loops; $(1-z^{-1})^m$ is the DSM's $m$th-order noise shaping.</li>
+  <li>$G \equiv G_\text{ol}(s)$ &mdash; shorthand for the open-loop gain inside $N\,G/(1+G)$ and $1/(1+G)$.</li>
+  <li>$\to$ &mdash; "tends to" (limit), e.g. $H_\text{ref}\to N$ at DC, $H_\text{vco}\to 1$ at high frequency.</li>
+  <li>$|\cdot|$, $\angle\cdot$ &mdash; magnitude and phase of a complex transfer function; PM uses $\angle G_\text{ol}(j\omega_c)$.</li>
+  <li>$\hat{g}$ &mdash; the adaptive <i>estimate</i> of a true parameter $g$ (e.g. $\hat{K}_\text{DTC}$ converging to $K_\text{DTC}$).</li>
+  <li>$\mathbb{E}\{\cdot\}$ &mdash; expectation (statistical average), used in LMS convergence arguments.</li>
+  <li>$kT$ &mdash; Boltzmann's constant times absolute temperature ($\approx4.14\times10^{-21}$ J at 300 K); the $kT/C$ in DTC thermal noise.</li>
+</ul>
+</div>
+
+<div class="assume">
+<b>Reminder.</b> Every value tagged <span class="tag t-assume">[A#]</span> is a modeling choice, not a slide number &mdash; full rationale is on the Assumptions page. Slide-tagged values are verbatim from the deck (PDF page = slide page, no offset). Derived values are reproducible from <code>models/frequency_domain_model.py</code> and <code>models/utils.py</code>.
+</div>
+
+</div>
+<aside class="toc-rail" aria-label="On this page"></aside>
+<div class="btnrow"><div><a href="dtctopologies.html">← DTC Topologies</a></div><div><a href="validation.html">Validation & Limits →</a></div></div>
+<div class="footer">
+  Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
+  (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
+  Provenance tags: <span class="tag t-slide">slide pX</span>
+  <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
+  <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
+</div>
+</main>
+</div>
+<button id="toTop" aria-label="Back to top">&#8593;</button>
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/prism/prism-core.min.js"></script>
+<script src="assets/vendor/prism/prism-clike.min.js"></script>
+<script src="assets/vendor/prism/prism-python.min.js"></script>
+
+<script src="assets/app/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 380" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="14">
+  <defs>
+    <marker id="ah2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1f2733"/></marker>
+    <marker id="ahn" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c8442b"/></marker>
+  </defs>
+  <style>
+    .blk{fill:#fff;stroke:#1f2733;stroke-width:2}
+    .lbl{fill:#1f2733;text-anchor:middle}
+    .sig{fill:#5b6776;font-size:12px;text-anchor:middle}
+    .wire{stroke:#1f2733;stroke-width:2;fill:none}
+    .nz{fill:#c8442b;font-size:11.5px;text-anchor:middle;font-weight:700}
+    .nwire{stroke:#c8442b;stroke-width:1.6;fill:none;stroke-dasharray:4 3}
+    .lp{fill:#0a8f5b;font-size:11px;text-anchor:middle}
+  </style>
+
+  <!-- blocks -->
+  <rect x="80" y="120" width="74" height="46" class="blk" rx="8"/><text x="117" y="148" class="lbl">DTC</text>
+  <rect x="216" y="120" width="92" height="46" class="blk" rx="8"/><text x="262" y="148" class="lbl">SPD</text>
+  <rect x="348" y="120" width="104" height="46" class="blk" rx="8"/><text x="400" y="144" class="lbl">G&#8344; + LF</text>
+  <rect x="498" y="120" width="74" height="46" class="blk" rx="8"/><text x="535" y="148" class="lbl">VCO</text>
+  <rect x="470" y="240" width="102" height="44" class="blk" rx="8"/><text x="521" y="267" class="lbl">MMD &#247;N</text>
+  <rect x="350" y="300" width="120" height="42" class="blk" rx="8"/><text x="410" y="326" class="lbl" font-size="12">Modified &#931;&#916;</text>
+
+  <!-- forward wires -->
+  <text x="20" y="138" class="sig" text-anchor="start">CKREF</text>
+  <line x1="22" y1="143" x2="78" y2="143" class="wire" marker-end="url(#ah2)"/>
+  <line x1="154" y1="143" x2="214" y2="143" class="wire" marker-end="url(#ah2)"/>
+  <line x1="308" y1="143" x2="346" y2="143" class="wire" marker-end="url(#ah2)"/>
+  <line x1="452" y1="143" x2="496" y2="143" class="wire" marker-end="url(#ah2)"/>
+  <line x1="572" y1="143" x2="690" y2="143" class="wire" marker-end="url(#ah2)"/>
+  <text x="700" y="147" class="lbl" font-size="13" text-anchor="start">&#934;<tspan baseline-shift="sub" font-size="9">out</tspan></text>
+  <!-- feedback -->
+  <line x1="640" y1="143" x2="640" y2="262" class="wire"/><line x1="640" y1="262" x2="572" y2="262" class="wire" marker-end="url(#ah2)"/>
+  <line x1="470" y1="262" x2="262" y2="262" class="wire"/><line x1="262" y1="262" x2="262" y2="166" class="wire" marker-end="url(#ah2)"/>
+  <line x1="521" y1="284" x2="521" y2="321" class="wire"/><line x1="521" y1="321" x2="470" y2="321" class="wire" marker-end="url(#ah2)"/>
+
+  <!-- noise injections (red dashed) -->
+  <!-- REF -->
+  <text x="40" y="95" class="nz">REF PN</text><line x1="40" y1="100" x2="55" y2="138" class="nwire" marker-end="url(#ahn)"/>
+  <!-- DTC QN+thermal -->
+  <text x="117" y="92" class="nz">DTC QN+thermal</text><line x1="117" y1="98" x2="117" y2="118" class="nwire" marker-end="url(#ahn)"/>
+  <!-- SPD+GM -->
+  <text x="300" y="92" class="nz">SPD+G&#8344; noise</text><line x1="300" y1="98" x2="280" y2="118" class="nwire" marker-end="url(#ahn)"/>
+  <!-- VCO -->
+  <text x="535" y="92" class="nz">VCO PN</text><line x1="535" y1="98" x2="535" y2="118" class="nwire" marker-end="url(#ahn)"/>
+  <!-- MMD -->
+  <text x="640" y="300" class="nz">MMD noise</text><line x1="600" y1="295" x2="560" y2="270" class="nwire" marker-end="url(#ahn)"/>
+  <!-- DSM-QN -->
+  <text x="300" y="355" class="nz">&#931;&#916; QN (cancelled by DTC &#8776; 0)</text><line x1="360" y1="342" x2="380" y2="320" class="nwire" marker-end="url(#ahn)"/>
+
+  <!-- NTF shaping annotations -->
+  <text x="262" y="200" class="lp">REF/DTC/SPD/MMD &#8594; |H_ref|&#178; (low-pass, &#215;N in band)</text>
+  <text x="535" y="200" class="lp">VCO &#8594; |H_vco|&#178; (high-pass)</text>
+
+  <text x="20" y="30" font-size="15" font-weight="700" fill="#c8442b">Noise-injection flow — where each source enters and how the loop shapes it</text>
+  <text x="20" y="48" class="sig" text-anchor="start">Red dashed = noise injection · green = the noise transfer function (NTF) that shapes it to the output</text>
+</svg>

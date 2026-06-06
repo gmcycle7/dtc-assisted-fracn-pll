@@ -1,0 +1,509 @@
+<h1>Design Walkthrough</h1>
+<p class="lead">A capstone: instead of <i>verifying</i> the Samsung design, we <i>synthesize</i> a new one from a single requirement — "build a 6.72&nbsp;GHz fractional-N PLL whose integrated jitter is under 80&nbsp;fs rms." We walk strictly forward — spec &rarr; budget &rarr; loop bandwidth &rarr; DTC sizing &rarr; calibration &rarr; figure-of-merit — and at every step we label each quantity as <b>GIVEN</b> (handed to us), <b>CHOOSE</b> (a design decision we make) or <b>CHECK</b> (the inequality the choice must satisfy). By the end you will have turned one number (80&nbsp;fs) into a complete, internally consistent paper design.</p>
+
+<div class="note">
+This page reuses the analysis machinery built on the other pages but runs it <i>backward</i>. The
+linear loop model lives in <code>models/frequency_domain_model.py</code> and is exported to
+<code>site/assets/data/freq_domain.json</code>; the synthesis arithmetic here is tagged
+<span class="tag t-derive">derived/model</span> where it is computed from slide formulas, and points
+back at <code>docs/derivations.md</code> §3, §5, §7, §8 and <code>docs/assumptions.md</code> [A#].
+Read the <a href="#system-link">System</a>, <a href="#bw-link">Frequency</a> and
+<a href="#cal-link">Calibration</a> pages first if a formula here looks unfamiliar — this page
+assumes them.
+</div>
+
+<div class="kpi">
+  <div class="box"><div class="v">6.72 GHz</div><div class="l">f_out (target LO)</div></div>
+  <div class="box"><div class="v">104 MHz</div><div class="l">f_ref (given XO)</div></div>
+  <div class="box"><div class="v">&lt; 80 fs</div><div class="l">jitter spec (rms, 1k-100M)</div></div>
+  <div class="box"><div class="v">79.5 fs</div><div class="l">achieved (RSS budget)</div></div>
+  <div class="box"><div class="v">-250.5 dB</div><div class="l">FoM_jitter (target)</div></div>
+</div>
+<p style="font-size:0.9em;color:#666">
+f_out, f_ref <span class="tag t-slide">slide p42</span>; spec is the design input
+<span class="tag t-assume">assumption [A21]</span>; achieved RSS and FoM
+<span class="tag t-derive">derived</span> (this page).
+</p>
+
+<div class="assume">
+<b>[A21] The 80-fs spec is our own design input.</b> The deck delivers 87.5&nbsp;fs
+<span class="tag t-slide">slide p42</span>; we deliberately set a <i>tighter</i> target (80&nbsp;fs)
+so the walkthrough has to actually <i>tighten</i> something — a sharper VCO, a finer DTC, a slightly
+wider loop. This is the only number on the page that is invented rather than slide-sourced; everything
+downstream is computed from it with slide formulas.
+</div>
+
+<h2 id="step1">Step 1 &mdash; SPEC: turn 80 fs into a phase spec</h2>
+
+<h3>1.1 GIVEN / CHOOSE / CHECK</h3>
+<ul>
+  <li><b>GIVEN:</b> $f_\text{out}=6.72$&nbsp;GHz, $f_\text{ref}=104$&nbsp;MHz
+      <span class="tag t-slide">slide p42</span>, integration band 1&nbsp;kHz&ndash;100&nbsp;MHz
+      <span class="tag t-assume">[A16]</span>.</li>
+  <li><b>CHOOSE:</b> the jitter target $\sigma_t^\star = 80$&nbsp;fs rms
+      <span class="tag t-assume">[A21]</span>.</li>
+  <li><b>CHECK:</b> the implied integrated phase error and EVM must be acceptable for the modem this
+      LO feeds.</li>
+</ul>
+
+<h3>1.2 The conversion</h3>
+<p>
+Jitter and integrated phase noise are the same quantity in two units. From
+<span class="tag t-derive">derivations §8</span> the bridge is
+</p>
+$$ \sigma_\varphi = 2\pi\, f_\text{out}\,\sigma_t, \qquad
+   \text{IPN}_\text{deck} = 10\log_{10}\!\big(\tfrac12\,\sigma_\varphi^2\big), \qquad
+   \text{EVM}_\text{rms} \approx \sigma_\varphi . $$
+<p>
+The first relation just says "phase = $2\pi$ &times; frequency &times; time"; the $\tfrac12$ in the
+IPN is the same single-sideband factor the deck uses to report &minus;51.7&nbsp;dBc at 87.5&nbsp;fs
+<span class="tag t-slide">slide p42</span>; and the last relation — EVM equals the rms phase error in
+radians — comes from the <a href="#system-link">System</a> page
+<span class="tag t-derive">derived/model</span>.
+</p>
+
+<details class="deriv">
+<summary>Show the algebra</summary>
+$$\sigma_\varphi = 2\pi (6.72\times10^{9})(80\times10^{-15}) = 3.378\times10^{-3}\ \text{rad}.$$
+$$\text{IPN}_\text{deck} = 10\log_{10}\!\Big(\tfrac12 (3.378\times10^{-3})^2\Big)
+   = 10\log_{10}(5.70\times10^{-6}) = -52.4\ \text{dBc}.$$
+$$\text{IPN}_\text{total} = 10\log_{10}\big(\sigma_\varphi^2\big) = -49.4\ \text{dBc}\quad(\text{3 dB higher, total-variance convention}).$$
+$$\text{EVM}_\text{rms} \approx 3.378\times10^{-3}\ \text{rad} = 0.338\%.$$
+</details>
+
+<div class="kpi">
+  <div class="box"><div class="v">3.38 mrad</div><div class="l">&sigma;_&phi; at 80 fs</div></div>
+  <div class="box"><div class="v">-52.4 dBc</div><div class="l">IPN (deck SSB conv.)</div></div>
+  <div class="box"><div class="v">-49.4 dBc</div><div class="l">IPN (total variance)</div></div>
+  <div class="box"><div class="v">0.34 %</div><div class="l">EVM_rms</div></div>
+</div>
+<p style="font-size:0.9em;color:#666">
+All four <span class="tag t-derive">derived</span> from $\sigma_t^\star=80$ fs via derivations §8.
+Compare the deck's 87.6&nbsp;fs &rarr; &minus;51.6&nbsp;dBc / 0.37&nbsp;% — our tighter spec buys
+&asymp;0.8&nbsp;dBc of IPN and &asymp;0.03&nbsp;% of EVM.
+</p>
+
+<div class="note" id="system-link">
+<b>Sanity link.</b> A 0.34&nbsp;% EVM floor is &asymp;&minus;49&nbsp;dB SNR-from-phase
+($\text{SNR}_\varphi=-20\log_{10}\sigma_\varphi=49.4$&nbsp;dB), comfortable for 256-QAM
+(needs &asymp;&minus;38&nbsp;dB EVM total budget) — see the <b>System</b> page. So 80&nbsp;fs is a
+sensible spec, not over-design.
+</div>
+
+<h2 id="step2">Step 2 &mdash; BUDGET ALLOCATION: split 80 fs in quadrature</h2>
+
+<h3>2.1 GIVEN / CHOOSE / CHECK</h3>
+<ul>
+  <li><b>GIVEN:</b> jitter from uncorrelated blocks adds in <i>power</i>, i.e. in quadrature:
+      $\sigma_{t,\text{tot}}^2=\sum_i \sigma_{t,i}^2$ <span class="tag t-std">textbook</span>.</li>
+  <li><b>CHOOSE:</b> a per-block sub-budget that mirrors the slide-42 split but with margin:
+      VCO&nbsp;57, REF&nbsp;40, DTC&nbsp;28, MMD&nbsp;20, SPD+GM&nbsp;17&nbsp;fs.</li>
+  <li><b>CHECK:</b> $\sqrt{\sum_i \sigma_{t,i}^2}\le 80$&nbsp;fs.</li>
+</ul>
+
+<h3>2.2 Why quadrature, and why these shares</h3>
+<p>
+The five dominant blocks inject <i>independent</i> noise, so their RMS jitters do not add linearly —
+they add as a root-sum-of-squares (RSS). The slide-42 budget is dominated by the VCO (&asymp;52&nbsp;%)
+with REF+DTC next (&asymp;38&nbsp;%) and the MMD and sampling PD/GM contributing the rest
+<span class="tag t-slide">slide p42</span>. We keep that <i>shape</i> — it reflects real silicon
+difficulty (the VCO is always the hard part) — and scale every term down so the RSS clears 80&nbsp;fs
+with a little headroom.
+</p>
+
+<table class="num">
+<thead><tr><th>Block</th><th>sub-budget &sigma;_t (fs)</th><th>&sigma;_t&sup2; (fs&sup2;)</th><th>share of variance</th><th>slide-42 share</th></tr></thead>
+<tbody>
+  <tr><td>VCO</td><td>57</td><td>3249</td><td>51.4 %</td><td>51.8 %</td></tr>
+  <tr><td>REF (XO + DTC QN/thermal in-band)</td><td>40</td><td>1600</td><td>25.3 %</td><td>26.4 %</td></tr>
+  <tr><td>DTC (residual nonlinearity / cal)</td><td>28</td><td>784</td><td>12.4 %</td><td>11.4 %</td></tr>
+  <tr><td>MMD (divider own noise)</td><td>20</td><td>400</td><td>6.3 %</td><td>6.2 %</td></tr>
+  <tr><td>SPD + GM</td><td>17</td><td>289</td><td>4.6 %</td><td>3.9 %</td></tr>
+  <tr><td><b>RSS total</b></td><td><b>79.5</b></td><td><b>6322</b></td><td><b>100 %</b></td><td><b>(87.6 fs)</b></td></tr>
+</tbody>
+</table>
+<p style="font-size:0.9em;color:#666">
+Sub-budgets <span class="tag t-derive">design choice</span>; slide-42 shares are <b>model</b> outputs from
+<code>freq_domain.json</code> <span class="tag t-derive">model</span> (the deck states only the qualitative split <span class="tag t-slide">slide p42</span>).
+</p>
+
+<details class="deriv">
+<summary>Show the RSS arithmetic</summary>
+$$\sigma_{t,\text{tot}}^2 = 57^2+40^2+28^2+20^2+17^2
+ = 3249+1600+784+400+289 = 6322\ \text{fs}^2.$$
+$$\sigma_{t,\text{tot}} = \sqrt{6322} = 79.5\ \text{fs} \;\le\; 80\ \text{fs}.\quad\checkmark$$
+Note how forgiving quadrature is: the 17-fs SPD term contributes only
+$17^2/6322=4.6\%$ of the variance, i.e. it moves the total from 79.5 to
+$\sqrt{6322-289}=77.6$&nbsp;fs if you deleted it entirely. <b>Spend your effort on the VCO.</b>
+Dropping the VCO from 57 to 50&nbsp;fs alone takes the total to
+$\sqrt{6322-3249+2500}=74.6$&nbsp;fs.
+</details>
+
+<div class="derive">
+<b>The lever lesson.</b> Because variance is quadratic, the largest term dominates the gradient: a
+1-fs improvement on the 57-fs VCO removes $\approx 2\cdot57=114$&nbsp;fs&sup2; of variance, while a
+1-fs improvement on the 17-fs SPD removes only $\approx34$&nbsp;fs&sup2;. <span class="tag t-derive">derived</span>
+This is why every microwatt of synthesis effort goes to the VCO first, the reference path second.
+</div>
+
+<h2 id="step3">Step 3 &mdash; OPTIMAL LOOP BANDWIDTH: find the U-curve minimum</h2>
+
+<h3 id="bw-link">3.1 GIVEN / CHOOSE / CHECK</h3>
+<ul>
+  <li><b>GIVEN:</b> in-band sources (REF, DTC, MMD, SPD) are <i>low-passed</i> by the loop &rarr;
+      their integrated jitter <i>grows</i> with bandwidth; the VCO is <i>high-passed</i> &rarr; its
+      integrated jitter <i>shrinks</i> with bandwidth <span class="tag t-derive">derivations §2</span>.</li>
+  <li><b>CHOOSE:</b> the loop bandwidth $f_c$ that minimises the total.</li>
+  <li><b>CHECK:</b> the minimum total $\le 80$&nbsp;fs, and $f_c$ leaves room for stability
+      ($f_c\ll f_\text{ref}/2$).</li>
+</ul>
+
+<h3>3.2 The trade-off is literally a U</h3>
+<p>
+Push the bandwidth up and the loop tracks (and so reproduces) more of the reference, DTC and divider
+noise — those terms rise. Push it down and the loop stops suppressing the VCO at low offsets — that
+term rises. The total is a sum of a rising curve and a falling curve, so it has a single minimum.
+Slide&nbsp;42 states this exact trade-off — "PLL BW is chosen to trade off REF vs VCO"
+<span class="tag t-slide">slide p42</span> — but gives no number; we compute the optimum.
+</p>
+
+<div id="budget-optimizer"></div>
+<p class="small">Drag the loop-bandwidth slider: the REF/DTC/MMD jitter (in-band) climbs to the right, the
+VCO jitter (out-of-band) climbs to the left, and the RSS traces the U. The widget recomputes the
+budget live from the same model that produced <code>freq_domain.json</code>
+<span class="tag t-derive">model</span>.</p>
+
+<h3>3.3 Where the minimum sits</h3>
+<p>
+For the design's noise floors the model puts the U-curve minimum at
+$f_c^\star\approx 2.1$&nbsp;MHz, giving &asymp;85.6&nbsp;fs <i>with the deck's looser floors</i>
+<span class="tag t-derive">model (verified list)</span>. The deck deliberately sits at the more
+conservative $f_c=1.5$&nbsp;MHz / 87.6&nbsp;fs <span class="tag t-assume">[A1]</span> — slightly to the
+left of the true optimum, trading &asymp;2&nbsp;fs of jitter for extra phase margin and spur
+suppression. For <i>our</i> tighter floors (Steps&nbsp;2 and&nbsp;4) we keep the bandwidth near the
+optimum:
+</p>
+
+<ul>
+  <li><b>CHOOSE</b> $f_c = 2.0$&nbsp;MHz <span class="tag t-derive">design choice</span> — at/near the
+      U minimum, where REF/DTC and VCO contributions balance.</li>
+  <li><b>CHOOSE</b> phase margin $\text{PM}=60^\circ$ <span class="tag t-assume">[A2]</span> — the
+      textbook well-damped target (gives $\zeta\approx0.97$, gain-peaking 1.70&nbsp;dB,
+      $\sim25\%$ step overshoot, 1&nbsp;% settle $\sim1.1\,\mu$s)
+      <span class="tag t-derive">model (verified list)</span>.</li>
+  <li><b>CHECK</b> $f_c/f_\text{ref} = 2.0/104 \approx 1/52$. With $f_c\ll f_\text{ref}/2=52$&nbsp;MHz
+      the sampled-loop phase erosion is small (the ZOH half-sample lag is $\approx-\pi f/f_\text{ref}$,
+      only $\approx-3.5^\circ$ at $f_c$) <span class="tag t-derive">model</span>, so the continuous-time
+      design is valid. $\checkmark$</li>
+</ul>
+
+<div class="note">
+<b>Lock time falls out for free.</b> A type-II loop locks in roughly $1/f_c$
+<span class="tag t-derive">model</span>; at $f_c=2.0$&nbsp;MHz that is $\sim0.5\,\mu$s of loop
+settling, comfortably inside the &lt;30&nbsp;&micro;s calibration budget of Step&nbsp;5.
+</div>
+
+<h2 id="step4">Step 4 &mdash; DTC SIZING: range, resolution, bit count</h2>
+
+<h3>4.1 GIVEN / CHOOSE / CHECK</h3>
+<ul>
+  <li><b>GIVEN:</b> a MASH-$m$ modulator emits quantization error spanning $1/2/4\;T_\text{vco}$ for
+      MASH-1 / 1-1 / 1-1-1 <span class="tag t-slide">slide p6</span>; the DTC must cover that span so
+      it can cancel it (slide&nbsp;9). $T_\text{vco}=1/6.72\,\text{GHz}=148.8$&nbsp;ps
+      <span class="tag t-derive">derived</span>.</li>
+  <li><b>CHOOSE:</b> the DSM order $m$ &rarr; the DTC <i>range</i> $\text{DR}$; the DTC
+      <i>resolution</i> $T_\text{res}$; hence the <i>bit count</i> $n=\log_2(\text{DR}/T_\text{res})$.</li>
+  <li><b>CHECK:</b> the DTC quantization-noise floor (slide-15 formula) must sit <i>below</i> the
+      in-band noise floor implied by the 40-fs REF/DTC sub-budget.</li>
+</ul>
+
+<h3>4.2 Range from the MASH order</h3>
+<p>
+We use $m=2$ (MASH-1-1) <span class="tag t-assume">[A5]</span> as the default: it is the lowest order
+whose shaped quantization noise the loop and DTC can fully handle, and its DTC range is modest.
+From slide&nbsp;6 the quantization-error span is $2\,T_\text{vco}$:
+</p>
+$$\text{DR} = 2\,T_\text{vco} = 2\times148.8\ \text{ps} = 297.6\ \text{ps}. $$
+
+<table class="num">
+<thead><tr><th>MASH order</th><th>QE span (T_vco)</th><th>required DR (ps)</th></tr></thead>
+<tbody>
+  <tr><td>MASH-1</td><td>1</td><td>148.8</td></tr>
+  <tr><td><b>MASH-1-1 (chosen)</b></td><td><b>2</b></td><td><b>297.6</b></td></tr>
+  <tr><td>MASH-1-1-1</td><td>4</td><td>595.2</td></tr>
+</tbody>
+</table>
+<p style="font-size:0.9em;color:#666">
+QE spans <span class="tag t-slide">slide p6</span>; DR = span&times;$T_\text{vco}$
+<span class="tag t-derive">derived</span>.
+</p>
+
+<h3>4.3 Resolution from the QN floor</h3>
+<p>
+The DTC's own quantization noise has the slide-15 PSD
+</p>
+$$ \mathcal{L}_\text{DTC,QN} = 10\log_{10}\!\Big[\frac{(2\pi\,T_\text{res})^2}{12}\,f_\text{ref}\Big]. $$
+<p>
+The deck's nominal $T_\text{res}=400$&nbsp;fs gives &minus;162.6&nbsp;dBc/Hz (&asymp; slide's
+&minus;163) <span class="tag t-slide">slide p15</span> <span class="tag t-derive">derivations §3</span>.
+That is fine for 87.6&nbsp;fs, but our DTC sub-budget is tighter (28&nbsp;fs), so we halve the
+resolution to push the floor down &asymp;6&nbsp;dB:
+</p>
+
+<table class="num">
+<thead><tr><th>T_res (fs)</th><th>DTC QN (dBc/Hz)</th><th>vs deck floor</th></tr></thead>
+<tbody>
+  <tr><td>400 (deck)</td><td>-162.6</td><td>baseline <span class="tag t-slide">slide p15</span></td></tr>
+  <tr><td><b>200 (chosen)</b></td><td><b>-168.6</b></td><td><b>-6 dB</b></td></tr>
+  <tr><td>150</td><td>-171.1</td><td>-8.5 dB (= thermal floor [A14])</td></tr>
+</tbody>
+</table>
+<p style="font-size:0.9em;color:#666">
+All <span class="tag t-derive">derived</span> from the slide-15 formula. We stop at 200&nbsp;fs: going
+finer chases the DTC thermal floor (&minus;171&nbsp;dBc/Hz <span class="tag t-assume">[A14]</span>),
+where resolution stops helping and noise/area dominate.
+</p>
+
+<details class="deriv">
+<summary>Show the QN algebra at T_res = 200 fs</summary>
+$$\frac{(2\pi\cdot200\times10^{-15})^2}{12}\cdot 104\times10^{6}
+ = \frac{(1.257\times10^{-12})^2}{12}\cdot1.04\times10^{8}
+ = \frac{1.579\times10^{-24}}{12}\cdot1.04\times10^{8}=1.37\times10^{-17}.$$
+$$10\log_{10}(1.37\times10^{-17}) = -168.6\ \text{dBc/Hz}.\quad\checkmark$$
+This sits well below the &asymp;&minus;165&nbsp;dBc/Hz in-band level implied by the 40-fs REF/DTC
+sub-budget, so DTC QN is <i>not</i> the binding term — exactly what we want before nonlinearity and
+cal residual are added.
+</details>
+
+<h3>4.4 Bit count, and a range-reduction check</h3>
+<p>
+Bits follow directly from range and resolution:
+</p>
+$$ n = \log_2\!\frac{\text{DR}}{T_\text{res}} = \log_2\!\frac{297.6\ \text{ps}}{200\ \text{fs}}
+   = \log_2(1488) = 10.5 \;\Rightarrow\; n = 11\ \text{bits (full range)}. $$
+<p>
+That is one bit more than the deck's $n=10$ <span class="tag t-slide">slide p15</span>, and bits cost
+power and INL. The fix is the deck's own <b>range reduction</b>: DTC power scales as $\text{DR}^2$ and
+QN as $T_\text{res}^2$ <span class="tag t-derive">derivations §5</span>
+<span class="tag t-slide">slide p33</span>, so if calibration can predict and cancel the coarse part
+of the DSM ramp, the DTC only has to span the <i>residual</i>. Halving the range (the slide-34
+½-range technique) recovers a 10-bit converter at the same 200-fs resolution:
+</p>
+$$ \text{DR}_{1/2} = \tfrac12\cdot297.6 = 148.8\ \text{ps}
+   \;\Rightarrow\; n = \log_2\!\frac{148.8\ \text{ps}}{200\ \text{fs}} = \log_2(744) = 9.5
+   \;\Rightarrow\; n = 10\ \text{bits.}\;\checkmark $$
+
+<ul>
+  <li><b>CHOOSE</b> MASH-1-1, $T_\text{res}=200$&nbsp;fs, ½-range (slide-34) &rarr; $n=10$ bits.</li>
+  <li><b>CHOOSE</b> realise $T_\text{res}=\ln 2\cdot R\, C_\text{LSB}$ with the slide-16 noise-floor
+      cap $C_\text{LSB}=2$&nbsp;fF <span class="tag t-slide">slide p16</span>, giving
+      $R=T_\text{res}/(\ln2\cdot C_\text{LSB})=200\text{ fs}/(0.693\cdot2\text{ fF})\approx144\ \Omega$
+      <span class="tag t-derive">derivations §3</span>.</li>
+  <li><b>CHECK</b> DTC QN &minus;168.6&nbsp;dBc/Hz $<$ in-band floor; INL handled by NLC in Step&nbsp;5;
+      power $\propto\text{DR}^2$ halved by range reduction. $\checkmark$</li>
+</ul>
+
+<div class="kpi">
+  <div class="box"><div class="v">MASH-1-1</div><div class="l">DSM order [A5]</div></div>
+  <div class="box"><div class="v">148.8 ps</div><div class="l">DR (½-range)</div></div>
+  <div class="box"><div class="v">200 fs</div><div class="l">T_res</div></div>
+  <div class="box"><div class="v">10 bit</div><div class="l">n</div></div>
+  <div class="box"><div class="v">144 &Omega;</div><div class="l">R (C_LSB=2 fF)</div></div>
+</div>
+
+<h2 id="step5">Step 5 &mdash; CALIBRATION STEP SIZES: hit the residual-gain floor in 30 &micro;s</h2>
+
+<h3 id="cal-link">5.1 GIVEN / CHOOSE / CHECK</h3>
+<ul>
+  <li><b>GIVEN:</b> a residual DTC-gain error $\epsilon$ leaves an in-band floor
+      $S=\epsilon^2(2\pi)^2 S_{Q\text{dsm}}|H_\text{ref}|^2$, which integrates to
+      $\approx4.5$&nbsp;fs at $\epsilon=10^{-4}$ and $\approx45$&nbsp;fs at $\epsilon=10^{-3}$
+      <span class="tag t-derive">model (verified list)</span>; convergence target &lt;30&nbsp;&micro;s
+      (&asymp;3120 reference cycles) <span class="tag t-assume">[A17]</span>
+      <span class="tag t-slide">slide p40</span>.</li>
+  <li><b>CHOOSE:</b> the sign-LMS step sizes $\mu$.</li>
+  <li><b>CHECK:</b> steady-state $\epsilon\lesssim2\times10^{-4}$ (so the cal residual stays under the
+      28-fs DTC sub-budget) <i>and</i> the time constant $\tau$ gives &lt;30&nbsp;&micro;s convergence.</li>
+</ul>
+
+<h3>5.2 The two competing requirements</h3>
+<p>
+Sign-LMS has the classic speed/accuracy tension. Larger $\mu$ converges faster (time constant
+$\tau\propto1/\mu$) but leaves a larger steady-state ripple — the misadjustment, which is
+$\propto\mu$ <span class="tag t-derive">derivations §7</span>. We size $\mu$ from the slower of the
+two constraints.
+</p>
+<ul>
+  <li><b>Accuracy:</b> we need $\epsilon\lesssim2\times10^{-4}$. By the verified-list scaling
+      ($\epsilon=10^{-4}\to4.5$&nbsp;fs), $\epsilon=2\times10^{-4}$ leaves
+      $\approx9$&nbsp;fs <span class="tag t-derive">model</span> — well under the 28-fs DTC line, so
+      there is margin for INL/NLC residual on top.</li>
+  <li><b>Speed:</b> 30&nbsp;&micro;s at $f_\text{ref}$ is $30\,\mu\text{s}\times104\,\text{MHz}=3120$
+      update cycles. A first-order recursion settles in $\sim5\tau$, so we need
+      $\tau\lesssim 6\,\mu\text{s}\approx620$ cycles, i.e. a per-update decay of $\sim1/620$
+      <span class="tag t-assume">[A17]</span>.</li>
+</ul>
+
+<p>
+For the sign-error LMS K_DTC loop (cal A: 1-bit error &times; full-precision $\Phi_e$), the gain
+update is $\hat g[k{+}1]=\hat g[k]+\mu_2\,e[k]\,\Phi_e[k{-}n]$ with time constant
+</p>
+$$ \tau \approx \frac{1}{\mu_2\,\eta\,E\{\Phi_e^2\}\,2 f_\text{ref}}, \qquad
+   \eta=\frac{\sqrt{2/\pi}}{\sigma}\ \text{(sign-LMS slope factor)}, $$
+<span class="tag t-derive">derivations §7.1</span><span class="tag t-std">Widrow &amp; Stearns</span>.
+<p>
+So we <b>CHOOSE $\mu$ to land $\tau\approx6\,\mu$s</b> (the speed bound), then verify the resulting
+misadjustment keeps $\epsilon\lesssim2\times10^{-4}$ (the accuracy bound). When speed forces a
+larger $\mu$ than accuracy allows, the standard fix is gear-shifting: start with a large $\mu$ for
+fast acquisition, then drop to a small $\mu$ for a quiet steady state — the same idea as the deck's
+"converge &lt;30&nbsp;&micro;s, then track" background scheme <span class="tag t-slide">slide p40</span>.
+</p>
+
+<details class="deriv">
+<summary>Show the cal-residual floor arithmetic</summary>
+<p>The verified residual-gain floor is linear in $\epsilon$ (the floor PSD $\propto\epsilon^2$, so
+integrated jitter $\propto\epsilon$):</p>
+$$\epsilon=10^{-4}\to4.5\text{ fs},\quad
+  \epsilon=2\times10^{-4}\to 4.5\cdot2=9.0\text{ fs},\quad
+  \epsilon=10^{-3}\to45\text{ fs},\quad
+  \epsilon=10^{-2}\to449\text{ fs}.$$
+To stay under the 28-fs DTC sub-budget with room for INL: pick $\epsilon\lesssim2\times10^{-4}$.
+That leaves $\sqrt{28^2-9^2}\approx26.5$&nbsp;fs for residual nonlinearity (NLC).
+</details>
+
+<div class="note">
+<b>Orthogonality keeps the loops from fighting.</b> The K_DTC, vco_dcc, ckref_dcc and offset
+regressors ($\Phi_e$, SEL_CKFB, even_cycle, constant-1) are mutually orthogonal in expectation, so
+the four cal loops co-adapt independently <span class="tag t-derive">model</span> — <i>except</i>
+half-range $\Phi_e$ has a nonzero mean that couples the offset into the gain loop, which is why
+<b>offset cal must converge first</b>. For the polynomial NLC, use Legendre $P_1,P_2,P_3$ regressors
+(orthogonal on $[-1,1]$) rather than the correlated monomials $[D,D^2,D^3]$ for clean convergence
+<span class="tag t-derive">model</span> <span class="tag t-slide">slide p31</span>.
+</div>
+
+<div class="kpi">
+  <div class="box"><div class="v">&le; 2&times;10&#8315;&#8308;</div><div class="l">residual gain &epsilon;</div></div>
+  <div class="box"><div class="v">~9 fs</div><div class="l">cal residual jitter</div></div>
+  <div class="box"><div class="v">~6 &micro;s</div><div class="l">&tau; (per-loop)</div></div>
+  <div class="box"><div class="v">&lt;30 &micro;s</div><div class="l">total convergence</div></div>
+</div>
+
+<h2 id="step6">Step 6 &mdash; CHECK: the resulting figure-of-merit</h2>
+
+<h3>6.1 GIVEN / CHOOSE / CHECK</h3>
+<ul>
+  <li><b>GIVEN:</b> the jitter FoM $\text{FoM}_\text{jitter}=10\log_{10}\!\big[(\sigma_t)^2(P/1\text{mW})\big]$
+      <span class="tag t-derive">derivations §8</span>; the deck's power breakdown 14.2&nbsp;mW
+      (VCO&nbsp;12 + DTC&nbsp;1.2 + MMD&nbsp;0.5 + rest&nbsp;0.5) <span class="tag t-slide">slide p39</span>.</li>
+  <li><b>CHOOSE:</b> reuse the slide-39 power envelope (our finer DTC adds little; range reduction
+      keeps DTC power in check) &rarr; $P\approx14.2$&nbsp;mW.</li>
+  <li><b>CHECK:</b> $\text{FoM}$ at the achieved 79.5&nbsp;fs is at least as good as the deck's
+      &minus;249.6&nbsp;dB.</li>
+</ul>
+
+<h3>6.2 The number</h3>
+$$ \text{FoM}_\text{jitter} = 10\log_{10}\!\Big[(79.5\times10^{-15})^2\cdot 14.2\Big]
+   = 10\log_{10}(8.98\times10^{-26}) = -250.5\ \text{dB}. $$
+<p>
+That is <b>0.9&nbsp;dB better than the deck's &minus;249.6&nbsp;dB</b>
+<span class="tag t-slide">slide p39</span> <span class="tag t-derive">derived</span>, won entirely by
+the 87.6&rarr;79.5&nbsp;fs jitter reduction at the same power. If the tighter VCO and finer DTC cost a
+realistic +1.8&nbsp;mW (to 16&nbsp;mW), the FoM is still &minus;250.0&nbsp;dB — ahead of the baseline.
+</p>
+
+<div class="kpi">
+  <div class="box"><div class="v">79.5 fs</div><div class="l">achieved jitter (RSS)</div></div>
+  <div class="box"><div class="v">14.2 mW</div><div class="l">power (slide-39 envelope)</div></div>
+  <div class="box"><div class="v">-250.5 dB</div><div class="l">FoM_jitter</div></div>
+  <div class="box"><div class="v">+0.9 dB</div><div class="l">vs deck (-249.6 dB)</div></div>
+</div>
+
+<figure><img src="assets/figures/fom_scatter.png" alt="Jitter-vs-power FoM scatter with iso-FoM lines; the synthesized design sits on a better iso-FoM contour than the baseline.">
+<figcaption>Jitter vs power with iso-FoM contours. The deck sits at 87.6&nbsp;fs / 14.2&nbsp;mW
+(&minus;249.6&nbsp;dB); our synthesized design moves left to 79.5&nbsp;fs at the same power, landing on
+the &minus;250.5&nbsp;dB contour <span class="tag t-derive">derived</span>.</figcaption></figure>
+
+<h2 id="recap">The whole walkthrough on one page</h2>
+<table class="num">
+<thead><tr><th>Step</th><th>GIVEN</th><th>CHOOSE</th><th>CHECK</th></tr></thead>
+<tbody>
+  <tr><td>1 Spec</td><td>6.72 GHz, 104 MHz, band 1k-100M</td><td>&sigma;_t = 80 fs</td><td>&sigma;_&phi;=3.38 mrad, IPN -52.4 dBc, EVM 0.34 %</td></tr>
+  <tr><td>2 Budget</td><td>RSS of independent blocks</td><td>57/40/28/20/17 fs</td><td>RSS = 79.5 &le; 80 fs</td></tr>
+  <tr><td>3 Loop BW</td><td>REF&uarr; / VCO&darr; with f_c</td><td>f_c = 2.0 MHz, PM 60&deg;</td><td>at U-minimum; f_c/f_ref&asymp;1/52</td></tr>
+  <tr><td>4 DTC</td><td>MASH-1-1 &rarr; 2 T_vco; slide-15 QN</td><td>T_res 200 fs, ½-range, n=10, R=144 &Omega;</td><td>QN -168.6 dBc/Hz &lt; floor</td></tr>
+  <tr><td>5 Cal</td><td>&epsilon;-floor; &lt;30 &micro;s</td><td>&mu; for &tau;&asymp;6 &micro;s, &epsilon;&le;2e-4</td><td>residual ~9 fs &lt; 28 fs line</td></tr>
+  <tr><td>6 FoM</td><td>P = 14.2 mW (slide-39)</td><td>reuse power envelope</td><td>FoM = -250.5 dB &gt; -249.6 dB</td></tr>
+</tbody>
+</table>
+
+<h2 id="selfcheck">Self-checks</h2>
+
+<div class="derive">
+<b>Self-check 1 &mdash; does the budget really clear the spec?</b>
+$57^2+40^2+28^2+20^2+17^2 = 3249+1600+784+400+289 = 6322$&nbsp;fs&sup2;;
+$\sqrt{6322}=79.5$&nbsp;fs $\le 80$&nbsp;fs. $\checkmark$ And the cal residual (9&nbsp;fs) sits inside
+the DTC sub-budget: $\sqrt{28^2-9^2}=26.5$&nbsp;fs is still available for INL/NLC, so the DTC line is
+not over-committed. <span class="tag t-derive">derived</span>
+</div>
+
+<div class="derive">
+<b>Self-check 2 &mdash; do the slide formulas reproduce the deck's anchors with our inputs?</b>
+Put the deck's <i>own</i> numbers back into the same formulas we used. DTC QN at $T_\text{res}=400$&nbsp;fs:
+$10\log_{10}\big[(2\pi\cdot400\text{ fs})^2/12\cdot104\text{ MHz}\big]=-162.6$&nbsp;dBc/Hz, matching
+slide&nbsp;15's &minus;163 <span class="tag t-slide">slide p15</span>. Jitter&rarr;IPN at 87.6&nbsp;fs:
+$\sigma_\varphi=2\pi\cdot6.72\text{ GHz}\cdot87.6\text{ fs}=3.70$&nbsp;mrad,
+$10\log_{10}(\tfrac12\sigma_\varphi^2)=-51.6$&nbsp;dBc, matching slide&nbsp;42's &minus;51.7
+<span class="tag t-slide">slide p42</span>. FoM at 87.6&nbsp;fs / 14.2&nbsp;mW $=-249.6$&nbsp;dB,
+matching slide&nbsp;39 <span class="tag t-slide">slide p39</span>. The synthesis machinery is calibrated
+against the deck, so the 80-fs design built with it is trustworthy. $\checkmark$
+<span class="tag t-derive">derived</span>
+</div>
+
+<div class="quiz">
+<div class="q">Q1. Your VCO comes in 6&nbsp;fs worse than budgeted (63 instead of 57&nbsp;fs). Re-RSS the total —
+does the design still pass 80&nbsp;fs, and which single block would you tighten to recover?</div>
+<details><summary>Show answer</summary><div class="ans">
+New variance $=63^2+40^2+28^2+20^2+17^2 = 3969+1600+784+400+289 = 7042$&nbsp;fs&sup2;,
+$\sqrt{7042}=83.9$&nbsp;fs — <b>fails</b> by 3.9&nbsp;fs. Because variance is quadratic, attack the
+next-largest term: tightening REF from 40 to 30&nbsp;fs gives
+$3969+900+784+400+289 = 6342 \to \sqrt{6342}=79.6$&nbsp;fs, back under spec. Tightening the 17-fs SPD
+to 0 would only reach $\sqrt{7042-289}=82.2$&nbsp;fs — not enough, because small terms barely move the
+RSS. The lever is always the largest term.
+</div></details>
+</div>
+
+<div class="quiz">
+<div class="q">Q2. Why did we keep $f_c$ near 2.0&nbsp;MHz instead of pushing it to 5&nbsp;MHz to "lock faster"?</div>
+<details><summary>Show answer</summary><div class="ans">
+Two reasons. (1) Noise: above the U-curve minimum (&asymp;2.1&nbsp;MHz) the in-band REF/DTC/MMD jitter
+rises faster than the VCO jitter falls, so the total <i>increases</i> — a wider loop is <i>worse</i>
+for jitter here. (2) Stability/sampling: at 5&nbsp;MHz, $f_c/f_\text{ref}=5/104\approx1/21$, and the
+ZOH half-sample lag $\approx-\pi f/f_\text{ref}\approx-8.6^\circ$ starts eroding phase margin. Lock
+time ($\sim1/f_c$) is already $\sim0.5\,\mu$s at 2&nbsp;MHz — far inside the 30-&micro;s cal budget — so
+there is nothing to gain and jitter/margin to lose. <span class="tag t-derive">derived</span>
+</div></details>
+</div>
+
+<div class="quiz">
+<div class="q">Q3. The bit count came out to 11 at full range but we shipped 10. What two slide techniques made
+that possible, and what is the cost?</div>
+<details><summary>Show answer</summary><div class="ans">
+We needed $n=\log_2(\text{DR}/T_\text{res})=\log_2(297.6\text{ ps}/200\text{ fs})=10.5\to11$&nbsp;bits.
+<b>Range reduction</b> (slide-34 ½-range) halves DR to 148.8&nbsp;ps so
+$n=\log_2(744)=9.5\to10$&nbsp;bits at the same 200-fs resolution, and DTC power
+($\propto\text{DR}^2$) drops 4&times;. The enabling technique is <b>calibration</b>: the cal loop must
+predict and cancel the coarse part of the DSM ramp so the DTC only spans the residual half-range. The
+cost is dependence on cal convergence/accuracy — if cal fails, the DTC can no longer cover the full
+DSM excursion. <span class="tag t-slide">slide p33,p34</span></div></details>
+</div>
+
+<div class="warn">
+<b>What this walkthrough does <i>not</i> prove.</b> It is a paper synthesis: the noise <i>floors</i>
+behind the sub-budgets (Step&nbsp;2) are the slide-42-anchored assumptions
+<span class="tag t-assume">[A12]&ndash;[A15]</span>, the 80-fs spec is our input
+<span class="tag t-assume">[A21]</span>, and the U-curve / loop numbers are from the LTI model
+<span class="tag t-derive">model</span>, not measured silicon. The deck's measured spurs
+(&minus;70&hellip;&minus;85&nbsp;dBc <span class="tag t-slide">slide p41</span>) and PN are the real
+proof points; treat the FoM gain here as "what the formulas say a tighter VCO + finer DTC + near-optimal
+BW would buy," to be confirmed in extraction and silicon.
+</div>

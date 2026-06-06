@@ -1,0 +1,222 @@
+<h1>Design Problems</h1>
+<p class="lead">Eight open-ended design problems on the DTC-assisted fractional-N PLL — these test <i>judgment</i>, not recall. Each one drops you into a "spec changed / part is worse than expected" situation, asks what you would <i>do</i>, and hides a fully worked solution that pulls the formula, the number, and a one-line verdict from the verified loop / noise / spur / cal models. Read the question, decide, then open the solution and argue with it.</p>
+
+<div class="note">
+<b>How to use this page.</b> Treat every problem as a design review. State your move <i>before</i> opening the solution. The solutions reuse the same anchors as the rest of the site — slide-42 budget (87.6 fs model / 87.5 fs slide), loop assumptions <span class="tag t-assume">[A1]</span> $f_c=1.5$ MHz, <span class="tag t-assume">[A2]</span> PM $=60^\circ$, and the model code in <code>models/extras.py</code> / <code>frequency_domain_model.py</code>. Where a number comes from an assumption rather than the deck, it is tagged so you can challenge it.
+</div>
+
+<div class="kpi">
+  <div class="box"><div class="v">87.6 fs</div><div class="l">total RMS jitter (model; slide 87.5)</div></div>
+  <div class="box"><div class="v">1.50 MHz</div><div class="l">loop BW f_c &middot; [A1]</div></div>
+  <div class="box"><div class="v">2.1 MHz</div><div class="l">jitter-optimal f_c* (model)</div></div>
+  <div class="box"><div class="v">VCO 51%</div><div class="l">dominant budget line (slide 42)</div></div>
+  <div class="box"><div class="v">REF+DTC 39%</div><div class="l">2nd budget line</div></div>
+  <div class="box"><div class="v">14.2 mW</div><div class="l">power &rarr; FoM &minus;249.6 dB</div></div>
+</div>
+
+<div class="assume">
+<b>What is fixed vs. what you may move.</b> Unless a problem says otherwise: $f_{out}=6.72$ GHz <span class="tag t-slide">slide p42</span>, $f_{ref}=104$ MHz <span class="tag t-slide">slide p42</span>, $N=64.62$ <span class="tag t-derive">derived</span> are fixed by the radio. You are allowed to move loop bandwidth $f_c$, DTC range/bit-count, DSM order, and calibration step size $\mu$. The budget split (VCO 51% / REF+DTC 39% / MMD 6% / SPD+GM 4%, total 87.5 fs) is the slide-42 starting point <span class="tag t-slide">slide p42</span>; the per-source absolute floors that reproduce it are back-solved <span class="tag t-assume">[A12]&ndash;[A15]</span> (see <code>open_questions.md</code> #7).
+</div>
+
+<h2>P1 &mdash; The spec tightens to 60 fs. Which budget line do you attack?</h2>
+<div class="card">
+<h4>GIVEN</h4>
+<p>The radio team comes back: the integrated jitter spec drops from the current $87.6$ fs <span class="tag t-derive">model</span> to <b>60 fs</b>. Budget split is VCO 51% / REF+DTC 39% / MMD 6% / SPD+GM 4% <span class="tag t-slide">slide p42</span>. The jitter-vs-bandwidth model has a broad optimum at $f_c^\star\approx 2.1$ MHz giving $\approx 85.6$ fs <span class="tag t-derive">model</span>, i.e. the present $1.5$ MHz / $87.6$ fs point is already slightly conservative.</p>
+<h4>QUESTION</h4>
+<p>Which budget line gives you the most jitter back per unit effort, and roughly what new $f_c$ (if any) helps? Is re-tuning the loop even close to enough, or do you need a circuit change?</p>
+<details class="deriv"><summary>Show worked solution</summary>
+<p><b>Step 1 — convert the target to a variance ratio.</b> Jitter adds in power (variance), so the fraction of <i>variance</i> you must remove is</p>
+$$\frac{\sigma_{t,\text{new}}^2}{\sigma_{t,\text{old}}^2}=\left(\frac{60}{87.6}\right)^2 = 0.469,$$
+<p>i.e. you must delete <b>53% of the total variance</b>. <span class="tag t-derive">derived</span></p>
+<p><b>Step 2 — attack the biggest line.</b> The VCO owns 51% of the variance <span class="tag t-slide">slide p42</span>. Even if you drove every <i>other</i> source to zero you would keep the 51% VCO share, leaving $\sigma_t = 87.6\sqrt{0.51}=62.6$ fs — still above 60 fs. <b>So the VCO line is not optional; the spec cannot be met without touching it.</b> <span class="tag t-derive">derived</span></p>
+<p><b>Step 3 — how much loop re-tuning buys you.</b> Re-centering the loop at the model optimum $f_c^\star\approx2.1$ MHz only moves $87.6\to85.6$ fs <span class="tag t-derive">model</span> — a 2.3% jitter improvement, because in-band the loop high-passes the VCO and low-passes REF/DTC, and we are already near the crossover sweet spot. That is nowhere near the 31% jitter (53% variance) you need. Loop tuning alone fails.</p>
+<p><b>Step 4 — the cheap circuit lever.</b> The verified VCO scaling is "multi-core $\mathcal{L}$ drops $10\log_{10}(N_{core})$ at $N_{core}\times$ power" <span class="tag t-derive">model (Leeson)</span> <span class="tag t-slide">slide p50 trend</span>. A <b>dual core</b> drops VCO phase noise by 3 dB → halves the VCO variance. New VCO share $=0.51\times\tfrac12=0.255$; new total variance $=0.255+0.49=0.745$ of old → $\sigma_t=87.6\sqrt{0.745}=75.6$ fs. Still short of 60. A <b>quad core</b> (&minus;6 dB, ¼ variance) gives VCO share $0.128$, total $0.618$ → $\sigma_t=87.6\sqrt{0.618}=68.9$ fs. Combine quad-core VCO <i>and</i> halve the REF+DTC bucket (range reduction, §P3/P6): variance $=0.128+0.195+0.10=0.423$ → $\sigma_t=57.0$ fs. <span class="tag t-derive">derived</span></p>
+<div class="kpi">
+  <div class="box"><div class="v">53%</div><div class="l">variance to delete</div></div>
+  <div class="box"><div class="v">62.6 fs</div><div class="l">floor if VCO untouched</div></div>
+  <div class="box"><div class="v">&minus;6 dB</div><div class="l">quad-core VCO &rarr; 68.9 fs</div></div>
+  <div class="box"><div class="v">57.0 fs</div><div class="l">quad-core + ½ REF/DTC</div></div>
+</div>
+<p><b>Judgment.</b> Attack the VCO first — it is mathematically impossible to hit 60 fs while it owns 51% of the variance; spend the power on multi-core (each &times;2 cores buys 3 dB at 2&times; VCO power) and only then trim the REF/DTC bucket. Loop re-tuning to $f_c^\star\approx2.1$ MHz is free but worth only ~2 fs — do it, but do not expect it to carry the spec.</p>
+</details>
+</div>
+
+<h2>P2 &mdash; The VCO comes back 2&times; noisier. How much must $f_c$ widen, and what does it cost in REF jitter?</h2>
+<div class="card">
+<h4>GIVEN</h4>
+<p>Silicon arrives and the LC-VCO measures <b>2&times; the noise power</b> (+3 dB in $\mathcal{L}(f)$) versus the back-solved $-116.5$ dBc/Hz @ 1 MHz <span class="tag t-assume">[A13]</span>. Inside the loop bandwidth the VCO is high-passed and REF/DTC is low-passed, so <i>widening</i> $f_c$ suppresses more VCO noise but lets through more reference. Present design: $f_c=1.5$ MHz <span class="tag t-assume">[A1]</span>, model optimum $f_c^\star\approx2.1$ MHz, REF+DTC = 39% of budget <span class="tag t-slide">slide p42</span>.</p>
+<h4>QUESTION</h4>
+<p>Re-optimize $f_c$ for the noisier VCO. Roughly how far does the optimum move, and what happens to the REF/DTC share when you get there?</p>
+<details class="deriv"><summary>Show worked solution</summary>
+<p><b>Step 1 — why $f_c$ moves at all.</b> The in-band closed-loop jitter is the sum of a VCO term that <i>falls</i> with $f_c$ (more loop gain suppresses the up-converted VCO noise) and a REF/DTC term that <i>rises</i> with $f_c$ (wider window passes more reference + DTC noise, each multiplied by $N^2$). The optimum sits where the two slopes cancel. Scale the VCO term by 2 and the balance point shifts up. <span class="tag t-derive">model</span></p>
+<p><b>Step 2 — scale law for the optimum.</b> Model the two integrated contributions near the optimum as $\sigma^2(f_c)\approx \dfrac{A_{vco}}{f_c}+B_{ref}\,f_c$ (VCO power passed below crossover $\propto 1/f_c$ for a $1/f^2$ VCO; REF power passed $\propto$ bandwidth $\propto f_c$). Minimizing gives $f_c^\star=\sqrt{A_{vco}/B_{ref}}$, so $f_c^\star\propto\sqrt{A_{vco}}$. Doubling $A_{vco}$ moves the optimum by $\sqrt2$: <span class="tag t-derive">derived</span></p>
+$$f_c^\star\big|_{2\times}\;\approx\;\sqrt2\;f_c^\star\big|_{1\times}\;=\;1.414\times 2.1\ \text{MHz}\;\approx\;2.97\ \text{MHz}.$$
+<p><b>Step 3 — cost in REF/DTC.</b> The REF/DTC term is $B_{ref}f_c$, so going $2.1\to2.97$ MHz multiplies the REF/DTC <i>variance</i> by $2.97/2.1=1.41$. At the new optimum the two terms re-balance, and the minimum jitter rises overall: at the optimum $\sigma^2_{\min}=2\sqrt{A_{vco}B_{ref}}\propto\sqrt{A_{vco}}$, so doubling the VCO power raises the achievable jitter by $\sqrt2$ in variance = +1.5 dB = <b>$\times1.19$ in RMS</b>. From the 85.6-fs model optimum that is $\approx 102$ fs even after re-tuning. <span class="tag t-derive">derived</span></p>
+<div class="kpi">
+  <div class="box"><div class="v">2.1&rarr;3.0 MHz</div><div class="l">new f_c* (&times;&radic;2)</div></div>
+  <div class="box"><div class="v">&times;1.41</div><div class="l">REF/DTC variance at new f_c</div></div>
+  <div class="box"><div class="v">+1.5 dB</div><div class="l">best-case jitter penalty</div></div>
+  <div class="box"><div class="v">&asymp;102 fs</div><div class="l">re-tuned total</div></div>
+</div>
+<p><b>Judgment.</b> A 2&times;-noisier VCO is only partly recoverable by the loop — push $f_c$ up by $\sqrt2$ (to ~3 MHz) and you still eat ~+1.5 dB of jitter, paid for by a 41% larger REF/DTC contribution and a faster, twitchier loop (worse sampled-loop PM erosion, §P8). Widening $f_c$ is the right reflex but it is a damage-limiter, not a fix; if the VCO is permanently 3 dB worse, add a core (§P1) rather than chasing it with bandwidth.</p>
+</details>
+</div>
+
+<h2>P3 &mdash; DTC INL doubles. Quantify the new worst spur and pick the cheapest fix.</h2>
+<div class="card">
+<h4>GIVEN</h4>
+<p>Characterization shows the DTC INL is <b>2&times; worse</b> than modeled: the dominant 2nd-order term goes from $g_2=0.6$ LSB to $g_2=1.2$ LSB (3rd-order $g_3=0.1\to0.2$ LSB) <span class="tag t-assume">[A8]</span>. The spur model is $\Delta t = t_{res}(g_2 u^2 + g_3 u^3)$, output spur phase $\varphi = 2\pi f_{out}\,\Delta t$, level $\text{dBc}=20\log_{10}(\varphi_{pk}/2)$ <span class="tag t-derive">model</span>. At fractional offset $\alpha=0.02$ the baseline worst spur is &minus;56 dBc full-range, &minus;68 dBc ½-range, &minus;92 dBc ⅛-range; NLC cancels it <span class="tag t-derive">model</span>.</p>
+<h4>QUESTION</h4>
+<p>What is the new worst spur at each range setting, and which is cheaper to recover the original &minus;56 dBc full-range spur: more range reduction, or nonlinear calibration (NLC)?</p>
+<details class="deriv"><summary>Show worked solution</summary>
+<p><b>Step 1 — INL scales the spur linearly in volts → +6 dB.</b> The spur phase is linear in the INL coefficients ($\varphi\propto g_2 u^2+g_3 u^3$), and $\text{dBc}=20\log_{10}(\cdot)$, so doubling the INL adds $20\log_{10}2=+6.0$ dB to every spur. <span class="tag t-derive">derived</span></p>
+<table class="num">
+<thead><tr><th>Range setting</th><th class="num">baseline (g&#8322;=0.6)</th><th class="num">2&times; INL (g&#8322;=1.2)</th></tr></thead>
+<tbody>
+<tr><td>full range</td><td class="num">&minus;56 dBc</td><td class="num">&minus;50 dBc</td></tr>
+<tr><td>½ range</td><td class="num">&minus;68 dBc</td><td class="num">&minus;62 dBc</td></tr>
+<tr><td>⅛ range</td><td class="num">&minus;92 dBc</td><td class="num">&minus;86 dBc</td></tr>
+</tbody>
+</table>
+<p><b>Step 2 — why range reduction is so effective on a 2nd-order INL.</b> Range reduction scales the DTC input swing by $u\to ru$ (factor $r$). The dominant term is $g_2u^2\to g_2 r^2 u^2$, i.e. the 2nd-order spur scales as $r^2$: $20\log_{10}(r^2)=40\log_{10}r$ dB. Halving the range ($r=\tfrac12$) is $40\log_{10}(0.5)=-12$ dB — which is exactly the &minus;56→&minus;68 and &minus;50→&minus;62 steps in the table. <span class="tag t-derive">derived</span></p>
+<p><b>Step 3 — recover the original &minus;56 dBc.</b> You are at &minus;50 dBc full-range and want &minus;56 dBc, i.e. need <b>&minus;6 dB</b>. Range reduction gives &minus;12 dB per halving, so a single step to <b>½-range</b> overshoots the target (lands at &minus;62 dBc, 6 dB <i>better</i> than asked) — and ½-range is already in the architecture (slide 34) at modest cost (DTC range / power $\propto DR^2$, so ½-range cuts that bucket). <span class="tag t-derive">model</span> <span class="tag t-slide">slide p34</span></p>
+<p><b>Step 4 — NLC alternative.</b> NLC drives the modeled INL toward zero (full cancellation in the model), so it would recover far past &minus;56 dBc — but it costs a predistortion engine plus an adaptive loop, and is sensitive to basis conditioning: monomial $[D,D^2,D^3]$ regressors are correlated (ill-conditioned $R$); you must use orthogonal Legendre $P_1,P_2,P_3$ for clean convergence <span class="tag t-derive">model</span>. That is the right tool when range reduction has run out (e.g. the ⅛-range case still spurs, or you need &gt;&minus;80 dBc), not for a mere 6-dB recovery.</p>
+<div class="kpi">
+  <div class="box"><div class="v">+6 dB</div><div class="l">spur from 2&times; INL</div></div>
+  <div class="box"><div class="v">&minus;12 dB</div><div class="l">per range halving (2nd-order)</div></div>
+  <div class="box"><div class="v">&minus;62 dBc</div><div class="l">½-range fix (free in arch)</div></div>
+  <div class="box"><div class="v">NLC</div><div class="l">save for &lt;&minus;80 dBc need</div></div>
+</div>
+<p><b>Judgment.</b> For a 6-dB recovery, <b>range reduction wins</b> — flip to the ½-range mode already in the design and you not only recover &minus;56 dBc, you beat it (&minus;62 dBc) for essentially free, while also shrinking the DTC QN floor. Spend NLC's complexity only when you have squeezed range reduction dry and still need deep ($<-80$ dBc) spur suppression.</p>
+</details>
+</div>
+
+<h2>P4 &mdash; Choose the DTC bit-count for a 3rd-order MASH at 6.72 GHz.</h2>
+<div class="card">
+<h4>GIVEN</h4>
+<p>You move from the default 2nd-order DSM <span class="tag t-assume">[A5]</span> to a <b>3rd-order MASH (MASH-1-1-1)</b>. The verified quantization-error range the DTC must absorb is $1/2/4\ T_{vco}$ for MASH-1 / 1-1 / 1-1-1 <span class="tag t-slide">slide p6</span>. At $f_{out}=6.72$ GHz, $T_{vco}=1/f_{out}=148.8$ ps. Nominal DTC: $T_{res}=400$ fs, $n=10$ bit, $DR=409.6$ ps <span class="tag t-slide">slide p15</span>. DTC QN floor $\Phi_{DTC,QN}\propto T_{res}^2$ → &minus;163 dBc/Hz at 400 fs <span class="tag t-slide">slide p15</span>.</p>
+<h4>QUESTION</h4>
+<p>What delay range must the DTC cover, how many bits does that take at fixed 400-fs LSB, and is the resulting QN floor still acceptable — or do you need to reduce the LSB (more bits) too?</p>
+<details class="deriv"><summary>Show worked solution</summary>
+<p><b>Step 1 — required range.</b> MASH-1-1-1 has QE range $4\,T_{vco}$ <span class="tag t-slide">slide p6</span>:</p>
+$$DR_{req}=4\,T_{vco}=4\times148.8\ \text{ps}=595.2\ \text{ps}.$$
+<p>The nominal 409.6-ps DTC <b>cannot cover it</b> ($1.25\,T_{vco}$ short). <span class="tag t-derive">derived</span></p>
+<p><b>Step 2 — bits at fixed 400-fs LSB.</b> $DR=2^n T_{res}\ge 595.2$ ps with $T_{res}=400$ fs:</p>
+$$2^n\ge\frac{595.2\ \text{ps}}{400\ \text{fs}}=1488\;\Rightarrow\;n\ge\lceil\log_2 1488\rceil=11\ \text{bit}\;(2^{11}=2048,\;DR=819.2\ \text{ps}).$$
+<p>So <b>11 bits</b> covers it with margin; 10 bits does not. <span class="tag t-derive">derived</span></p>
+<p><b>Step 3 — does the QN floor survive?</b> At fixed $T_{res}=400$ fs the DTC QN floor is unchanged at &minus;163 dBc/Hz — keeping the LSB fixed and only adding the 11th MSB does <i>not</i> raise quantization noise. <span class="tag t-derive">model</span> Good news: a 3rd-order MASH needs more <i>range</i>, not more <i>resolution</i>. The penalty is range-related power ($\propto DR^2$, so ~$2\times$ the bucket) and one more DTC bit, not a noise penalty.</p>
+<p><b>Step 4 — the catch that pushes back toward range reduction.</b> 3rd-order MASH spreads more high-frequency quantization noise that the DTC must cancel, and the larger $4\,T_{vco}$ swing drives the INL spur up (the $g_2u^2$ term scales with swing², §P3). This is exactly why the modified-DSM ½-range scheme (slide 34) pairs with higher-order MASH: it folds the QE back into $[0,\tfrac12 T_{vco}]$ so the <i>physical</i> DTC range — and its INL spur — shrink even though the DSM order rose. <span class="tag t-slide">slide p34</span> <span class="tag t-derive">model</span></p>
+<div class="kpi">
+  <div class="box"><div class="v">595 ps</div><div class="l">required range (4&middot;T_vco)</div></div>
+  <div class="box"><div class="v">11 bit</div><div class="l">at fixed 400-fs LSB</div></div>
+  <div class="box"><div class="v">&minus;163 dBc/Hz</div><div class="l">QN floor unchanged</div></div>
+  <div class="box"><div class="v">&times;2</div><div class="l">range-power bucket</div></div>
+</div>
+<p><b>Judgment.</b> Going 2nd→3rd-order MASH is a <b>range problem, not a resolution problem</b>: add one DTC bit (10→11) to span $4\,T_{vco}=595$ ps, keep the 400-fs LSB so the &minus;163 dBc/Hz QN floor and in-band jitter are untouched. But the larger swing worsens INL spurs and DTC power, so pair the higher-order MASH with the modified-DSM ½-range trick — that is the whole reason the two appear together in the deck.</p>
+</details>
+</div>
+
+<h2>P5 &mdash; The $K_{DTC}$ gain calibration settles to 0.5% error. What in-band floor, and is the cal fast enough?</h2>
+<div class="card">
+<h4>GIVEN</h4>
+<p>The background $K_{DTC}$ gain cal (sign-error LMS, slide 35/37) settles with residual gain error <b>$\varepsilon=0.5\%=5\times10^{-3}$</b>. The verified residual-floor model: a leftover gain error $\varepsilon$ leaves an in-band floor $S=\varepsilon^2(2\pi)^2 S_{Q,dsm}|H_{ref}|^2$, integrating to <b>4.5 fs at $\varepsilon=10^{-4}$, 45 fs at $10^{-3}$, 449 fs at $10^{-2}$</b> — i.e. floor $\propto\varepsilon$, and you need $\varepsilon\lesssim2\times10^{-4}$ for $<10$ fs <span class="tag t-derive">model</span>. Convergence target $\approx30$ µs <span class="tag t-assume">[A17]</span>; $f_{ref}=104$ MHz → ~3120 ref cycles in 30 µs.</p>
+<h4>QUESTION</h4>
+<p>How much jitter does 0.5% residual gain error inject, where does it sit relative to the 87.6-fs budget, and is the &minus;30-µs convergence assumption compatible with that residual?</p>
+<details class="deriv"><summary>Show worked solution</summary>
+<p><b>Step 1 — floor at $\varepsilon=0.5\%$.</b> The floor is linear in $\varepsilon$ (since $S\propto\varepsilon^2$ in power → $\sigma_t\propto\varepsilon$). Interpolate between the verified anchors $45$ fs @ $10^{-3}$ and $449$ fs @ $10^{-2}$:</p>
+$$\sigma_{t,\varepsilon}=45\ \text{fs}\times\frac{5\times10^{-3}}{1\times10^{-3}}=225\ \text{fs}.$$
+<p>(Check the other anchor: $449\times\tfrac{5\times10^{-3}}{10^{-2}}=224.5$ fs — consistent.) <span class="tag t-derive">derived</span></p>
+<p><b>Step 2 — compare to budget.</b> 225 fs alone is <b>2.6&times; the entire 87.6-fs budget</b>. Added in quadrature: $\sqrt{87.6^2+225^2}=241$ fs — the residual <i>dominates</i> and blows the spec by ~2.7&times;. A 0.5% gain cal is nowhere near good enough; you need $\varepsilon\lesssim2\times10^{-4}$ ($<10$ fs) to keep the cal residual a non-player. <span class="tag t-derive">model</span></p>
+<p><b>Step 3 — convergence vs. residual: the misadjustment trade.</b> Sign-LMS steady-state ripple (misadjustment) $\propto\mu$ <span class="tag t-derive">model</span>, while convergence time $\propto1/\mu$. So tightening $\varepsilon$ from $5\times10^{-3}$ down to $2\times10^{-4}$ (a 25&times; smaller residual) means a ~25&times; smaller $\mu$ → ~25&times; <i>longer</i> settling. If 0.5% took the budgeted 30 µs, then $2\times10^{-4}$ would take on the order of <b>0.75 ms</b> at fixed $\mu$. That breaks the &minus;30-µs assumption <span class="tag t-assume">[A17]</span>. <span class="tag t-derive">derived</span></p>
+<p><b>Step 4 — the resolution: gear-shift LMS.</b> You cannot get both fast lock and tiny residual with one $\mu$. Use a <b>two-phase (gear-shifted) µ</b>: large $\mu$ for the first ~30 µs to pull $K_{DTC}$ into the basin quickly, then drop $\mu$ by ~25&times; (or freeze and dither) so the steady-state residual lands at $\varepsilon\sim2\times10^{-4}$. This decouples the two requirements (see P8 for the same trick on lock-time vs. misadjustment). <span class="tag t-derive">model</span></p>
+<div class="kpi">
+  <div class="box"><div class="v">225 fs</div><div class="l">floor at &epsilon;=0.5%</div></div>
+  <div class="box"><div class="v">241 fs</div><div class="l">total (RSS w/ budget)</div></div>
+  <div class="box"><div class="v">&epsilon;&le;2e-4</div><div class="l">needed for &lt;10 fs</div></div>
+  <div class="box"><div class="v">gear-shift &mu;</div><div class="l">fast lock + small residual</div></div>
+</div>
+<p><b>Judgment.</b> 0.5% residual is a <b>disqualifying</b> 225 fs — the gain cal must reach $\varepsilon\lesssim2\times10^{-4}$, two-plus decades tighter, before the floor disappears under the budget. A single LMS step size cannot serve both the 30-µs lock and that residual; gear-shift $\mu$ (big then small) is the standard answer, and it is the same lever P8 uses for lock-time vs. misadjustment.</p>
+</details>
+</div>
+
+<h2>P6 &mdash; Reference doubler on or off? Trade DTC range against the CKREF duty spur.</h2>
+<div class="card">
+<h4>GIVEN</h4>
+<p>The chip has an optional reference doubler $\text{CKREF}\to\times2\to\text{CKREFX2}\to\text{DTC}$ <span class="tag t-slide">slide p39</span> (see <code>open_questions.md</code> #6). Doubling pushes the effective $f_{ref}$ from 104→208 MHz, which <i>halves</i> the per-cycle fractional slip the DTC must span (smaller DTC range). But a doubler made from a delay-XOR has duty-cycle error, and the verified spur model shows a duty error injects an every-other-cycle tone: VCO 20-ps duty error → &minus;64 dBc cal-off, cancelled cal-on <span class="tag t-derive">model</span>. The CKREF duty error injected in the cal demos is 1 ns (57%) <span class="tag t-assume">[A18]</span> <span class="tag t-slide">slide p40</span>.</p>
+<h4>QUESTION</h4>
+<p>What does turning the doubler on buy you in DTC range/QN, what spur does it threaten, and what must be true (calibration-wise) for "doubler on" to be the right call?</p>
+<details class="deriv"><summary>Show worked solution</summary>
+<p><b>Step 1 — the win: smaller DTC range.</b> The DTC must absorb the accumulated DSM QE per reference edge. Doubling $f_{ref}$ halves the time between edges, so the per-cycle phase slip — and the required DTC delay range — drops by ~2&times;. Since DTC power $\propto DR^2$ <span class="tag t-slide">slide p33</span>, halving $DR$ cuts DTC range-power ~4&times;, and at fixed bits it doubles effective resolution (lower LSB → lower QN, $\propto T_{res}^2$). The DTC bucket shrinks. <span class="tag t-derive">model</span></p>
+<p><b>Step 2 — the threat: duty-cycle spur at $f_{ref}/2$.</b> A doubler with duty error puts unequal half-periods → an every-other-cycle timing error, which is exactly the duty-spur mechanism in the model ($\Delta t$ alternates $\pm$ per cycle, tone at $f_{ref}/2$). The model quantifies the analogous VCO 20-ps duty error at <b>&minus;64 dBc cal-off</b> <span class="tag t-derive">model</span>; a CKREF-side doubler with comparable duty error lands in the same ballpark and would dominate the spur mask unless cancelled.</p>
+<p><b>Step 3 — what makes "doubler on" safe.</b> The verified result is that the duty spur is <b>cancelled cal-on</b> — the CKREF-DCC / VCO-DCC sign-sign LMS loops drive the duty error out using a $\pm1$ "every-other-cycle" regressor (XOR / up-down counter) <span class="tag t-derive">model</span> <span class="tag t-slide">slide p40</span>. So doubler-on is the right call <i>iff</i> the duty-cycle correction loop is present and converged: with DCC on, the &minus;64-dBc-class spur is cancelled and you keep the range/QN win for free. Without a working DCC, the duty spur (&minus;64 dBc cal-off, vs. measured frac spurs of &minus;70…&minus;85 dBc <span class="tag t-slide">slide p41</span>) breaks the spur mask — doubler off is then safer.</p>
+<div class="kpi">
+  <div class="box"><div class="v">÷2</div><div class="l">DTC range (doubler on)</div></div>
+  <div class="box"><div class="v">÷4</div><div class="l">DTC range-power (DR&sup2;)</div></div>
+  <div class="box"><div class="v">&minus;64 dBc</div><div class="l">duty spur, cal-off</div></div>
+  <div class="box"><div class="v">cancelled</div><div class="l">duty spur, DCC-on</div></div>
+</div>
+<p><b>Judgment.</b> Turn the doubler <b>on if and only if</b> the duty-cycle correction (DCC) loop is implemented and converged — then you bank a 2&times; smaller DTC range (≈4&times; less range-power, lower QN) and the &minus;64-dBc-class duty spur is cancelled to below the &minus;70…&minus;85-dBc measured spur floor. If there is any doubt the DCC will track over PVT, leave it off: an uncancelled &minus;64-dBc duty tone is worse than carrying the larger DTC.</p>
+</details>
+</div>
+
+<h2>P7 &mdash; Pick $\mu$ for 30-µs lock <i>and</i> &lt;1% misadjustment. Can you do both with one step size?</h2>
+<div class="card">
+<h4>GIVEN</h4>
+<p>Sign-LMS background cal: steady-state ripple (misadjustment) $\propto\mu$ <span class="tag t-derive">model</span>, convergence time $\tau\propto1/\mu$. Spec: lock within <b>30 µs</b> <span class="tag t-assume">[A17]</span> (~3120 ref cycles at 104 MHz) <b>and</b> steady-state misadjustment <b>&lt;1%</b> of the converged value. The <code>sign_lms_ripple(µ)</code> model shows ripple growing monotonically with $\mu$ over $\mu\in[0.05,6]$ <span class="tag t-derive">model</span>.</p>
+<h4>QUESTION</h4>
+<p>Is there a single $\mu$ that meets both? If not, what is the standard fix and how do you schedule it?</p>
+<details class="deriv"><summary>Show worked solution</summary>
+<p><b>Step 1 — the two requirements pull opposite ways.</b> Fast lock wants <i>large</i> $\mu$ ($\tau\propto1/\mu$); low misadjustment wants <i>small</i> $\mu$ (ripple $\propto\mu$). Their product is a constant figure of merit: $\tau\times(\text{misadjustment})\approx\text{const}$. <span class="tag t-derive">model</span></p>
+<p><b>Step 2 — is the single-$\mu$ window non-empty?</b> Suppose the $\mu$ that gives 30-µs lock produces misadjustment $M_{30}$. To also hit &lt;1% you would need $\mu$ small enough that $M\propto\mu$ falls below 1%. If $M_{30}$ already exceeds 1% (the usual case for a one-bit sign-LMS pulled to lock in only ~3120 cycles, where ripple is several percent <span class="tag t-derive">model</span>), then <b>no single $\mu$ works</b>: lowering $\mu$ to fix misadjustment stretches $\tau$ past 30 µs, and raising $\mu$ to hit 30 µs blows the 1% ripple. The constant-product law says you cannot beat the trade with one knob. <span class="tag t-derive">derived</span></p>
+<p><b>Step 3 — the fix: gear-shifted (two-stage) $\mu$.</b> Decouple the two phases:</p>
+<ol>
+<li><b>Acquire (0–30 µs):</b> large $\mu_{hi}$ sized for $\tau\approx5$–8 µs so the loop is within a few LSB of $K_{DTC}$ by 30 µs (slide-37 "&lt;30 µs" <span class="tag t-slide">slide p37</span>). Misadjustment is high here but you do not care yet.</li>
+<li><b>Track (after lock):</b> drop to $\mu_{lo}=\mu_{hi}/k$. Since ripple $\propto\mu$, choosing $k$ so that $\mu_{lo}$ gives &lt;1% sets the steady-state residual. If $\mu_{hi}$ gave, say, ~10% ripple, then $k\approx10$–20 (drop one decade-ish) lands &lt;1%.</li>
+</ol>
+<p>This is the same gear-shift used in P5 to reconcile 30-µs convergence with $\varepsilon\le2\times10^{-4}$ residual gain error — one mechanism, two specs. <span class="tag t-derive">model</span></p>
+<p><b>Step 4 — bonus: why the co-running cals do not fight during the shift.</b> The regressors $\Phi_e$, $\text{SEL\_CKFB}(\pm1)$, $\text{even\_cycle}(\pm1)$, $1$ (offset) are mutually orthogonal under expectation <span class="tag t-derive">model</span>, so you can gear-shift each loop independently — <i>except</i> half-range $\Phi_e$ has nonzero mean, which couples offset into gain. So schedule the <b>offset cal to converge first</b>, then gear-shift the gain cal; otherwise the offset leakage corrupts the high-$\mu$ acquire of $K_{DTC}$. <span class="tag t-derive">model</span></p>
+<div class="kpi">
+  <div class="box"><div class="v">&tau;&middot;M = const</div><div class="l">the fundamental trade</div></div>
+  <div class="box"><div class="v">No</div><div class="l">single &mu; meets both</div></div>
+  <div class="box"><div class="v">2-stage &mu;</div><div class="l">&mu;_hi acquire &rarr; &mu;_lo track</div></div>
+  <div class="box"><div class="v">offset first</div><div class="l">avoid gain coupling</div></div>
+</div>
+<p><b>Judgment.</b> <b>No single $\mu$ meets both</b> — the ripple-vs-speed product is a hard constant, so the two specs live on opposite ends of one knob. Gear-shift: big $\mu$ for ~30-µs acquire, then drop ~1–1.5 decades for &lt;1% tracking misadjustment, and converge the offset cal first because half-range $\Phi_e$ leaks offset into the gain loop.</p>
+</details>
+</div>
+
+<h2>P8 &mdash; Someone proposes $f_c = f_{ref}/8$ to kill VCO noise. Where does the sampled loop bite back?</h2>
+<div class="card">
+<h4>GIVEN</h4>
+<p>An aggressive reviewer says: "the VCO owns 51% of the budget — just crank $f_c$ way up to $f_{ref}/8 = 13$ MHz and high-pass the VCO into oblivion." The present design sits at $f_c=1.5$ MHz, i.e. $f_c/f_{ref}\approx1/70$, where the verified note is that <b>sampled-loop PM erosion is small because $f_c/f_{ref}\approx1/70$</b>, with a zero-order-hold half-sample lag $\approx-\pi f/f_{ref}$ <span class="tag t-derive">model</span>. The 2nd-order approx already shows gain-peaking 1.70 dB, ~25% phase-step overshoot, and a zero at $f_z=402$ kHz driving the overshoot <span class="tag t-derive">model</span>; jitter-optimal $f_c^\star\approx2.1$ MHz <span class="tag t-derive">model</span>.</p>
+<h4>QUESTION</h4>
+<p>Estimate the extra phase lag the sampling introduces at $f_c=13$ MHz, decide whether the loop is still stable, and say what actually limits how far you can push $f_c$.</p>
+<details class="deriv"><summary>Show worked solution</summary>
+<p><b>Step 1 — sampled-loop lag at the present design.</b> The ZOH half-sample lag is $\Delta\phi\approx-\pi f/f_{ref}$ <span class="tag t-derive">model</span>. At $f_c=1.5$ MHz:</p>
+$$\Delta\phi=-\pi\frac{1.5}{104}=-0.0453\ \text{rad}=-2.6^\circ.$$
+<p>Negligible against the 60° PM <span class="tag t-assume">[A2]</span> — which is exactly why the deck's slow loop ignores it. <span class="tag t-derive">derived</span></p>
+<p><b>Step 2 — lag at the proposed $f_c=f_{ref}/8$.</b> Now $f/f_{ref}=1/8$:</p>
+$$\Delta\phi=-\pi\cdot\tfrac18=-0.393\ \text{rad}=-22.5^\circ.$$
+<p>The sampling alone eats <b>22.5°</b> of phase. Subtract it from the 60° target and the loop has only ~37.5° PM — <i>before</i> accounting for the extra delay of the SPD/DTC datapath and any anti-alias pole. The 1.70-dB gain peaking <span class="tag t-derive">model</span> gets dramatically worse as PM collapses, and overshoot/ringing balloon past the 25% baseline. <span class="tag t-derive">derived</span></p>
+<p><b>Step 3 — is it even worth it?</b> The jitter optimum is at $f_c^\star\approx2.1$ MHz <span class="tag t-derive">model</span>; pushing past it makes total jitter <i>worse</i>, not better, because beyond the optimum the rising REF+DTC contribution (each $\times N^2$) overtakes the falling VCO contribution (P2's $\sigma^2\approx A/f_c+Bf_c$ has a minimum, not a monotone). So $f_c=13$ MHz is on the wrong side of the optimum <i>and</i> stability-eroded. <span class="tag t-derive">model</span></p>
+<p><b>Step 4 — what really limits $f_c$.</b> Three ceilings, in order of bite: (1) the <b>jitter optimum</b> at ~2.1 MHz (going past it raises jitter); (2) <b>sampled-loop stability</b> — the $-\pi f/f_{ref}$ lag is tolerable to maybe $f_c\lesssim f_{ref}/20$ (≈5 MHz, ~9° lag) before PM erosion forces redesign; (3) the classic Gardner rule of thumb $f_c\lesssim f_{ref}/10$ for a clean continuous-time approximation <span class="tag t-std">textbook (Gardner)</span>. All three say "low single-digit MHz," not 13 MHz.</p>
+<div class="kpi">
+  <div class="box"><div class="v">&minus;2.6&deg;</div><div class="l">ZOH lag @ 1.5 MHz</div></div>
+  <div class="box"><div class="v">&minus;22.5&deg;</div><div class="l">ZOH lag @ f_ref/8</div></div>
+  <div class="box"><div class="v">~37.5&deg;</div><div class="l">PM left @ f_ref/8</div></div>
+  <div class="box"><div class="v">2.1 MHz</div><div class="l">jitter optimum (the real cap)</div></div>
+</div>
+<p><b>Judgment.</b> The reviewer's "just crank $f_c$" fails on two fronts: the <b>jitter already bottoms at ~2.1 MHz</b> (13 MHz is past the optimum, so it raises jitter), and the <b>sampled-loop ZOH lag grows as $\pi f/f_{ref}$</b> — harmless at 1.5 MHz (&minus;2.6°) but a PM-destroying &minus;22.5° at $f_{ref}/8$. Keep $f_c$ in the low-single-digit MHz; to beat the VCO line, add cores (P1), do not chase it with bandwidth.</p>
+</details>
+</div>
+
+<div class="warn">
+<b>Provenance reminder.</b> Every spur, jitter, and convergence number above is reproduced by the models in <code>models/extras.py</code> and <code>frequency_domain_model.py</code> against the slide-42 budget. The scaling laws used to extrapolate to the changed specs (variance addition, $40\log_{10}r$ per range halving, $f_c^\star\propto\sqrt{A_{vco}}$, $\tau\cdot M=$const, $-\pi f/f_{ref}$ ZOH lag) are derived from those models, not measured on silicon. Items still flagged in <code>open_questions.md</code> (Type-I vs II, exact $K_{DTC}$ LSB in the cal loop, doubler effective $f_{ref}$) are noted inline where they touch a problem.
+</div>
+
+<div class="note">
+<b>Self-check quiz.</b> Quick sanity tests on the judgment patterns above.
+</div>
+<div class="quiz"><div class="q">Q1. A teammate says "drive the SPD+GM noise (4% of budget) to zero and we'll meet a 60-fs spec." Without computing, why is this hopeless?</div><details><summary>Show answer</summary><div class="ans">Because the VCO alone owns 51% of the <i>variance</i>. Even zeroing everything except the VCO leaves $\sigma_t=87.6\sqrt{0.51}=62.6$ fs &gt; 60 fs — and SPD+GM is only 4%, so deleting it moves the total by $\sqrt{1-0.04}=0.98$, i.e. ~88→86 fs. You must attack the dominant (VCO) line; small lines round to nothing in quadrature. <span class="tag t-slide">slide p42</span> <span class="tag t-derive">derived</span> (see P1)</div></details></div>
+<div class="quiz"><div class="q">Q2. The DTC INL doubles. Your colleague wants to add an NLC engine immediately. Give the one-line reason range reduction is the cheaper first move for a 6-dB recovery.</div><details><summary>Show answer</summary><div class="ans">Doubling INL adds only $20\log_{10}2=+6$ dB to the spur, and range reduction removes $40\log_{10}r$ dB (= &minus;12 dB per halving) on the dominant 2nd-order term. One halving to ½-range — already in the architecture — overshoots the 6-dB target (lands &minus;62 dBc) for free, no new engine. Save NLC for when you need &gt;&minus;80 dBc. <span class="tag t-derive">model</span> (see P3)</div></details></div>
+<div class="quiz"><div class="q">Q3. Why can't one LMS step size $\mu$ give both 30-µs lock and &lt;1% misadjustment, and what is the standard escape?</div><details><summary>Show answer</summary><div class="ans">Convergence $\tau\propto1/\mu$ but misadjustment ripple $\propto\mu$, so $\tau\times M$ is a fixed product — fast lock and low ripple sit on opposite ends of the same knob. Escape: gear-shift $\mu$ (large to acquire in ~30 µs, then drop ~1–1.5 decades to track at &lt;1%). Converge the offset cal first, since half-range $\Phi_e$ has nonzero mean and leaks offset into the gain loop. <span class="tag t-derive">model</span> (see P5, P7)</div></details></div>

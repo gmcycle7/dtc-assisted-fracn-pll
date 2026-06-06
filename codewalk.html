@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Walkthrough · DTC-Assisted Frac-N PLL</title>
+<meta name="description" content="Line-by-line walkthrough of the Python models, mapping every line to a formula and a circuit.">
+<meta property="og:title" content="Code Walkthrough · DTC-Assisted Fractional-N PLL">
+<meta property="og:description" content="Line-by-line walkthrough of the Python models, mapping every line to a formula and a circuit.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism-tomorrow.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar"><button class="ham" aria-label="Open menu">&#9776;</button><span class="ttl">Code Walkthrough</span></div>
+<div class="scrim"></div>
+<div class="wrap">
+<nav class="side" aria-label="Site sections">
+<a class="brand" href="index.html" style="text-decoration:none">DTC-Assisted<br>Fractional-N PLL</a>
+<div class="sub">Interactive study of slides 1–42</div>
+<a class="" href="index.html"><span class="n">1</span>Home</a>
+<a class="" href="lab.html"><span class="n">2</span>Interactive Lab</a>
+<a class="" href="selftest.html"><span class="n">3</span>Self-Test</a>
+<a class="" href="slides.html"><span class="n">4</span>Slide-by-slide Map</a>
+<a class="" href="architecture.html"><span class="n">5</span>Architecture</a>
+<a class="" href="blocks.html"><span class="n">6</span>Block Models</a>
+<a class="" href="calibrations.html"><span class="n">7</span>Calibrations</a>
+<a class="" href="frequency.html"><span class="n">8</span>Frequency-Domain</a>
+<a class="" href="loopdyn.html"><span class="n">9</span>Loop Dynamics & Lock</a>
+<a class="" href="timedomain.html"><span class="n">10</span>Time-Domain Noise</a>
+<a class="" href="spurs.html"><span class="n">11</span>Fractional Spurs</a>
+<a class="" href="system.html"><span class="n">12</span>System Impact</a>
+<a class="active" href="codewalk.html"><span class="n">13</span>Code Walkthrough</a>
+<a class="" href="examples.html"><span class="n">14</span>Numerical Examples</a>
+<a class="" href="designex.html"><span class="n">15</span>Design Walkthrough</a>
+<a class="" href="problems.html"><span class="n">16</span>Design Problems</a>
+<a class="" href="dtctopologies.html"><span class="n">17</span>DTC Topologies</a>
+<a class="" href="glossary.html"><span class="n">18</span>Notation & Glossary</a>
+<a class="" href="validation.html"><span class="n">19</span>Validation & Limits</a>
+<a class="" href="references.html"><span class="n">20</span>References</a>
+</nav>
+<main>
+<div class="article">
+<h1>Code Walkthrough</h1>
+<p class="lead">A line-by-line tour of the four model files behind this deck — how phase noise turns into jitter, how the type-II loop is solved, how the per-cycle time-domain PLL runs, and how a sign-LMS calibration converges — with every line mapped to a formula and a circuit node.</p>
+
+<div class="note">
+This page reads the <i>actual</i> Python in <code>models/utils.py</code>, <code>models/frequency_domain_model.py</code>, <code>models/time_domain_noise_model.py</code>, and <code>models/calibration_models.py</code>. Snippets are faithful to the source; long routines are trimmed to the essential lines with <code>(...)</code> marking omissions. Units are called out explicitly because almost every bug in PLL modeling is a units bug (rad vs cycles, single- vs double-sideband, Hz vs rad/s).
+</div>
+
+<h2>Orientation: how the four files fit together</h2>
+<p>
+The models share one vocabulary. Everything is SI: <b>phase in rad</b>, <b>time in s</b>, <b>frequency in Hz</b> <span class="tag t-slide">slide p.42</span> sets the operating point ($f_\text{out}=6.72$ GHz, $f_\text{ref}=104$ MHz), and <code>docs/assumptions.md</code> sets the design knobs ($f_c=1.5$ MHz <span class="tag t-assume">assumption [A1]</span>, PM $=60^\circ$ <span class="tag t-assume">assumption [A2]</span>).
+</p>
+<div class="grid">
+  <div class="card"><h4>utils.py</h4>The shared toolbox: phase-noise ↔ jitter conversions, Welch PSD, noise-shape generators, DSM-QN PSD. No matplotlib import, so it runs headless.</div>
+  <div class="card"><h4>frequency_domain_model.py</h4>The small-signal s-domain model: solves the type-II loop, builds $G_\text{ol}$, $H_\text{ref}$, $H_\text{vco}$, integrates the jitter budget that reproduces <span class="tag t-slide">slide p.42</span>.</div>
+  <div class="card"><h4>time_domain_noise_model.py</h4>A discrete-time, per-reference-cycle behavioral PLL. Injects real random noise sequences, runs the loop, and Welch-PSDs the output to cross-check the frequency model.</div>
+  <div class="card"><h4>calibration_models.py</h4>The four background sign-LMS calibrations (DTC gain, VCO DCC, CKREF DCC, offset) plus the survey polynomial NLC.</div>
+</div>
+
+<hr>
+
+<h2>1. utils.py — the phase-noise ↔ jitter chain</h2>
+<p>
+Every jitter number in this project flows through three functions. The chain is:
+$$ L(f)\ \xleftrightarrow{\;\texttt{Sphi\_to\_L}\;}\ S_\phi(f)\ \xrightarrow{\;\texttt{integrate\_phase\_noise}\;}\ \sigma_\phi\ \xrightarrow{\;\texttt{rms\_jitter\_from\_sigma\_phi}\;}\ \sigma_t. $$
+Get any one of these wrong and the final fs number is wrong, so they are worth understanding exactly.
+</p>
+
+<h3>1a. <code>Sphi_to_L</code> — phase PSD to dBc/Hz</h3>
+<p>
+<b>What it does:</b> converts a single-sided phase power spectral density $S_\phi(f)$ (in $\text{rad}^2/\text{Hz}$) into the SSB phase-noise number $L(f)$ that everyone quotes in dBc/Hz. The factor of $\tfrac12$ is the SSB-from-DSB convention (IEEE-1139 / Leeson) <span class="tag t-std">textbook (IEEE-1139)</span> <span class="tag t-assume">assumption [A19]</span>.
+</p>
+<div class="walk">
+  <div class="ln">def Sphi_to_L(Sphi):</div>
+  <div class="ex"><b>Input</b> $S_\phi$ in $\text{rad}^2/\text{Hz}$. This is the one-sided phase PSD at the <b>output node</b> after the loop has shaped it.</div>
+  <div class="ln">Sphi = np.asarray(Sphi, dtype=float)</div>
+  <div class="ex">Coerce to a float array so the function works on a scalar or a whole frequency sweep.</div>
+  <div class="ln">return 10.0 * np.log10(0.5 * np.clip(Sphi, 1e-300, None))</div>
+  <div class="ex"><b>Formula:</b> $L(f)=10\log_{10}\!\big(\tfrac12 S_\phi\big)$. The $0.5$ folds the double-sided variance into one sideband (the "carrier-to-single-sideband" ratio). The <code>clip</code> at $10^{-300}$ just keeps $\log_{10}(0)$ from blowing up. <b>Circuit meaning:</b> $L(f)$ is what a spectrum analyzer would read on one side of the 6.72 GHz carrier.</div>
+</div>
+<div class="note">Its inverse is <code>L_to_Sphi(L_dbc) = 2.0 * 10**(L_dbc/10)</code> — note the factor of <b>2</b>, undoing the $\tfrac12$. Every noise source in the frequency model is specified in dBc/Hz and immediately pushed through <code>L_to_Sphi</code> to get $S_\phi$.</div>
+
+<h3>1b. <code>integrate_phase_noise</code> — PSD to RMS phase</h3>
+<p>
+<b>What it does:</b> integrates the phase PSD over an offset band $[f_\text{lo},f_\text{hi}]$ to get the RMS phase $\sigma_\phi$ in radians. This is Parseval / the variance theorem <span class="tag t-std">textbook (Parseval)</span>: the area under $S_\phi$ is the phase variance.
+</p>
+<div class="walk">
+  <div class="ln">freq = np.asarray(freq, dtype=float)<br>Sphi = np.asarray(Sphi, dtype=float)</div>
+  <div class="ex">Two parallel arrays: the offset-frequency grid (Hz, usually log-spaced) and the PSD on that grid.</div>
+  <div class="ln">m = np.ones_like(freq, dtype=bool)<br>if f_lo is not None: m &amp;= freq &gt;= f_lo<br>if f_hi is not None: m &amp;= freq &lt;= f_hi</div>
+  <div class="ex">Build a boolean mask selecting only the integration band. The default band for jitter is <b>1 kHz … 100 MHz</b> <span class="tag t-assume">assumption [A16]</span>; the time-domain model narrows $f_\text{hi}$ to the 52 MHz Nyquist limit.</div>
+  <div class="ln">var = _trapz(Sphi[m], freq[m])</div>
+  <div class="ex"><b>Formula:</b> $\sigma_\phi^2=\int_{f_\text{lo}}^{f_\text{hi}} S_\phi(f)\,df$ by trapezoidal rule. <code>_trapz</code> is numpy's <code>trapezoid</code> (or legacy <code>trapz</code>) resolved at import — a numpy-2.0 compatibility shim. Trapezoid on a log grid is the standard way to integrate PSDs.</div>
+  <div class="ln">return float(np.sqrt(var))</div>
+  <div class="ex">Return $\sigma_\phi=\sqrt{\text{var}}$ in <b>radians</b> — the RMS phase wobble of the carrier over that band.</div>
+</div>
+
+<h3>1c. <code>rms_jitter_from_sigma_phi</code> — RMS phase to RMS time</h3>
+<p>
+<b>What it does:</b> converts an RMS phase (rad) to an RMS timing jitter (s) at the carrier frequency. This is the one-liner that produces the headline 87.6 fs number.
+</p>
+<div class="walk">
+  <div class="ln">def rms_jitter_from_sigma_phi(sigma_phi, f_out):</div>
+  <div class="ex"><code>sigma_phi</code> in rad, <code>f_out</code> in Hz (here 6.72 GHz).</div>
+  <div class="ln">return sigma_phi / (2.0 * np.pi * f_out)</div>
+  <div class="ex"><b>Formula:</b> $\sigma_t=\dfrac{\sigma_\phi}{2\pi f_\text{out}}$. One full carrier cycle is $2\pi$ rad and lasts $1/f_\text{out}$, so phase-to-time scales by $1/(2\pi f_\text{out})$. <b>Numbers:</b> $\sigma_\phi$ that integrates to the slide-42 budget gives $\sigma_t=87.6$ fs <span class="tag t-derive">model</span> ≈ 87.5 fs <span class="tag t-slide">slide p42</span>.</div>
+</div>
+<div class="derive">
+<b>The full chain, end to end.</b> Combine the three: a flat $L(f)=-160$ dBc/Hz over a 1 kHz…100 MHz decade-ish band first becomes $S_\phi = 2\cdot10^{-16}\,\text{rad}^2/\text{Hz}$; over the $\approx100$ MHz span that integrates to $\sigma_\phi^2 = S_\phi\,\Delta f \approx 2\times10^{-16}\times10^{8}=2\times10^{-8}$, so $\sigma_\phi = 1.41\times10^{-4}$ rad, and dividing by $2\pi(6.72\text{ GHz})$ gives $\sigma_t \approx 3.3$ fs. The convenience wrapper <code>integrated_jitter(freq, Sphi, f_out)</code> does exactly this and returns <code>(sigma_t, sigma_phi)</code> in one call. The complementary <code>ipn_dbc(sigma_phi, ssb=True)</code> reports the same result as an integrated-phase-noise number, $\text{IPN}=10\log_{10}(\tfrac12\sigma_\phi^2)$, which lands at $-51.6$ dBc <span class="tag t-derive">model</span> ≈ $-51.7$ dBc <span class="tag t-slide">slide p42</span>.
+</div>
+<div class="warn">
+The 3-dB SSB/DSB convention matters. <code>ipn_dbc</code> exposes both: <code>ssb=True</code> matches the deck's $-51.6$ dBc; <code>ssb=False</code> would report the full double-sideband variance and read 3 dB higher. The code comments flag this as a <span class="tag t-need">needs citation</span> point in <code>references.md</code> — always confirm which convention a measured number uses before comparing.
+</div>
+
+<hr>
+
+<h2>2. frequency_domain_model.py — the type-II loop solve and the transfer functions</h2>
+<p>
+This file's job is to turn two design targets — loop bandwidth $f_c$ and phase margin PM — into a concrete open-loop gain $G_\text{ol}(s)$, then build the two closed-loop noise transfer functions. The cleverness is the <i>symmetric</i> zero/pole placement, which lets you solve the loop in closed form instead of iterating.
+</p>
+
+<h3>2a. <code>_design_type2_loop</code> — symmetric zero/pole solve</h3>
+<p>
+<b>What it does:</b> places one zero $\omega_z$ below crossover and one pole $\omega_p$ above crossover, geometrically symmetric about $\omega_c$, so the phase margin is maximized exactly at the chosen crossover. Then it scales the loop gain so $|G_\text{ol}(j\omega_c)|=1$ <span class="tag t-std">textbook (Gardner, symmetric type-II)</span>.
+</p>
+<div class="walk">
+  <div class="ln">wc = 2 * np.pi * self.f_c<br>pm = np.deg2rad(self.pm_deg)</div>
+  <div class="ex">Crossover in rad/s ($\omega_c=2\pi\cdot1.5$ MHz) and the target phase margin in rad (60°).</div>
+  <div class="ln">k = np.tan((pm + np.pi / 2) / 2.0)</div>
+  <div class="ex"><b>Formula:</b> the symmetric type-II has $\text{PM}=2\arctan(k)-90^\circ$, so inverting gives $k=\tan\!\big(\tfrac{\text{PM}+90^\circ}{2}\big)$. The factor $k$ is the geometric "spread" of zero and pole around $\omega_c$. For PM $=60^\circ$, $k=\tan(75^\circ)\approx3.73$.</div>
+  <div class="ln">self.wz = wc / k<br>self.wp = wc * k</div>
+  <div class="ex"><b>Placement:</b> zero a factor $k$ <i>below</i> crossover, pole a factor $k$ <i>above</i>. They are geometrically symmetric: $\sqrt{\omega_z\omega_p}=\omega_c$. <b>Circuit:</b> $\omega_z$ comes from the proportional path (Vctrl_P, the loop-filter zero) <span class="tag t-slide">slide p.39</span>; $\omega_p$ is the extra parasitic/anti-spur pole.</div>
+  <div class="ln">jwc = 1j * wc<br>shape = (1 + jwc / self.wz) / (jwc ** 2 * (1 + jwc / self.wp))</div>
+  <div class="ex">Evaluate the <i>unscaled</i> loop shape at $s=j\omega_c$. The $s^2$ in the denominator is the <b>two integrators</b>: the VCO ($K_\text{vco}/s$) plus the loop's own integral term — the defining feature of a type-II loop.</div>
+  <div class="ln">self.Kloop = 1.0 / abs(shape)</div>
+  <div class="ex"><b>Formula:</b> choose $K_\text{loop}$ so $|G_\text{ol}(j\omega_c)|=1$, i.e. $K_\text{loop}=1/|\text{shape}(j\omega_c)|$. This forces the crossover to land exactly at $f_c$. The numeric sanity check <code>loop_metrics</code> later recovers <b>$f_c=1.501$ MHz, PM $=60^\circ$</b> <span class="tag t-slide">slide p.42 / json</span>, confirming the closed-form solve.</div>
+</div>
+
+<h3>2b. <code>open_loop</code>, <code>H_ref</code>, <code>H_vco</code> — the transfer functions</h3>
+<p>
+<b>What they do:</b> assemble $G_\text{ol}(s)$ from the solved constants, then form the two closed-loop shapes. <code>H_ref</code> is low-pass (the reference and everything injected with it pass through the loop at DC, gained up by $N$); <code>H_vco</code> is high-pass (the loop suppresses VCO noise inside the bandwidth and lets it through outside).
+</p>
+<div class="walk">
+  <div class="ln">s = 1j * 2 * np.pi * np.asarray(f, dtype=float)<br>return params.Kloop * (1 + s / params.wz) / (s ** 2 * (1 + s / params.wp))</div>
+  <div class="ex"><b>open_loop:</b> $G_\text{ol}(s)=K_\text{loop}\dfrac{1+s/\omega_z}{s^2\,(1+s/\omega_p)}$. The numerator zero supplies the phase boost for stability; the double pole at the origin (the $s^2$) gives the type-II's zero steady-state phase error. <b>Circuit:</b> one $1/s$ is the VCO integrator, the other is the loop-filter integral path (Vctrl_I) <span class="tag t-slide">slide p.39</span>.</div>
+  <div class="ln">G = open_loop(params, f)<br>return params.N * G / (1 + G)</div>
+  <div class="ex"><b>H_ref</b> $=N\dfrac{G}{1+G}$. Classic feedback: at low offset $G\!\gg\!1$ so $H_\text{ref}\to N$ (DC gain $=N=64.62$, because the reference is multiplied up to the output). At high offset $G\to0$ so it rolls off — a <b>low-pass</b> shape. REF, DTC, MMD, and SPD+GM noise all ride this path.</div>
+  <div class="ln">G = open_loop(params, f)<br>return 1.0 / (1 + G)</div>
+  <div class="ex"><b>H_vco</b> $=\dfrac{1}{1+G}$. At low offset $G\!\gg\!1$ so $H_\text{vco}\to0$ (loop crushes VCO noise in-band); at high offset $G\to0$ so $H_\text{vco}\to1$ (free-running VCO leaks straight through) — a <b>high-pass</b> shape. This is why the VCO dominates the far-out budget at <b>51.8%</b> <span class="tag t-slide">slide p.42</span>.</div>
+</div>
+<figure><img src="assets/figures/fd_bode.png" alt="open-loop Bode plot"><figcaption>Open-loop $G_\text{ol}$ Bode: crossover at $\approx1.5$ MHz, PM $=60^\circ$ — the symmetric solve in action. Source: <code>frequency_domain_model.make_figures</code>, derivations §1.</figcaption></figure>
+<figure><img src="assets/figures/fd_ntf.png" alt="closed-loop noise transfer functions"><figcaption>$H_\text{ref}/N$ (low-pass) vs $H_\text{vco}$ (high-pass), crossing near $f_c$. The reference path dominates inside the loop, the VCO outside. Source: <code>frequency_domain_model.make_figures</code>, derivations §2.</figcaption></figure>
+<div class="note">
+The combined budget that these transfer functions produce — <code>output_contributions</code> sums each source's $S_\phi$ times $|H|^2$, and <code>jitter_budget</code> integrates them — reproduces the deck pie: <b>VCO 51.8%, REF+DTC ≈37.8%, MMD 6.2%, SPD+GM 3.9%, DSM-QN ≈0.3% (cancelled)</b>, totaling 87.6 fs <span class="tag t-derive">model</span> ≈ 87.5 fs <span class="tag t-slide">slide p42</span> / $-51.6$ dBc <span class="tag t-derive">model</span> ≈ $-51.7$ dBc <span class="tag t-slide">slide p42</span>.
+</div>
+
+<hr>
+
+<h2>3. time_domain_noise_model.py — the per-cycle loop (the heart)</h2>
+<p>
+This is the most important routine in the project: a genuine discrete-time simulation of the PLL, sampled once per reference cycle ($f_s=f_\text{ref}=104$ MHz, Nyquist $=52$ MHz). Instead of multiplying PSDs by transfer functions, it injects <i>actual random noise sequences</i> at the right nodes and lets the loop evolve. If the resulting Welch-PSD matches the frequency-domain model, both are trustworthy — and they do (88.2 fs vs 87.4 fs, $+0.08$ dB) <span class="tag t-derive">derived</span>.
+</p>
+<p>
+Before the loop, each noise source is generated as a sequence referred to its injection node (rad): reference (white floor + flicker), DTC (QN + thermal, white), SPD+GM (white), MMD (white), and the free-running VCO. The VCO is special — it enters as the per-cycle <i>increment</i>:
+</p>
+<div class="walk">
+  <div class="ln">vco_step = np.diff(vco_noise, prepend=vco_noise[0])</div>
+  <div class="ex">The VCO accumulates phase, so its <i>noise</i> appears as the step added each cycle. <code>np.diff</code> with <code>prepend</code> keeps the length at $n$. <b>Circuit:</b> the VCO is a phase integrator; injecting the increment <code>vco_step[k]</code> and then accumulating reproduces the $-20$ dB/dec white-FM shape.</div>
+</div>
+
+<h3>3a. The five-step per-cycle loop body</h3>
+<p>
+<b>What it does:</b> walks one reference cycle. Each numbered step is a physical block: VCO accumulator → feedback divider → reference+DTC path → sampling phase detector → PI loop filter. The loop runs for $n=2^{20}\approx1.05$M cycles.
+</p>
+<div class="walk">
+  <div class="ln">for k in range(1, n):</div>
+  <div class="ex">Iterate cycle by cycle from $k=1$ (state at $k=0$ is the initial condition). Index $k$ is one reference period $T_s=1/f_\text{ref}\approx9.6$ ns.</div>
+  <div class="ln">phi_out[k] = phi_out[k-1] + Kv * ctrl + vco_step[k]</div>
+  <div class="ex"><b>Step 1 — VCO phase accumulation.</b> $\varphi_\text{out}[k]=\varphi_\text{out}[k-1]+K_v\,\text{ctrl}+\Delta\varphi_\text{vco}[k]$. The previous control voltage integrates into output phase ($K_v$ absorbed to 1), and the VCO's own noise increment is added. This is the discrete VCO integrator $K_v z^{-1}/(1-z^{-1})$.</div>
+  <div class="ln">phi_fb = phi_out[k] / N + mmd_noise[k]</div>
+  <div class="ex"><b>Step 2 — feedback divider (/N).</b> $\varphi_\text{fb}=\varphi_\text{out}/N+\Delta\varphi_\text{mmd}$. The MMD divides the output phase by $N=64.62$ and adds its own input-referred noise <span class="tag t-slide">slide p.42</span>. <b>Circuit:</b> the multi-modulus divider in the feedback path.</div>
+  <div class="ln">phi_ref = ref_noise[k] + dtc_noise[k]</div>
+  <div class="ex"><b>Step 3 — reference + DTC path.</b> $\varphi_\text{ref}=\Delta\varphi_\text{ref}+\Delta\varphi_\text{dtc}$. Critically the DSM quantization error is <i>not</i> added — the DTC cancels it <span class="tag t-slide">slide p.9</span> — only the DTC's residual QN + thermal noise remains.</div>
+  <div class="ln">e = phi_ref - phi_fb + spd_noise[k]</div>
+  <div class="ex"><b>Step 4 — sampling phase detector.</b> $e=\varphi_\text{ref}-\varphi_\text{fb}+\Delta\varphi_\text{spd}$. The SPD measures the phase error between reference and feedback and adds its own + the GM front-end noise <span class="tag t-slide">slide p.20</span>. This $e$ is the loop's error signal in rad.</div>
+  <div class="ln">acc += e<br>ctrl = Kp * e + Ki * acc</div>
+  <div class="ex"><b>Step 5 — PI loop filter (type-II).</b> The integral accumulator builds up $\sum e$; the control is $\text{ctrl}=K_p e+K_i\sum e$. The proportional term $K_p$ is the stabilizing zero, the integral term $K_i$ gives the second pole at origin. <b>Circuit:</b> Vctrl_P + Vctrl_I summed into the VCO <span class="tag t-slide">slide p.39</span>. The next iteration's step 1 feeds <code>ctrl</code> back into the VCO — closing the loop.</div>
+</div>
+<div class="derive">
+<b>Where $K_p$ and $K_i$ come from.</b> The discrete loop (in <code>DTLoop.__post_init__</code>) is matched to the same $f_c$/PM as the frequency model: $\omega_z=\omega_c/\tan(\text{PM})$, $K_c=\omega_c/\sqrt{1+(\omega_z/\omega_c)^2}$ to force $|L(j\omega_c)|=1$, then mapped to PI gains $K_p=K_c N T_s/K_v$ and $K_i=K_p\,\omega_z T_s$. Because both models target identical $f_c$ and PM, their outputs must agree — which is the cross-check <span class="tag t-derive">derived</span>.
+</div>
+<figure><img src="assets/figures/td_phase_noise.png" alt="time-domain vs analytic vs frequency-domain PSD"><figcaption>The Welch PSD of the simulated <code>phi_out</code> (grey) lying on the analytic discrete NTF (blue) and the continuous frequency-domain model (red dashed) — the three-way cross-check. Source: <code>time_domain_noise_model.make_figures</code>.</figcaption></figure>
+<div class="warn">
+The time-domain Nyquist is only 52 MHz (it samples at $f_\text{ref}$), so its jitter is integrated over 1 kHz…52 MHz. The frequency model's 100-MHz band picks up a little extra VCO tail, which is why the two numbers differ by a hair (88.2 vs 87.4 fs). This band limitation is documented in <code>docs/open_questions.md</code>.
+</div>
+
+<hr>
+
+<h2>4. calibration_models.py — sign-LMS in one loop body</h2>
+<p>
+All four background calibrations share one update law <span class="tag t-derive">derived</span>:
+$$ w[k+1]=w[k]+\mu\,e[k]\,x[k],\qquad e[k]=\operatorname{sign}(\text{PHE}[k]), $$
+where $e[k]$ is a <b>1-bit comparator</b> output and $x[k]$ is the regressor. The 1-bit error is what makes these cheap to implement on-chip (no full ADC) but slower to converge. We walk the DTC-gain version because it is the one that, if left uncalibrated, leaks DSM quantization energy back into the band.
+</p>
+
+<h3>4a. <code>simulate_dtc_gain_cal</code> loop body — residual → comparator → LMS update</h3>
+<p>
+<b>What it does:</b> the DTC cancels the accumulated DSM quantization error by injecting a delay proportional to $\hat K_\text{DTC}\cdot\Phi_e$. If the gain estimate $\hat K$ is wrong, a residual phase error proportional to $\Phi_e$ remains; the sign-LMS loop correlates the sign of that residual with $\Phi_e$ to push $\hat K$ toward the true gain.
+</p>
+<div class="walk">
+  <div class="ln">Khat = K_true * (1.0 - K_init_err)</div>
+  <div class="ex">Start the estimate 10% low <span class="tag t-assume">assumption [A18]</span>: $\hat K=K_\text{true}(1-0.10)=900$ for $K_\text{true}=1000$ codes/cycle (the DTC gain $=T_\text{vco}/\text{LSB}$).</div>
+  <div class="ln">for k in range(n_cycles):</div>
+  <div class="ex">One iteration per reference cycle — the cal update rate is $f_\text{ref}$. <code>cycles_for_time</code> converts µs targets to cycle counts.</div>
+  <div class="ln">phi_e = rng.uniform(0.0, 0.5) if half_range else rng.uniform(-0.5, 0.5)</div>
+  <div class="ex"><b>Regressor.</b> $\Phi_e$ is the accumulated DSM quantization error this cycle, in <b>cycles</b>. Half-range DSM (slide 34) keeps it in $[0,0.5]$ so the sign of the residual is unambiguously tied to the gain error.</div>
+  <div class="ln">phe = (K_true - Khat) / K_true * phi_e</div>
+  <div class="ex"><b>Residual.</b> $\text{PHE}=\dfrac{K_\text{true}-\hat K}{K_\text{true}}\,\Phi_e$. The normalized gain mismatch scales $\Phi_e$ into a leftover phase error. When $\hat K\to K_\text{true}$, PHE $\to0$ — the cal is done. <b>Circuit:</b> this is the SPD output after imperfect DTC cancellation <span class="tag t-slide">slides p.26-28</span>.</div>
+  <div class="ln">if comp_noise_lsb:<br>&nbsp;&nbsp;&nbsp;&nbsp;phe += rng.normal(0.0, comp_noise_lsb / K_true)</div>
+  <div class="ex">Optional comparator input noise, expressed in LSB of the residual and divided by $K_\text{true}$ to normalize into the same PHE units. It dithers the sign decision and sets the converged limit-cycle floor.</div>
+  <div class="ln">e = np.sign(phe + offset / K_true) or 1.0</div>
+  <div class="ex"><b>1-bit comparator.</b> $e=\operatorname{sign}(\text{PHE}+\text{offset})$ <span class="tag t-slide">slide p.27</span>. The <code>or 1.0</code> guards the $\operatorname{sign}(0)=0$ case. A non-zero <code>offset</code> biases the sign and drives $\hat K$ to the wrong value — exactly why the separate offset cal (4 below) exists.</div>
+  <div class="ln">Khat += mu * e * phi_e</div>
+  <div class="ex"><b>Sign-error LMS update.</b> $\hat K\!\leftarrow\!\hat K+\mu\,e\,\Phi_e$ — the shared law with $w=\hat K$, regressor $x=\Phi_e$. Step size $\mu=0.5$ <span class="tag t-assume">assumption [A17]</span>. Because $e$ correlates with the sign of the gain error, the update statistically moves $\hat K$ uphill toward $K_\text{true}$.</div>
+</div>
+<div class="note">
+<b>Convergence (all &lt; 30 µs)</b> <span class="tag t-slide">slide p.40</span>: DTC gain <b>6.7 µs</b>, VCO DCC <b>1 µs</b> (target 10 ps for a 20 ps duty error), CKREF DCC <b>1 µs</b> (target 0.337 ns), offset <b>14.6 µs</b> (target 32 mV). The offset cal converts its error to phase via $K_\text{SPD}=K_\text{slope}/(2\pi f_\text{ref})=9.18$ V/rad <span class="tag t-slide">slide p.20</span>.
+</div>
+<div class="assume">
+The sibling cals (<code>simulate_vco_dcc</code>, <code>simulate_ckref_dcc</code>) reuse the same body with a deterministic ±1 regressor instead of $\Phi_e$: VCO DCC correlates $e[k]$ with <code>SEL_CKFB</code> (toggles each cycle) to estimate $\Delta t_\text{err}/2$; CKREF DCC correlates with <code>even_cycle</code>. The offset cal is a DC servo on the leaky mean of $e[k]$ rather than a regressor product. These are behavioral assumptions from <code>docs/assumptions.md</code> chosen to reproduce the slide-40 settling, not measured silicon traces <span class="tag t-need">needs citation</span>.
+</div>
+<figure><img src="assets/figures/cal_dtc_gain.png" alt="DTC gain calibration convergence"><figcaption>$\hat K_\text{DTC}$ converging to 1000 codes/cycle: ideal, with comparator noise, and with an uncalibrated offset (which biases the final value). Source: <code>calibration_models.make_figures</code>, slides 26-28.</figcaption></figure>
+<figure><img src="assets/figures/cal_background_all.png" alt="all four background calibrations converging"><figcaption>All four background cals settling well under 30 µs — reproduces <span class="tag t-slide">slide p.40</span>. Source: <code>calibration_models.make_figures</code>.</figcaption></figure>
+
+<hr>
+
+<h2>Takeaways</h2>
+<div class="grid">
+  <div class="card"><h4>One conversion chain</h4>$L \leftrightarrow S_\phi \to \sigma_\phi \to \sigma_t$, with the $\tfrac12$ SSB factor and the $1/(2\pi f_\text{out})$ scaling. Everything else feeds it.</div>
+  <div class="card"><h4>Closed-form loop</h4>Symmetric zero/pole ($\omega_z=\omega_c/k$, $\omega_p=\omega_c k$, $k=\tan\tfrac{\text{PM}+90^\circ}{2}$) means no iteration — the solve lands $f_c$ and PM exactly.</div>
+  <div class="card"><h4>Five-step heart</h4>VCO accumulate → /N feedback → ref+DTC → SPD error → PI filter. Inject real noise, Welch-PSD the output, cross-check the frequency model.</div>
+  <div class="card"><h4>One update law</h4>$w[k+1]=w[k]+\mu\,e[k]\,x[k]$ with a 1-bit $e[k]$ powers all four cals; only the regressor changes.</div>
+</div>
+
+</div>
+<aside class="toc-rail" aria-label="On this page"></aside>
+<div class="btnrow"><div><a href="system.html">← System Impact</a></div><div><a href="examples.html">Numerical Examples →</a></div></div>
+<div class="footer">
+  Teaching companion to <i>“Design of DTC-Assisted High Performance Fractional-N PLLs”</i>
+  (W. Wu, Samsung, 2024-11-10), slides 1–42. Built from the slides + first-principles models.
+  Provenance tags: <span class="tag t-slide">slide pX</span>
+  <span class="tag t-derive">derived</span> <span class="tag t-std">textbook</span>
+  <span class="tag t-assume">assumption</span> <span class="tag t-need">needs citation</span>.
+</div>
+</main>
+</div>
+<button id="toTop" aria-label="Back to top">&#8593;</button>
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/prism/prism-core.min.js"></script>
+<script src="assets/vendor/prism/prism-clike.min.js"></script>
+<script src="assets/vendor/prism/prism-python.min.js"></script>
+
+<script src="assets/app/site.js"></script>
+</body>
+</html>
